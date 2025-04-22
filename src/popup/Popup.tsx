@@ -57,6 +57,14 @@ interface Settings {
   };
 }
 
+interface EstimatedFees {
+  amazon: number;
+  walmart: number;
+  target: number;
+}
+
+type TabType = 'comparison' | 'settings';
+
 const Popup: React.FC = () => {
   // State
   const [currentProduct, setCurrentProduct] = useState<ProductData | null>(null);
@@ -74,7 +82,7 @@ const Popup: React.FC = () => {
       target: 0.10
     }
   });
-  const [activeTab, setActiveTab] = useState<'comparison' | 'settings'>('comparison');
+  const [activeTab, setActiveTab] = useState<TabType>('comparison');
 
   // Load current product and settings on mount
   useEffect(() => {
@@ -102,30 +110,40 @@ const Popup: React.FC = () => {
     try {
       // Get fresh product data from the current tab
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        chrome.tabs.sendMessage(tabs[0].id!, { action: 'GET_PRODUCT_DATA' }, (response) => {
-          if (chrome.runtime.lastError) {
-            console.error(chrome.runtime.lastError);
-            setError('Could not communicate with page');
-            setLoading(false);
-            return;
-          }
-          
-          const freshProductData = response?.productData || currentProduct;
-          
-          // Get price comparison from background script
-          chrome.runtime.sendMessage(
-            { action: 'GET_PRICE_COMPARISON', productData: freshProductData }, 
-            (response) => {
+        if (tabs[0].id === undefined) {
+          setError('Could not communicate with page');
+          setLoading(false);
+          return;
+        }
+        
+        chrome.tabs.sendMessage(
+          tabs[0].id, 
+          { action: 'GET_PRODUCT_DATA' }, 
+          (response) => {
+            if (chrome.runtime.lastError) {
+              console.error(chrome.runtime.lastError);
+              setError('Could not communicate with page');
               setLoading(false);
-              
-              if (response.success) {
-                setComparison(response.data);
-              } else {
-                setError(response.error || 'Failed to get price comparison');
-              }
+              return;
             }
-          );
-        });
+            
+            const freshProductData = response?.productData || currentProduct;
+            
+            // Get price comparison from background script
+            chrome.runtime.sendMessage(
+              { action: 'GET_PRICE_COMPARISON', productData: freshProductData }, 
+              (response) => {
+                setLoading(false);
+                
+                if (response && response.success) {
+                  setComparison(response.data);
+                } else {
+                  setError(response?.error || 'Failed to get price comparison');
+                }
+              }
+            );
+          }
+        );
       });
     } catch (err) {
       setLoading(false);
@@ -137,7 +155,7 @@ const Popup: React.FC = () => {
   // Function to clear cache
   const clearCache = () => {
     chrome.runtime.sendMessage({ action: 'CLEAR_CACHE' }, (response) => {
-      if (response.success) {
+      if (response && response.success) {
         alert('Cache cleared successfully');
       } else {
         alert('Failed to clear cache');
@@ -150,7 +168,7 @@ const Popup: React.FC = () => {
     chrome.runtime.sendMessage(
       { action: 'UPDATE_SETTINGS', settings }, 
       (response) => {
-        if (response.success) {
+        if (response && response.success) {
           alert('Settings saved successfully');
         } else {
           alert('Failed to save settings');
@@ -168,24 +186,39 @@ const Popup: React.FC = () => {
     // Handle nested settings
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
-      setSettings(prev => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent as keyof Settings],
-          [child]: type === 'checkbox' 
-            ? (e.target as HTMLInputElement).checked 
-            : type === 'number' 
-              ? parseFloat(value) 
-              : value
+      
+      // Explicitly type the parent as keyof Settings
+      const parentKey = parent as keyof Settings;
+      
+      setSettings((prev) => {
+        // Create a copy of the parent object to modify
+        const parentObject = { ...prev[parentKey] };
+        
+        // Type assertion to make TypeScript happy
+        if (parentKey === 'estimatedFees') {
+          const feesObject = parentObject as unknown as EstimatedFees;
+          const marketplaceKey = child as keyof EstimatedFees;
+          
+          feesObject[marketplaceKey] = type === 'checkbox'
+            ? (e.target as HTMLInputElement).checked
+            : type === 'number'
+              ? parseFloat(value)
+              : parseFloat(value);
         }
-      }));
+        
+        return {
+          ...prev,
+          [parentKey]: parentObject
+        };
+      });
     } else {
-      setSettings((prev: Settings) => ({
+      // Handle top-level settings
+      setSettings((prev) => ({
         ...prev,
-        [name]: type === 'checkbox' 
-          ? (e.target as HTMLInputElement).checked 
-          : type === 'number' 
-            ? parseFloat(value) 
+        [name]: type === 'checkbox'
+          ? (e.target as HTMLInputElement).checked
+          : type === 'number'
+            ? parseFloat(value)
             : value
       }));
     }
@@ -479,7 +512,7 @@ const Popup: React.FC = () => {
               value={settings.estimatedFees.amazon * 100}
               onChange={(e) => {
                 const value = parseFloat(e.target.value) / 100;
-                setSettings(prev => ({
+                setSettings((prev) => ({
                   ...prev,
                   estimatedFees: {
                     ...prev.estimatedFees,
@@ -501,7 +534,7 @@ const Popup: React.FC = () => {
               value={settings.estimatedFees.walmart * 100}
               onChange={(e) => {
                 const value = parseFloat(e.target.value) / 100;
-                setSettings(prev => ({
+                setSettings((prev) => ({
                   ...prev,
                   estimatedFees: {
                     ...prev.estimatedFees,
@@ -523,7 +556,7 @@ const Popup: React.FC = () => {
               value={settings.estimatedFees.target * 100}
               onChange={(e) => {
                 const value = parseFloat(e.target.value) / 100;
-                setSettings(prev => ({
+                setSettings((prev) => ({
                   ...prev,
                   estimatedFees: {
                     ...prev.estimatedFees,
