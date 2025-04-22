@@ -1,1 +1,284 @@
+/* Popup.css - Styles for the extension popup */
 
+:root {
+  --primary-color: #4a6bd8;
+  --secondary-color: #3a53ab;
+  --success-color: #27ae60;
+  --danger-color: #e74c3c;
+  --light-color: #f8f9fa;
+  --dark-color: #343a40;
+  --border-color: #dee2e6;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  line-height: 1.6;
+  color: var(--dark-color);
+  background-color: var(--light-color);
+}
+
+.popup-container {
+  width: 500px;
+  min-height: 400px;
+  max-height: 600px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.popup-header {
+  background-color: var(--primary-color);
+  color: #fff;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--secondary-color);
+}
+
+.popup-header h1 {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.tab-navigation {
+  display: flex;
+  gap: 8px;
+}
+
+.tab-button {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.setting-item.checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.setting-item.checkbox label {
+  margin-bottom: 0;
+}
+
+.save-settings-button {
+  margin-top: 16px;
+  width: 100%;
+}px;
+  padding: 6px 12px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.tab-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.tab-button.active {
+  background: rgba(255, 255, 255, 0.4);
+  font-weight: 500;
+}
+
+.popup-content {
+  flex-grow: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.popup-footer {
+  padding: 8px 16px;
+  font-size: 12px;
+  color: #666;
+  text-align: center;
+  border-top: 1px solid var(--border-color);
+  background-color: var(--light-color);
+}
+
+/* Comparison View */
+.comparison-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.source-product {
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 4px var(--shadow-color);
+}
+
+.product-card {
+  display: flex;
+  gap: 12px;
+  margin: 12px 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.product-card.matched {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 1px 3px var(--shadow-color);
+}
+
+.product-image {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+.product-info {
+  flex-grow: 1;
+}
+
+.product-info h4 {
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.product-info h5 {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.product-info p {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.compare-button, .view-button, .save-settings-button, .clear-cache-button {
+  background-color: var(--primary-color);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.compare-button:hover, .view-button:hover, .save-settings-button:hover {
+  background-color: var(--secondary-color);
+}
+
+.compare-button:disabled {
+  background-color: #b0b0b0;
+  cursor: not-allowed;
+}
+
+.view-button {
+  display: inline-block;
+  text-decoration: none;
+  margin-top: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+}
+
+.clear-cache-button {
+  background-color: var(--danger-color);
+  margin-top: 8px;
+}
+
+.clear-cache-button:hover {
+  background-color: #c0392b;
+}
+
+.no-product {
+  text-align: center;
+  padding: 32px 16px;
+  color: #666;
+}
+
+.error-message {
+  color: var(--danger-color);
+  margin: 12px 0;
+  padding: 8px;
+  background-color: rgba(231, 76, 60, 0.1);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.matched-products {
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 4px var(--shadow-color);
+}
+
+.marketplace-section {
+  margin-bottom: 24px;
+}
+
+.marketplace-section h4 {
+  margin-bottom: 12px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.profit {
+  font-weight: 500;
+}
+
+.profit.positive {
+  color: var(--success-color);
+}
+
+.profit.negative {
+  color: var(--danger-color);
+}
+
+.timestamp {
+  font-size: 12px;
+  color: #999;
+  margin-top: 16px;
+  text-align: right;
+}
+
+/* Settings View */
+.settings-container {
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 4px var(--shadow-color);
+}
+
+.settings-group {
+  margin-bottom: 24px;
+}
+
+.settings-group h4 {
+  margin-bottom: 12px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.setting-item {
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.setting-item label {
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.setting-item input[type="text"],
+.setting-item input[type="number"],
+.setting-item select {
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4
