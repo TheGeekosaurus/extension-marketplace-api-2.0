@@ -45,22 +45,18 @@ interface ProductComparison {
   timestamp: number;
 }
 
+interface EstimatedFees {
+  amazon: number;
+  walmart: number;
+  target: number;
+}
+
 interface Settings {
   apiBaseUrl: string;
   cacheExpiration: number;
   minimumProfitPercentage: number;
   includeFees: boolean;
-  estimatedFees: {
-    amazon: number;
-    walmart: number;
-    target: number;
-  };
-}
-
-interface EstimatedFees {
-  amazon: number;
-  walmart: number;
-  target: number;
+  estimatedFees: EstimatedFees;
 }
 
 type TabType = 'comparison' | 'settings';
@@ -177,50 +173,26 @@ const Popup: React.FC = () => {
     );
   };
 
-  // Handle settings changes
+  // Handle settings changes for simple fields
   const handleSettingChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value, type } = e.target;
-    
-    // Handle nested settings
-    if (name.includes('.')) {
-      const [parent, child] = name.split('.');
-      
-      // Explicitly type the parent as keyof Settings
-      const parentKey = parent as keyof Settings;
-      
+    const isCheckbox = type === 'checkbox';
+    const inputValue = isCheckbox 
+      ? (e.target as HTMLInputElement).checked 
+      : type === 'number' 
+        ? parseFloat(value) 
+        : value;
+
+    // For regular settings (not nested)
+    if (!name.includes('.')) {
       setSettings((prev) => {
-        // Create a copy of the parent object to modify
-        const parentObject = { ...prev[parentKey] };
-        
-        // Type assertion to make TypeScript happy
-        if (parentKey === 'estimatedFees') {
-          const feesObject = parentObject as unknown as EstimatedFees;
-          const marketplaceKey = child as keyof EstimatedFees;
-          
-          feesObject[marketplaceKey] = type === 'checkbox'
-            ? (e.target as HTMLInputElement).checked
-            : type === 'number'
-              ? parseFloat(value)
-              : parseFloat(value);
-        }
-        
         return {
           ...prev,
-          [parentKey]: parentObject
+          [name]: inputValue
         };
       });
-    } else {
-      // Handle top-level settings
-      setSettings((prev) => ({
-        ...prev,
-        [name]: type === 'checkbox'
-          ? (e.target as HTMLInputElement).checked
-          : type === 'number'
-            ? parseFloat(value)
-            : value
-      }));
     }
   };
 
@@ -243,6 +215,19 @@ const Popup: React.FC = () => {
     return products.filter(product => 
       product.profit && product.profit.percentage >= settings.minimumProfitPercentage
     );
+  };
+
+  // Handle fee setting changes
+  const handleFeeChange = (marketplace: keyof EstimatedFees, value: number) => {
+    setSettings((prev) => {
+      return {
+        ...prev,
+        estimatedFees: {
+          ...prev.estimatedFees,
+          [marketplace]: value / 100 // Convert from percentage to decimal
+        }
+      };
+    });
   };
 
   // Render product comparison section
@@ -510,16 +495,7 @@ const Popup: React.FC = () => {
               max="100"
               step="0.1"
               value={settings.estimatedFees.amazon * 100}
-              onChange={(e) => {
-                const value = parseFloat(e.target.value) / 100;
-                setSettings((prev) => ({
-                  ...prev,
-                  estimatedFees: {
-                    ...prev.estimatedFees,
-                    amazon: value
-                  }
-                }));
-              }}
+              onChange={(e) => handleFeeChange('amazon', parseFloat(e.target.value))}
             />
           </div>
           <div className="setting-item">
@@ -532,16 +508,7 @@ const Popup: React.FC = () => {
               max="100"
               step="0.1"
               value={settings.estimatedFees.walmart * 100}
-              onChange={(e) => {
-                const value = parseFloat(e.target.value) / 100;
-                setSettings((prev) => ({
-                  ...prev,
-                  estimatedFees: {
-                    ...prev.estimatedFees,
-                    walmart: value
-                  }
-                }));
-              }}
+              onChange={(e) => handleFeeChange('walmart', parseFloat(e.target.value))}
             />
           </div>
           <div className="setting-item">
@@ -554,16 +521,7 @@ const Popup: React.FC = () => {
               max="100"
               step="0.1"
               value={settings.estimatedFees.target * 100}
-              onChange={(e) => {
-                const value = parseFloat(e.target.value) / 100;
-                setSettings((prev) => ({
-                  ...prev,
-                  estimatedFees: {
-                    ...prev.estimatedFees,
-                    target: value
-                  }
-                }));
-              }}
+              onChange={(e) => handleFeeChange('target', parseFloat(e.target.value))}
             />
           </div>
         </div>
