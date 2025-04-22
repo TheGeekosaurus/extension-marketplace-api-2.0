@@ -40,7 +40,7 @@ function extractAmazonProductData(): ProductData | null {
     
     // Extract product title
     const titleElement = document.getElementById('productTitle');
-    const title = titleElement ? titleElement.textContent?.trim() : '';
+    const title = titleElement ? titleElement.textContent?.trim() || 'Unknown Product' : 'Unknown Product';
     
     // Extract product price
     const priceElement = document.querySelector('.a-price .a-offscreen');
@@ -54,7 +54,7 @@ function extractAmazonProductData(): ProductData | null {
     
     // Extract brand
     const brandElement = document.querySelector('#bylineInfo, .a-link-normal.contributorNameID');
-    const brand = brandElement ? brandElement.textContent?.trim().replace('Brand: ', '') : null;
+    const brand = brandElement ? brandElement.textContent?.trim().replace('Brand: ', '') || null : null;
     
     // Try to find UPC/EAN in product details
     let upc: string | null = null;
@@ -75,7 +75,7 @@ function extractAmazonProductData(): ProductData | null {
     const imageUrl = imageElement ? (imageElement as HTMLImageElement).src : null;
     
     return {
-      title: title || 'Unknown Product',
+      title: title,
       price,
       marketplace: 'amazon',
       productId: asin,
@@ -103,7 +103,7 @@ function extractWalmartProductData(): ProductData | null {
     
     // Extract product title
     const titleElement = document.querySelector('h1.prod-ProductTitle');
-    const title = titleElement ? titleElement.textContent?.trim() : '';
+    const title = titleElement ? titleElement.textContent?.trim() || 'Unknown Product' : 'Unknown Product';
     
     // Extract product price
     const priceElement = document.querySelector('.prod-PriceSection .price-characteristic');
@@ -121,7 +121,7 @@ function extractWalmartProductData(): ProductData | null {
     
     // Extract brand
     const brandElement = document.querySelector('.prod-ProductBrand a');
-    const brand = brandElement ? brandElement.textContent?.trim() : null;
+    const brand = brandElement ? brandElement.textContent?.trim() || null : null;
     
     // Try to find UPC in product details
     let upc: string | null = null;
@@ -154,7 +154,7 @@ function extractWalmartProductData(): ProductData | null {
     const imageUrl = imageElement ? (imageElement as HTMLImageElement).src : null;
     
     return {
-      title: title || 'Unknown Product',
+      title: title,
       price,
       marketplace: 'walmart',
       productId,
@@ -182,7 +182,7 @@ function extractTargetProductData(): ProductData | null {
     
     // Extract product title
     const titleElement = document.querySelector('h1[data-test="product-title"]');
-    const title = titleElement ? titleElement.textContent?.trim() : '';
+    const title = titleElement ? titleElement.textContent?.trim() || 'Unknown Product' : 'Unknown Product';
     
     // Extract product price
     const priceElement = document.querySelector('[data-test="product-price"]');
@@ -199,7 +199,7 @@ function extractTargetProductData(): ProductData | null {
     
     // Extract brand
     const brandElement = document.querySelector('[data-test="product-brand"]');
-    const brand = brandElement ? brandElement.textContent?.trim() : null;
+    const brand = brandElement ? brandElement.textContent?.trim() || null : null;
     
     // Try to find UPC in product details - Target often doesn't expose this directly
     let upc: string | null = null;
@@ -215,7 +215,7 @@ function extractTargetProductData(): ProductData | null {
     const imageUrl = imageElement ? (imageElement as HTMLImageElement).src : null;
     
     return {
-      title: title || 'Unknown Product',
+      title: title,
       price,
       marketplace: 'target',
       productId,
