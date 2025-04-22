@@ -1,7 +1,7 @@
 // background.ts - Handles API communication and caching
 
 // Configuration
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = 'https://extension-marketplace-api-2-0-1.onrender.com';
 
 // Types
 interface ProductData {
