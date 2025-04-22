@@ -180,7 +180,7 @@ const Popup: React.FC = () => {
         }
       }));
     } else {
-      setSettings(prev => ({
+      setSettings((prev: Settings) => ({
         ...prev,
         [name]: type === 'checkbox' 
           ? (e.target as HTMLInputElement).checked 
