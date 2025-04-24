@@ -69,91 +69,254 @@ function extractProductData(): ProductData | null {
 }
 
 // Extract product data from Amazon product page
+// Replace the extractAmazonProductData function in your contentScript.ts with this enhanced version
+
 function extractAmazonProductData(): ProductData | null {
   try {
-    debugLog('Starting Amazon product extraction');
+    debugLog('Starting enhanced Amazon product extraction');
     
-    // Extract ASIN from URL
+    // Extract ASIN from URL using multiple patterns
     const url = window.location.href;
-    const asinMatch = url.match(/\/dp\/([A-Z0-9]{10})/) || url.match(/\/gp\/product\/([A-Z0-9]{10})/);
-    const asin = asinMatch ? asinMatch[1] : null;
+    let asin: string | null = null;
     
-    debugLog(`ASIN extraction: ${asin || 'Not found'}`);
+    // Try multiple ASIN extraction patterns
+    const patterns = [
+      /\/dp\/([A-Z0-9]{10})/,
+      /\/gp\/product\/([A-Z0-9]{10})/,
+      /\/([A-Z0-9]{10})\//, 
+      /ASIN=([A-Z0-9]{10})/,
+      /ASIN\/([A-Z0-9]{10})/,
+      /asin=([A-Z0-9]{10})/
+    ];
     
-    if (!asin) {
-      debugLog('No ASIN found in URL - is this a product page?', true);
-      return null;
-    }
-    
-    // Extract product title
-    const titleElement = document.getElementById('productTitle');
-    debugLog(`Title element found: ${titleElement ? 'Yes' : 'No'}`);
-    
-    const title = titleElement ? titleElement.textContent?.trim() || 'Unknown Product' : 'Unknown Product';
-    debugLog(`Title: ${title.substring(0, 30)}...`);
-    
-    // Extract product price
-    const priceElement = document.querySelector('.a-price .a-offscreen');
-    debugLog(`Price element found: ${priceElement ? 'Yes' : 'No'}`);
-    
-    let price: number | null = null;
-    
-    if (priceElement && priceElement.textContent) {
-      const priceText = priceElement.textContent.trim();
-      // Remove currency symbol and convert to number
-      price = parseFloat(priceText.replace(/[^0-9.]/g, ''));
-      debugLog(`Price: ${price}`);
-    } else {
-      // Try alternative price selectors
-      const altPriceElement = document.querySelector('#priceblock_ourprice, #priceblock_dealprice, .price-large');
-      debugLog(`Alternative price element found: ${altPriceElement ? 'Yes' : 'No'}`);
-      
-      if (altPriceElement && altPriceElement.textContent) {
-        const priceText = altPriceElement.textContent.trim();
-        price = parseFloat(priceText.replace(/[^0-9.]/g, ''));
-        debugLog(`Alternative price: ${price}`);
-      } else {
-        debugLog('No price found', true);
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        asin = match[1];
+        debugLog(`ASIN extracted using pattern: ${pattern}`);
+        break;
       }
     }
     
-    // Extract brand
-    const brandElement = document.querySelector('#bylineInfo, .a-link-normal.contributorNameID');
-    debugLog(`Brand element found: ${brandElement ? 'Yes' : 'No'}`);
+    // If still no ASIN, try to find it in meta tags or elements with data-asin
+    if (!asin) {
+      // Look for meta tags
+      const asinMeta = document.querySelector('meta[name="twitter:app:url:iphone"][content*="asin"]');
+      if (asinMeta) {
+        const metaContent = asinMeta.getAttribute('content') || '';
+        const metaMatch = metaContent.match(/asin=([A-Z0-9]{10})/i);
+        if (metaMatch) {
+          asin = metaMatch[1];
+          debugLog('ASIN found in meta tag');
+        }
+      }
+      
+      // Try data-asin elements
+      if (!asin) {
+        const asinElem = document.querySelector('[data-asin]');
+        if (asinElem) {
+          asin = asinElem.getAttribute('data-asin');
+          debugLog('ASIN found in data-asin attribute');
+        }
+      }
+    }
     
-    const brand = brandElement ? brandElement.textContent?.trim().replace('Brand: ', '') || null : null;
+    debugLog(`Final ASIN extraction: ${asin || 'Not found'}`);
+    
+    if (!asin) {
+      debugLog('No ASIN found - is this a product page?', true);
+      // Check for product page indicators even if ASIN isn't found
+      const isProductPage = !!document.getElementById('productTitle') || 
+                           !!document.getElementById('title') ||
+                           !!document.querySelector('.product-title') ||
+                           !!document.querySelector('[data-feature-name="title"]');
+      
+      if (!isProductPage) {
+        debugLog('This does not appear to be a product page', true);
+        return null;
+      }
+    }
+    
+    // Extract product title with multiple selectors
+    const titleSelectors = [
+      '#productTitle', 
+      '#title',
+      '.product-title', 
+      '[data-feature-name="title"]',
+      'h1.a-size-large',
+      '.a-size-extra-large'
+    ];
+    
+    let title = 'Unknown Product';
+    for (const selector of titleSelectors) {
+      const titleElement = document.querySelector(selector);
+      if (titleElement && titleElement.textContent) {
+        title = titleElement.textContent.trim();
+        debugLog(`Title found using selector: ${selector}`);
+        break;
+      }
+    }
+    
+    debugLog(`Title: ${title.substring(0, 30)}...`);
+    
+    // Extract product price with multiple selectors
+    const priceSelectors = [
+      '.a-price .a-offscreen',
+      '#priceblock_ourprice',
+      '#priceblock_dealprice',
+      '.a-price',
+      '.a-color-price',
+      '[data-feature-name="priceInsideBuyBox"] .a-price',
+      '.price-large',
+      '#price span',
+      '#corePrice_feature_div .a-offscreen'
+    ];
+    
+    let price: number | null = null;
+    let priceText = '';
+    
+    for (const selector of priceSelectors) {
+      const priceElement = document.querySelector(selector);
+      if (priceElement && priceElement.textContent) {
+        priceText = priceElement.textContent.trim();
+        // Remove currency symbol and convert to number
+        const priceMatch = priceText.match(/[\d,.]+/);
+        if (priceMatch) {
+          price = parseFloat(priceMatch[0].replace(/[^\d.]/g, ''));
+          debugLog(`Price found using selector: ${selector}`);
+          break;
+        }
+      }
+    }
+    
+    // If still no price, try checking for price range
+    if (price === null) {
+      const priceRangeElement = document.querySelector('#priceblock_ourprice_lbl');
+      if (priceRangeElement && priceRangeElement.nextElementSibling) {
+        const rangeText = priceRangeElement.nextElementSibling.textContent || '';
+        const rangeMatch = rangeText.match(/\$([\d,.]+)/);
+        if (rangeMatch) {
+          price = parseFloat(rangeMatch[1].replace(/[^\d.]/g, ''));
+          debugLog('Price found in range element');
+        }
+      }
+    }
+    
+    debugLog(`Price: ${price !== null ? price : 'Not found'}`);
+    
+    // Extract brand with multiple selectors
+    const brandSelectors = [
+      '#bylineInfo',
+      '.a-link-normal.contributorNameID',
+      '#brand',
+      '#bylineInfo a',
+      '.product-by-line a',
+      '[data-feature-name="brandLogoAndName"] a',
+      '#productOverview_feature_div .a-section:nth-child(1) .a-span9 span',
+      '#brand-weight-wrapper'
+    ];
+    
+    let brand: string | null = null;
+    
+    for (const selector of brandSelectors) {
+      const brandElement = document.querySelector(selector);
+      if (brandElement && brandElement.textContent) {
+        brand = brandElement.textContent.trim()
+          .replace('Brand:', '')
+          .replace('Visit the', '')
+          .replace('Store', '')
+          .trim();
+        
+        debugLog(`Brand found using selector: ${selector}`);
+        break;
+      }
+    }
+    
+    // If still no brand, check product detail section
+    if (!brand) {
+      const detailRows = document.querySelectorAll('#productDetails_techSpec_section_1 tr, #detailBullets_feature_div li, #detailBulletsWrapper_feature_div li');
+      detailRows.forEach(row => {
+        const text = row.textContent?.toLowerCase() || '';
+        if (text.includes('brand') || text.includes('manufacturer')) {
+          const brandMatch = text.match(/brand[^:]*:\s*([^,\n]+)/i) || text.match(/manufacturer[^:]*:\s*([^,\n]+)/i);
+          if (brandMatch && brandMatch[1]) {
+            brand = brandMatch[1].trim();
+            debugLog('Brand found in product details');
+          }
+        }
+      });
+    }
+    
     debugLog(`Brand: ${brand || 'Not found'}`);
     
     // Try to find UPC/EAN in product details
     let upc: string | null = null;
-    const detailRows = document.querySelectorAll('.prodDetTable tr, .detail-bullet-list span');
+    const detailSelectors = [
+      '#productDetails_techSpec_section_1 tr',
+      '#detailBullets_feature_div li',
+      '#detailBulletsWrapper_feature_div li',
+      '.detail-bullet-list span',
+      '.prodDetTable tr'
+    ];
     
-    detailRows.forEach(row => {
-      const text = row.textContent?.toLowerCase() || '';
-      if (text.includes('upc') || text.includes('ean') || text.includes('gtin')) {
-        const match = text.match(/\d{12,13}/);
-        if (match) {
-          upc = match[0];
-          debugLog(`UPC/EAN found: ${upc}`);
+    for (const selector of detailSelectors) {
+      const detailRows = document.querySelectorAll(selector);
+      detailRows.forEach(row => {
+        const text = row.textContent?.toLowerCase() || '';
+        if (text.includes('upc') || text.includes('ean') || text.includes('gtin') || text.includes('isbn')) {
+          const match = text.match(/\d{12,13}/);
+          if (match) {
+            upc = match[0];
+            debugLog(`UPC/EAN found using selector: ${selector}`);
+          }
         }
+      });
+      
+      if (upc) break;
+    }
+    
+    // Get main product image with multiple selectors
+    const imageSelectors = [
+      '#landingImage',
+      '#imgBlkFront',
+      '#main-image',
+      '.a-dynamic-image',
+      '#imageBlock_feature_div img',
+      '#imgTagWrapperId img',
+      '#img-canvas img'
+    ];
+    
+    let imageUrl: string | null = null;
+    
+    for (const selector of imageSelectors) {
+      const imageElement = document.querySelector(selector) as HTMLImageElement;
+      if (imageElement && imageElement.src) {
+        imageUrl = imageElement.src;
+        debugLog(`Image found using selector: ${selector}`);
+        break;
       }
-    });
+    }
     
-    // Get main product image
-    const imageElement = document.getElementById('landingImage') || document.getElementById('imgBlkFront');
-    debugLog(`Image element found: ${imageElement ? 'Yes' : 'No'}`);
+    // If no image found, try data-old-hires attribute which often has full image
+    if (!imageUrl) {
+      const hiresImage = document.querySelector('img[data-old-hires]') as HTMLImageElement;
+      if (hiresImage) {
+        imageUrl = hiresImage.getAttribute('data-old-hires') || hiresImage.src;
+        debugLog('Image found using data-old-hires attribute');
+      }
+    }
     
-    const imageUrl = imageElement ? (imageElement as HTMLImageElement).src : null;
+    debugLog(`Image URL: ${imageUrl ? 'Found' : 'Not found'}`);
     
     // Build the product data object
     const productData: ProductData = {
       title: title,
       price,
       marketplace: 'amazon',
-      productId: asin,
+      productId: asin || 'unknown',
       brand,
       upc,
-      asin,
+      asin: asin || null,
       imageUrl,
       pageUrl: window.location.href
     };
