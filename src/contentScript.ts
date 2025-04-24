@@ -584,3 +584,6 @@ setTimeout(() => {
     main();
   }
 }, 500);
+
+// Add export statement to make this a module - this prevents global scope pollution
+export {};
