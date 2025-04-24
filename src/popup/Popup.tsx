@@ -68,7 +68,7 @@ const Popup: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [settings, setSettings] = useState<Settings>({
-    apiBaseUrl: 'http://localhost:3000/api',
+    apiBaseUrl: 'https://extension-marketplace-api-2-0-1.onrender.com',
     cacheExpiration: 24,
     minimumProfitPercentage: 10,
     includeFees: true,
