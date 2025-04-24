@@ -1,4 +1,5 @@
 // contentScript.ts - Extracts product data from current page
+
 // Add visual debugging banner
 function createDebugBanner() {
   const banner = document.createElement('div');
@@ -34,7 +35,7 @@ function debugLog(message: string, isError = false) {
   }, 10000);
 }
 
-// Normal interface definitions
+// Interface definitions
 interface ProductData {
   title: string;
   price: number | null;
@@ -69,8 +70,6 @@ function extractProductData(): ProductData | null {
 }
 
 // Extract product data from Amazon product page
-// Replace the extractAmazonProductData function in your contentScript.ts with this enhanced version
-
 function extractAmazonProductData(): ProductData | null {
   try {
     debugLog('Starting enhanced Amazon product extraction');
