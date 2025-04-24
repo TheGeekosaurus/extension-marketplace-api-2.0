@@ -378,3 +378,6 @@ setTimeout(() => {
 }, 2000);
 
 debugLog('Background script initialization complete');
+
+// Add export statement to make this a module - this prevents global scope pollution
+export {};
