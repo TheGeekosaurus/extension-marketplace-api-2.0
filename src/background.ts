@@ -1,14 +1,7 @@
 // background.ts - Handles API communication and caching
 
 // Configuration
-const API_BASE_URL = 'https://extension-marketplace-api-2-0.onrender.com/api';
-
-// Add debug logging
-function debugLog(message: string, data?: any) {
-  console.log(`[E-commerce Arbitrage Background] ${message}`, data || '');
-}
-
-debugLog('Background script loaded');
+const API_BASE_URL = 'https://extension-marketplace-api-2-0-1.onrender.com';
 
 // Types
 interface ProductData {
@@ -54,7 +47,7 @@ interface ProductMatchResult {
 
 // Initialize
 chrome.runtime.onInstalled.addListener(() => {
-  debugLog('Extension installed or updated');
+  console.log('E-commerce Arbitrage Extension installed');
   
   // Set default settings
   chrome.storage.local.set({
@@ -69,62 +62,28 @@ chrome.runtime.onInstalled.addListener(() => {
         target: 0.10
       }
     }
-  }, () => {
-    debugLog('Default settings initialized');
   });
-  
-  // Test API connection
-  testApiConnection();
 });
-
-// Test the API connection on startup
-async function testApiConnection() {
-  try {
-    debugLog('Testing API connection to:', API_BASE_URL);
-    const response = await fetch(`${API_BASE_URL}/health`);
-    
-    if (response.ok) {
-      const data = await response.json();
-      debugLog('API connection successful:', data);
-    } else {
-      debugLog('API connection failed. Status:', response.status);
-    }
-  } catch (error) {
-    debugLog('API connection error:', error);
-  }
-}
 
 // Handle messages from content scripts and popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  debugLog('Received message:', message);
-  
   // Handle product data extracted from content script
   if (message.action === 'PRODUCT_DATA_EXTRACTED') {
     handleExtractedProductData(message.data);
-    sendResponse({ success: true, message: 'Product data received' });
+    sendResponse({ success: true });
   }
   
   // Handle get pricing data request from popup
   else if (message.action === 'GET_PRICE_COMPARISON') {
-    debugLog('Get price comparison requested for:', message.productData?.title);
-    
     getPriceComparison(message.productData)
-      .then(data => {
-        debugLog('Price comparison fetched successfully');
-        sendResponse({ success: true, data });
-      })
-      .catch(error => {
-        debugLog('Error getting price comparison:', error);
-        sendResponse({ success: false, error: error.message });
-      });
-    
+      .then(data => sendResponse({ success: true, data }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
     return true; // Indicates async response
   }
   
   // Handle clear cache request
   else if (message.action === 'CLEAR_CACHE') {
     chrome.storage.local.remove(['productCache'], () => {
-      debugLog('Cache cleared');
       sendResponse({ success: true });
     });
     return true; // Indicates async response
@@ -133,42 +92,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Handle settings update
   else if (message.action === 'UPDATE_SETTINGS') {
     chrome.storage.local.set({ settings: message.settings }, () => {
-      debugLog('Settings updated');
       sendResponse({ success: true });
     });
     return true; // Indicates async response
   }
-  
-  // Handle ping request (for testing connectivity)
-  else if (message.action === 'PING') {
-    debugLog('Ping received from:', sender.tab?.url || 'popup');
-    sendResponse({ pong: true, timestamp: Date.now() });
-  }
-  
-  return true; // Keep message channel open for async responses
 });
 
 // Store extracted product data temporarily
 function handleExtractedProductData(productData: ProductData): void {
-  debugLog('Storing extracted product data:', productData.title);
   chrome.storage.local.set({ currentProduct: productData });
 }
 
 // Get price comparison data for a product
 async function getPriceComparison(productData: ProductData): Promise<ProductComparison> {
-  debugLog('Getting price comparison for:', productData.title);
-  
   // First check if we have a cached result
   try {
     const cacheKey = generateCacheKey(productData);
     const cachedResult = await getCachedComparison(cacheKey);
     
     if (cachedResult) {
-      debugLog('Cache hit for:', productData.title);
       return cachedResult;
     }
-    
-    debugLog('No cache hit, fetching from API');
     
     // No cache hit, fetch from API
     const matchedProducts = await fetchProductMatches(productData);
@@ -188,7 +132,7 @@ async function getPriceComparison(productData: ProductData): Promise<ProductComp
     
     return comparisonResult;
   } catch (error) {
-    debugLog('Error getting price comparison:', error);
+    console.error('Error getting price comparison:', error);
     throw error;
   }
 }
@@ -213,14 +157,9 @@ async function getCachedComparison(cacheKey: string): Promise<ProductComparison 
         
         // Check if cache is still valid
         if (now - cachedItem.timestamp < cacheExpiration) {
-          debugLog('Valid cache found for key:', cacheKey);
           resolve(cachedItem);
           return;
-        } else {
-          debugLog('Cache expired for key:', cacheKey);
         }
-      } else {
-        debugLog('No cache found for key:', cacheKey);
       }
       
       resolve(null);
@@ -239,7 +178,6 @@ async function cacheComparisonResult(cacheKey: string, comparisonResult: Product
       
       // Save updated cache
       chrome.storage.local.set({ productCache: cache }, () => {
-        debugLog('Cached comparison result for key:', cacheKey);
         resolve();
       });
     });
@@ -253,13 +191,9 @@ async function fetchProductMatches(productData: ProductData): Promise<{
   target?: ProductMatchResult[];
 }> {
   try {
-    debugLog('Fetching product matches for:', productData.title);
-    
     // Get backend URL from settings
     const settings = await getSettings();
     const apiBaseUrl = settings.apiBaseUrl || API_BASE_URL;
-    
-    debugLog('Using API URL:', apiBaseUrl);
     
     // Create request body
     const requestData = {
@@ -268,8 +202,6 @@ async function fetchProductMatches(productData: ProductData): Promise<{
       product_title: productData.title,
       product_brand: productData.brand
     };
-    
-    debugLog('API request data:', requestData);
     
     // Make API request
     const response = await fetch(`${apiBaseUrl}/search/multi`, {
@@ -280,19 +212,14 @@ async function fetchProductMatches(productData: ProductData): Promise<{
       body: JSON.stringify(requestData)
     });
     
-    debugLog('API response status:', response.status);
-    
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API error: ${response.status} - ${errorText}`);
+      throw new Error(`API error: ${response.status}`);
     }
     
     const result = await response.json();
-    debugLog('API response data:', result);
-    
     return result.data;
   } catch (error) {
-    debugLog('Error fetching product matches:', error);
+    console.error('Error fetching product matches:', error);
     throw error;
   }
 }
@@ -308,7 +235,6 @@ function calculateProfitMargins(
 ): void {
   // Skip if source product has no price
   if (sourceProduct.price === null) {
-    debugLog('Source product has no price, skipping profit calculation');
     return;
   }
   
@@ -321,9 +247,6 @@ function calculateProfitMargins(
       walmart: 0.12,
       target: 0.10
     };
-    
-    debugLog('Calculating profit margins with settings:', 
-             { includeFees, estimatedFees });
     
     // Calculate for each marketplace
     Object.keys(matchedProducts).forEach(marketplace => {
@@ -346,7 +269,6 @@ function calculateProfitMargins(
         if (includeFees && estimatedFees[marketplace as keyof typeof estimatedFees]) {
           const feePercentage = estimatedFees[marketplace as keyof typeof estimatedFees];
           sellPrice = sellPrice * (1 - feePercentage);
-          debugLog(`Applied ${marketplace} fee of ${feePercentage * 100}%`);
         }
         
         const profitAmount = sellPrice - sourceProduct.price!;
@@ -356,8 +278,6 @@ function calculateProfitMargins(
           amount: parseFloat(profitAmount.toFixed(2)),
           percentage: parseFloat(profitPercentage.toFixed(2))
         };
-        
-        debugLog(`Calculated profit for ${product.title}: $${profitAmount.toFixed(2)} (${profitPercentage.toFixed(2)}%)`);
       });
     });
   });
@@ -371,13 +291,3 @@ async function getSettings(): Promise<any> {
     });
   });
 }
-
-// Initial API test on script load
-setTimeout(() => {
-  testApiConnection();
-}, 2000);
-
-debugLog('Background script initialization complete');
-
-// Add export statement to make this a module - this prevents global scope pollution
-export {};
