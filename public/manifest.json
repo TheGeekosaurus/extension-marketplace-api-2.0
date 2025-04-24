@@ -23,7 +23,6 @@
   },
   "background": {
     "service_worker": "background.js"
-    "type": "module"  // This line is new
   },
   "content_scripts": [
     {
