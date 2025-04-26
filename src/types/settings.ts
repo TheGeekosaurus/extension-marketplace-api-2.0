@@ -1,0 +1,60 @@
+// src/types/settings.ts - Settings type definitions
+
+import { MarketplaceFees } from './marketplace';
+
+/**
+ * User settings for the extension
+ */
+export interface Settings {
+  /**
+   * Base URL for API endpoints
+   */
+  apiBaseUrl: string;
+  
+  /**
+   * How long to cache results (in hours)
+   */
+  cacheExpiration: number;
+  
+  /**
+   * Minimum profit percentage to show in results
+   */
+  minimumProfitPercentage: number;
+  
+  /**
+   * Whether to include marketplace fees in profit calculations
+   */
+  includeFees: boolean;
+  
+  /**
+   * Estimated fee percentages for each marketplace
+   */
+  estimatedFees: MarketplaceFees;
+  
+  /**
+   * Whether to use mock data instead of real API calls
+   */
+  useMockData?: boolean;
+  
+  /**
+   * Enable debug mode with additional logging
+   */
+  debugMode?: boolean;
+}
+
+/**
+ * Default settings
+ */
+export const DEFAULT_SETTINGS: Settings = {
+  apiBaseUrl: 'https://extension-marketplace-api-2-0-1.onrender.com/api',
+  cacheExpiration: 24,
+  minimumProfitPercentage: 10,
+  includeFees: true,
+  estimatedFees: {
+    amazon: 0.15,
+    walmart: 0.12,
+    target: 0.10
+  },
+  useMockData: true,
+  debugMode: false
+};
