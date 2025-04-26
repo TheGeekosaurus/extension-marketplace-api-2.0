@@ -12,29 +12,24 @@ interface ProductData {
   pageUrl: string;
 }
 
-// Add debugging to help troubleshoot
-function logDebug(message: string, data?: any) {
-  console.log(`[E-commerce Arbitrage] ${message}`, data || '');
-}
-
 // Main function to extract product data based on current page
 function extractProductData(): ProductData | null {
   const url = window.location.href;
-  logDebug('Attempting to extract data from URL:', url);
+  console.log('[E-commerce Arbitrage] Attempting to extract data from URL:', url);
   
   // Determine which marketplace we're on
   if (url.includes('amazon.com')) {
-    logDebug('Detected Amazon page');
+    console.log('[E-commerce Arbitrage] Detected Amazon page');
     return extractAmazonProductData();
   } else if (url.includes('walmart.com')) {
-    logDebug('Detected Walmart page');
+    console.log('[E-commerce Arbitrage] Detected Walmart page');
     return extractWalmartProductData();
   } else if (url.includes('target.com')) {
-    logDebug('Detected Target page');
+    console.log('[E-commerce Arbitrage] Detected Target page');
     return extractTargetProductData();
   }
   
-  logDebug('No supported marketplace detected');
+  console.log('[E-commerce Arbitrage] No supported marketplace detected');
   return null;
 }
 
@@ -46,10 +41,10 @@ function extractAmazonProductData(): ProductData | null {
     const asinMatch = url.match(/\/dp\/([A-Z0-9]{10})/) || url.match(/\/gp\/product\/([A-Z0-9]{10})/);
     const asin = asinMatch ? asinMatch[1] : null;
     
-    logDebug('Extracted ASIN:', asin);
+    console.log('[E-commerce Arbitrage] Extracted ASIN:', asin);
     
     if (!asin) {
-      logDebug('No ASIN found in URL');
+      console.log('[E-commerce Arbitrage] No ASIN found in URL');
       return null;
     }
     
@@ -57,7 +52,7 @@ function extractAmazonProductData(): ProductData | null {
     const titleElement = document.getElementById('productTitle') || 
                          document.querySelector('.product-title-word-break');
     const title = titleElement ? titleElement.textContent?.trim() || 'Unknown Product' : 'Unknown Product';
-    logDebug('Extracted title:', title);
+    console.log('[E-commerce Arbitrage] Extracted title:', title);
     
     // Extract product price - try multiple selectors since Amazon's structure changes
     let priceElement = document.querySelector('.a-price .a-offscreen') || 
@@ -72,16 +67,16 @@ function extractAmazonProductData(): ProductData | null {
       // Remove currency symbol and convert to number
       const priceMatch = priceText.match(/[$£€]?([0-9,.]+)/);
       price = priceMatch ? parseFloat(priceMatch[1].replace(/,/g, '')) : null;
-      logDebug('Extracted price:', price);
+      console.log('[E-commerce Arbitrage] Extracted price:', price);
     } else {
-      logDebug('No price found, tried selectors:', ['.a-price .a-offscreen', '#priceblock_ourprice', '#priceblock_dealprice']);
+      console.log('[E-commerce Arbitrage] No price found, tried selectors:', ['.a-price .a-offscreen', '#priceblock_ourprice', '#priceblock_dealprice']);
     }
     
     // Extract brand
     const brandElement = document.querySelector('#bylineInfo, .a-link-normal.contributorNameID') ||
                          document.querySelector('.po-brand .a-span9');
     const brand = brandElement ? brandElement.textContent?.trim().replace('Brand: ', '') || null : null;
-    logDebug('Extracted brand:', brand);
+    console.log('[E-commerce Arbitrage] Extracted brand:', brand);
     
     // Try to find UPC/EAN in product details
     let upc: string | null = null;
@@ -93,7 +88,7 @@ function extractAmazonProductData(): ProductData | null {
         const match = text.match(/\d{12,13}/);
         if (match) {
           upc = match[0];
-          logDebug('Found UPC/EAN:', upc);
+          console.log('[E-commerce Arbitrage] Found UPC/EAN:', upc);
         }
       }
     });
@@ -103,7 +98,7 @@ function extractAmazonProductData(): ProductData | null {
                          document.getElementById('imgBlkFront') ||
                          document.querySelector('#main-image-container img');
     const imageUrl = imageElement ? (imageElement as HTMLImageElement).src : null;
-    logDebug('Extracted image URL:', imageUrl);
+    console.log('[E-commerce Arbitrage] Extracted image URL:', imageUrl);
     
     const productData = {
       title: title,
@@ -117,7 +112,7 @@ function extractAmazonProductData(): ProductData | null {
       pageUrl: window.location.href
     };
     
-    logDebug('Extracted Amazon product data:', productData);
+    console.log('[E-commerce Arbitrage] Extracted Amazon product data:', productData);
     return productData;
   } catch (error) {
     console.error('Error extracting Amazon product data:', error);
@@ -133,10 +128,10 @@ function extractWalmartProductData(): ProductData | null {
     const idMatch = url.match(/\/ip\/(?:.*?)\/(\d+)/) || url.match(/\/ip\/(\d+)/);
     const productId = idMatch ? idMatch[1] : null;
     
-    logDebug('Extracted Walmart product ID:', productId);
+    console.log('[E-commerce Arbitrage] Extracted Walmart product ID:', productId);
     
     if (!productId) {
-      logDebug('No product ID found in Walmart URL');
+      console.log('[E-commerce Arbitrage] No product ID found in Walmart URL');
       return null;
     }
     
@@ -145,7 +140,7 @@ function extractWalmartProductData(): ProductData | null {
                          document.querySelector('[data-testid="product-title"]') ||
                          document.querySelector('h1[itemprop="name"]');
     const title = titleElement ? titleElement.textContent?.trim() || 'Unknown Product' : 'Unknown Product';
-    logDebug('Extracted title:', title);
+    console.log('[E-commerce Arbitrage] Extracted title:', title);
     
     // Extract product price - try multiple selectors
     const priceElement = document.querySelector('.prod-PriceSection .price-characteristic') ||
@@ -165,7 +160,7 @@ function extractWalmartProductData(): ProductData | null {
         if (centsElement && !priceText.includes('.')) {
           price += parseFloat(cents) / 100;
         }
-        logDebug('Extracted price:', price);
+        console.log('[E-commerce Arbitrage] Extracted price:', price);
       }
     }
     
@@ -173,7 +168,7 @@ function extractWalmartProductData(): ProductData | null {
     const brandElement = document.querySelector('.prod-ProductBrand a') ||
                          document.querySelector('[data-testid="product-brand"]');
     const brand = brandElement ? brandElement.textContent?.trim() || null : null;
-    logDebug('Extracted brand:', brand);
+    console.log('[E-commerce Arbitrage] Extracted brand:', brand);
     
     // Try to find UPC in product details
     let upc: string | null = null;
@@ -188,7 +183,7 @@ function extractWalmartProductData(): ProductData | null {
           const match = text.match(/\d{12}/);
           if (match) {
             upc = match[0];
-            logDebug('Found UPC in details:', upc);
+            console.log('[E-commerce Arbitrage] Found UPC in details:', upc);
           }
         }
       });
@@ -200,7 +195,7 @@ function extractWalmartProductData(): ProductData | null {
       const upcMatch = pageSource.match(/"upc":"(\d{12})"/);
       if (upcMatch) {
         upc = upcMatch[1];
-        logDebug('Found UPC in page source:', upc);
+        console.log('[E-commerce Arbitrage] Found UPC in page source:', upc);
       }
     }
     
@@ -209,7 +204,7 @@ function extractWalmartProductData(): ProductData | null {
                          document.querySelector('[data-testid="product-image"] img') ||
                          document.querySelector('img[itemprop="image"]');
     const imageUrl = imageElement ? (imageElement as HTMLImageElement).src : null;
-    logDebug('Extracted image URL:', imageUrl);
+    console.log('[E-commerce Arbitrage] Extracted image URL:', imageUrl);
     
     const productData = {
       title: title,
@@ -223,7 +218,7 @@ function extractWalmartProductData(): ProductData | null {
       pageUrl: window.location.href
     };
     
-    logDebug('Extracted Walmart product data:', productData);
+    console.log('[E-commerce Arbitrage] Extracted Walmart product data:', productData);
     return productData;
   } catch (error) {
     console.error('Error extracting Walmart product data:', error);
@@ -239,10 +234,10 @@ function extractTargetProductData(): ProductData | null {
     const tcinMatch = url.match(/\/p\/.*?-(\d+)/) || document.body.innerHTML.match(/TCIN&#34;:&#34;(\d+)&#34;/);
     const productId = tcinMatch ? tcinMatch[1] : null;
     
-    logDebug('Extracted Target product ID:', productId);
+    console.log('[E-commerce Arbitrage] Extracted Target product ID:', productId);
     
     if (!productId) {
-      logDebug('No product ID found in Target URL or page');
+      console.log('[E-commerce Arbitrage] No product ID found in Target URL or page');
       return null;
     }
     
@@ -250,7 +245,7 @@ function extractTargetProductData(): ProductData | null {
     const titleElement = document.querySelector('h1[data-test="product-title"]') ||
                          document.querySelector('h1.Heading__StyledHeading');
     const title = titleElement ? titleElement.textContent?.trim() || 'Unknown Product' : 'Unknown Product';
-    logDebug('Extracted title:', title);
+    console.log('[E-commerce Arbitrage] Extracted title:', title);
     
     // Extract product price
     const priceElement = document.querySelector('[data-test="product-price"]') ||
@@ -263,7 +258,7 @@ function extractTargetProductData(): ProductData | null {
       const priceMatch = priceText.match(/\$([0-9.]+)/);
       if (priceMatch) {
         price = parseFloat(priceMatch[1]);
-        logDebug('Extracted price:', price);
+        console.log('[E-commerce Arbitrage] Extracted price:', price);
       }
     }
     
@@ -271,7 +266,7 @@ function extractTargetProductData(): ProductData | null {
     const brandElement = document.querySelector('[data-test="product-brand"]') ||
                          document.querySelector('.styles__BrandLink');
     const brand = brandElement ? brandElement.textContent?.trim() || null : null;
-    logDebug('Extracted brand:', brand);
+    console.log('[E-commerce Arbitrage] Extracted brand:', brand);
     
     // Try to find UPC in product details - Target often doesn't expose this directly
     let upc: string | null = null;
@@ -280,14 +275,14 @@ function extractTargetProductData(): ProductData | null {
     const upcMatch = pageSource.match(/"upc":"?(\d{12})"?/);
     if (upcMatch) {
       upc = upcMatch[1];
-      logDebug('Found UPC in page source:', upc);
+      console.log('[E-commerce Arbitrage] Found UPC in page source:', upc);
     }
     
     // Get main product image
     const imageElement = document.querySelector('[data-test="product-image"] img') ||
                          document.querySelector('picture img');
     const imageUrl = imageElement ? (imageElement as HTMLImageElement).src : null;
-    logDebug('Extracted image URL:', imageUrl);
+    console.log('[E-commerce Arbitrage] Extracted image URL:', imageUrl);
     
     const productData = {
       title: title,
@@ -301,7 +296,7 @@ function extractTargetProductData(): ProductData | null {
       pageUrl: window.location.href
     };
     
-    logDebug('Extracted Target product data:', productData);
+    console.log('[E-commerce Arbitrage] Extracted Target product data:', productData);
     return productData;
   } catch (error) {
     console.error('Error extracting Target product data:', error);
@@ -311,7 +306,7 @@ function extractTargetProductData(): ProductData | null {
 
 // Extract data and send to background script
 function main() {
-  logDebug('Content script executed - attempting to extract product data');
+  console.log('[E-commerce Arbitrage] Content script executed - attempting to extract product data');
   const productData = extractProductData();
   
   if (productData) {
@@ -323,38 +318,38 @@ function main() {
       if (chrome.runtime.lastError) {
         console.error('Error sending product data:', chrome.runtime.lastError);
       } else {
-        logDebug('Product data sent to background script with response:', response);
+        console.log('[E-commerce Arbitrage] Product data sent to background script with response:', response);
       }
     });
     
-    logDebug('Product data extracted and sent:', productData);
+    console.log('[E-commerce Arbitrage] Product data extracted and sent:', productData);
   } else {
     console.warn('No product data could be extracted from this page.');
   }
 }
 
 // Wait for page to fully load before extracting data
-logDebug('Content script loaded, waiting for window load event');
+console.log('[E-commerce Arbitrage] Content script loaded, waiting for window load event');
 window.addEventListener('load', () => {
   // Wait a bit longer for dynamic content to load
-  logDebug('Window loaded, waiting additional time for dynamic content');
+  console.log('[E-commerce Arbitrage] Window loaded, waiting additional time for dynamic content');
   setTimeout(main, 1500);
 });
 
 // Re-extract when user navigates using browser back/forward
 window.addEventListener('popstate', () => {
-  logDebug('Navigation detected, re-extracting product data');
+  console.log('[E-commerce Arbitrage] Navigation detected, re-extracting product data');
   setTimeout(main, 1500);
 });
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  logDebug('Received message in content script:', message);
+  console.log('[E-commerce Arbitrage] Received message in content script:', message);
   
   if (message.action === 'GET_PRODUCT_DATA') {
-    logDebug('Retrieving fresh product data');
+    console.log('[E-commerce Arbitrage] Retrieving fresh product data');
     const productData = extractProductData();
-    logDebug('Sending product data response:', productData);
+    console.log('[E-commerce Arbitrage] Sending product data response:', productData);
     sendResponse({ productData });
   }
   return true; // Keep the message channel open for async response
@@ -362,5 +357,5 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // Execute main function immediately in case the page is already loaded
 // This helps with pages that don't trigger the load event
-logDebug('Running initial extraction attempt');
+console.log('[E-commerce Arbitrage] Running initial extraction attempt');
 setTimeout(main, 500);
