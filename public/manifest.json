@@ -11,7 +11,8 @@
   "host_permissions": [
     "https://*.amazon.com/*",
     "https://*.walmart.com/*",
-    "https://*.target.com/*"
+    "https://*.target.com/*",
+    "https://extension-marketplace-api-2-0-1.onrender.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -27,10 +28,9 @@
   "content_scripts": [
     {
       "matches": [
-        "https://*.amazon.com/dp/*",
-        "https://*.amazon.com/gp/product/*",
-        "https://*.walmart.com/ip/*",
-        "https://*.target.com/p/*"
+        "https://*.amazon.com/*",
+        "https://*.walmart.com/*",
+        "https://*.target.com/*"
       ],
       "js": ["contentScript.js"],
       "run_at": "document_idle"
