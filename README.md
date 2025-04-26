@@ -1,14 +1,14 @@
 # E-commerce Arbitrage Assistant
 
-A Chrome extension for e-commerce arbitrage that helps users compare product prices between marketplaces (Amazon, Walmart, Target) using TrajectData's API services.
+A Chrome extension for e-commerce arbitrage that helps users compare product prices between marketplaces (Amazon, Walmart, Target) to identify potential profit opportunities.
 
 ## Features
 
 - Extracts product information from current page (Amazon, Walmart, or Target)
-- Uses TrajectData APIs (BlueCart, Rainforest, BigBox) to find matching products on other marketplaces
+- Uses mock data to simulate API calls when backend services are unavailable
 - Shows price comparisons and potential profit margins
 - Caches previously matched products to minimize API usage
-- Customizable settings for profit calculation and API usage
+- Customizable settings for profit calculation and marketplace fees
 
 ## Project Structure
 
@@ -51,7 +51,7 @@ npm install
 
 ### 3. Configure API Keys
 
-1. Sign up for TrajectData API services:
+1. Sign up for TrajectData API services (optional, extension will work with mock data):
    - BlueCart API for Walmart data: [https://bluecartapi.com](https://bluecartapi.com)
    - Rainforest API for Amazon data: [https://rainforestapi.com](https://rainforestapi.com)
    - BigBox API for Target data (if available): [https://bigboxapi.com](https://bigboxapi.com)
@@ -73,127 +73,53 @@ npm run build
 npm run watch:extension
 ```
 
-### 5. Start the Backend Server
-
-```bash
-# Start the server
-npm run start:backend
-```
-
-### 6. Load the Extension in Chrome
+### 5. Load the Extension in Chrome
 
 1. Open Chrome and navigate to `chrome://extensions/`
 2. Enable "Developer mode" (toggle in the top-right corner)
 3. Click "Load unpacked" and select the `dist` folder from your project
 4. The extension should now be installed and visible in your browser toolbar
 
-## API Usage and Optimization
+## Using the Extension
 
-### API Credit Conservation Strategies
+1. Navigate to a product page on Amazon, Walmart, or Target
+2. Click on the extension icon in your browser toolbar
+3. The extension will automatically attempt to extract product data
+4. If no data is detected, click the "Refresh Product Data" button
+5. Once product data is loaded, click "Find Arbitrage Opportunities" to see potential profit opportunities
+6. Use the Settings tab to configure profit margins, marketplace fees, and other preferences
 
-1. **Caching Mechanism**: 
-   - The extension implements a two-layer cache:
-     - Backend server cache (1-hour TTL by default)
-     - Chrome storage cache (24-hour TTL by default, configurable in settings)
-   - This minimizes redundant API calls for frequently viewed products
+## Troubleshooting
 
-2. **On-Demand API Calling**:
-   - API calls are only made when a user explicitly requests a comparison
-   - No automatic background queries or periodic refreshes
+If the extension doesn't work as expected:
 
-3. **Efficient Product Matching**:
-   - Uses unique identifiers (UPC, ASIN) when available for precise matching
-   - Falls back to title and brand-based fuzzy matching only when necessary
+1. Make sure you're on a product detail page, not a search results or category page
+2. Click the "Refresh Product Data" button to manually trigger data extraction
+3. Check the browser console for logs (F12 > Console) - look for logs with the prefix `[E-commerce Arbitrage]`
+4. If you encounter a "Communication error", try reloading the page
+5. For product pages with unusual layouts, try different products or marketplaces
 
-4. **Prioritized Search Parameters**:
-   - First tries searching by specific product identifiers (most efficient)
-   - Only uses text-based search as a fallback
+## Mock Data Implementation
 
-### Obtaining and Configuring API Keys
+The extension includes a mock data feature that simulates API responses when the backend services are unavailable. This allows for testing and demonstration without requiring actual API keys or backend server setup.
 
-#### BlueCart API (Walmart)
+To disable mock data and use real API calls:
 
-1. Sign up at [https://bluecartapi.com](https://bluecartapi.com)
-2. Choose a subscription plan based on your expected usage
-3. Generate an API key from your dashboard
-4. Add the key to your `.env` file as `BLUECART_API_KEY`
+1. Go to `src/background.ts`
+2. Find the line `const useMockData = true;`
+3. Change it to `const useMockData = false;`
+4. Rebuild the extension
 
-#### Rainforest API (Amazon)
+## Supported Product Types
 
-1. Sign up at [https://rainforestapi.com](https://rainforestapi.com)
-2. Select a subscription plan based on your needs
-3. Generate an API key from your account settings
-4. Add the key to your `.env` file as `RAINFOREST_API_KEY`
+The extension has been tested with various product types including:
 
-#### BigBox API (Target)
+- Pet supplies (e.g., dog nail grinders, pet clippers)
+- Household goods (e.g., vacuum cleaners)
+- Beauty products (e.g., body scrubs)
+- Grocery items (e.g., laundry detergent)
 
-1. Sign up at [https://bigboxapi.com](https://bigboxapi.com) (if available)
-2. Choose a subscription plan
-3. Generate an API key
-4. Add the key to your `.env` file as `BIGBOX_API_KEY`
-
-## Product Matching Algorithm
-
-The product matching algorithm works as follows:
-
-1. **Identifier-Based Matching (Primary Method)**:
-   - For Amazon products: Use ASIN for direct lookups
-   - For Walmart/Target products: Use UPC for direct lookups
-   - This provides the most accurate matches when identifiers are available
-
-2. **Text-Based Matching (Fallback Method)**:
-   - When identifiers aren't available, combine brand and product title
-   - Use this combined string as a search query
-   - This method is less precise but provides good results for most products
-
-3. **Result Filtering and Ranking**:
-   - Results are ranked by relevance (when using text search)
-   - Profitable items are highlighted based on user-defined minimum profit percentage
-   - Items with ratings are prioritized in the display
-
-## Deployment and Maintenance
-
-### Backend Server Deployment
-
-For production deployment, consider:
-
-1. **Hosting Options**:
-   - Heroku: Simple deployment with automatic scaling
-   - AWS EC2: More control and potentially lower costs for high volume
-   - Vercel/Netlify: Good for serverless deployment
-
-2. **Environment Configuration**:
-   - Set up proper environment variables on your hosting platform
-   - Consider using a higher caching TTL in production to reduce API calls
-
-3. **Monitoring**:
-   - Implement request logging to monitor API usage
-   - Set up alerts for API limit thresholds
-
-### Extension Updates
-
-To update the extension:
-
-1. Make code changes
-2. Increment version number in `manifest.json`
-3. Rebuild using `npm run build`
-4. For personal use: reload the extension in Chrome
-5. For distribution: package the `dist` folder for the Chrome Web Store
-
-### Maintenance Best Practices
-
-1. **Regular API Monitoring**:
-   - Check API credit usage regularly
-   - Adjust caching parameters if needed
-
-2. **Error Handling**:
-   - The extension includes comprehensive error handling
-   - Monitor for recurring errors which may indicate API changes
-
-3. **Selectors Maintenance**:
-   - E-commerce sites frequently update their HTML structure
-   - Periodically verify that content script selectors still work
-   - Update extraction logic when site layouts change
+It may work with other product categories as well, but extraction success depends on the specific structure of the product page.
 
 ## License
 
