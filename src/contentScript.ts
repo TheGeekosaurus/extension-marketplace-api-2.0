@@ -149,13 +149,21 @@ function extractWalmartProductData(): ProductData | null {
     let price: number | null = null;
     
     if (priceElement) {
-      const dollars = priceElement.getAttribute('content') || priceElement.textContent;
-      const centsElement = document.querySelector('.prod-PriceSection .price-mantissa');
-      const cents = centsElement ? centsElement.textContent : '00';
+      // The original problematic code:
+      // const dollars = priceElement.getAttribute('content') || priceElement.textContent;
       
-      if (dollars) {
-        // FIX: Use String() instead of toString() to handle potential null
-        const priceText = String(dollars).replace(/[^0-9.]/g, '');
+      // Fix: Ensure dollarsValue is a string, not null
+      const dollarsAttr = priceElement.getAttribute('content');
+      const textContent = priceElement.textContent;
+      const dollarsValue = dollarsAttr || textContent || '';
+      
+      const centsElement = document.querySelector('.prod-PriceSection .price-mantissa');
+      const cents = centsElement ? centsElement.textContent || '00' : '00';
+      
+      // Since dollarsValue is now guaranteed to be a string, not null
+      const priceText = dollarsValue.replace(/[^0-9.]/g, '');
+      
+      if (priceText) {
         price = parseFloat(priceText);
         if (centsElement && !priceText.includes('.')) {
           price += parseFloat(cents) / 100;
