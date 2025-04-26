@@ -1,10 +1,20 @@
 # API Setup Guide for E-commerce Arbitrage Extension
 
-This guide will walk you through the process of obtaining and configuring the required API keys for the E-commerce Arbitrage Extension.
+This guide explains how to set up the API services for the E-commerce Arbitrage Extension. Note that **the extension will work with mock data without any API setup**, so you can use it immediately for testing and demonstration purposes.
+
+## Mock Data Mode
+
+By default, the extension is configured to use mock data instead of making real API calls. This means:
+
+- No API keys are required for basic functionality
+- Price comparisons will be simulated based on the source product
+- You can test the extension without setting up a backend server
+
+If you want to use real data from the APIs, follow the steps below to configure the necessary services and API keys.
 
 ## TrajectData API Services Overview
 
-The extension uses the following API services from TrajectData:
+The extension uses the following API services from TrajectData for real data mode:
 
 1. **BlueCart API** - For Walmart product data
 2. **Rainforest API** - For Amazon product data 
@@ -72,7 +82,7 @@ The extension uses the following API services from TrajectData:
 - If budget is a concern, you can start by implementing only Amazon and Walmart
 - Add Target integration later as your arbitrage business grows
 
-## Step 4: Configure Your Extension
+## Step 4: Configure Your Extension for Real API Usage
 
 1. In your project directory, open the `.env` file
 2. Add your API keys to the corresponding variables:
@@ -82,6 +92,25 @@ The extension uses the following API services from TrajectData:
    BIGBOX_API_KEY=your_bigbox_api_key_here
    ```
 3. Save the file
+
+4. Open `src/background.ts` and update the following setting:
+   ```javascript
+   // Change this
+   const useMockData = true;
+   
+   // To this
+   const useMockData = false;
+   ```
+
+5. Rebuild the extension:
+   ```
+   npm run build
+   ```
+
+6. Start the backend server:
+   ```
+   npm run start:backend
+   ```
 
 ## API Credit Optimization Tips
 
@@ -119,4 +148,23 @@ The extension uses the following API services from TrajectData:
 3. The extension automatically tracks cache hit rates, which you can view in browser console logs
 4. Consider implementing a usage logging system in the backend for better tracking
 
-By following these guidelines, you'll be able to set up and efficiently use the API services required for the E-commerce Arbitrage Extension.
+## Troubleshooting API Issues
+
+If you encounter issues with the API connections:
+
+1. **Check API Key Validity**
+   - Ensure your API keys are correctly entered in the `.env` file
+   - Verify that your subscription is active and has available credits
+
+2. **Network Connectivity**
+   - Make sure your server can connect to the API endpoints
+   - Check for any firewall or proxy settings that might block the connections
+
+3. **Rate Limiting**
+   - Most APIs have rate limits - check if you're hitting these limits
+   - Implement request throttling or backoff strategies if necessary
+
+4. **Fallback to Mock Data**
+   - If API issues persist, you can temporarily switch back to mock data mode
+
+By following these guidelines, you'll be able to effectively set up and use the API services for the E-commerce Arbitrage Extension.
