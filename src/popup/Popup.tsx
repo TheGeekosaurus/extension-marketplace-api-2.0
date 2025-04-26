@@ -67,8 +67,9 @@ const Popup: React.FC = () => {
   const [comparison, setComparison] = useState<ProductComparison | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
   const [settings, setSettings] = useState<Settings>({
-    apiBaseUrl: 'https://extension-marketplace-api-2-0-1.onrender.com',
+    apiBaseUrl: 'https://extension-marketplace-api-2-0-1.onrender.com/api',
     cacheExpiration: 24,
     minimumProfitPercentage: 10,
     includeFees: true,
@@ -82,9 +83,20 @@ const Popup: React.FC = () => {
 
   // Load current product and settings on mount
   useEffect(() => {
+    console.log('Popup component mounted');
+    
+    // Check if we're on a supported website
+    checkCurrentTab();
+    
+    // Load stored data
     chrome.storage.local.get(['currentProduct', 'settings'], (result) => {
+      console.log('Loaded from storage:', result);
+      
       if (result.currentProduct) {
         setCurrentProduct(result.currentProduct);
+        setStatus('Product data loaded from storage');
+      } else {
+        setStatus('No product data in storage. Try visiting a product page first.');
       }
       
       if (result.settings) {
@@ -93,54 +105,96 @@ const Popup: React.FC = () => {
     });
   }, []);
 
-  // Function to get price comparison
-  const fetchPriceComparison = async () => {
-    if (!currentProduct) {
-      setError('No product detected on this page');
-      return;
-    }
-    
-    setLoading(true);
+  // Check if the current tab is a supported website
+  const checkCurrentTab = () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const currentTab = tabs[0];
+      if (!currentTab?.url) return;
+      
+      const isProductPage = (
+        currentTab.url.includes('amazon.com') || 
+        currentTab.url.includes('walmart.com') || 
+        currentTab.url.includes('target.com')
+      );
+      
+      if (!isProductPage) {
+        setStatus('Please navigate to a product page on Amazon, Walmart, or Target.');
+      }
+    });
+  };
+
+  // Manually request product data from the current page
+  const requestProductData = () => {
+    setStatus('Requesting fresh product data from page...');
     setError(null);
     
-    try {
-      // Get fresh product data from the current tab
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0].id === undefined) {
-          setError('Could not communicate with page');
-          setLoading(false);
-          return;
-        }
-        
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0].id === undefined) {
+        setError('Could not communicate with the current tab');
+        return;
+      }
+      
+      try {
         chrome.tabs.sendMessage(
           tabs[0].id, 
           { action: 'GET_PRODUCT_DATA' }, 
           (response) => {
             if (chrome.runtime.lastError) {
-              console.error(chrome.runtime.lastError);
-              setError('Could not communicate with page');
-              setLoading(false);
+              console.error('Runtime error:', chrome.runtime.lastError);
+              setError(`Communication error: ${chrome.runtime.lastError.message || 'Unknown error'}`);
+              setStatus('Make sure you are on a product page and try refreshing.');
               return;
             }
             
-            const freshProductData = response?.productData || currentProduct;
-            
-            // Get price comparison from background script
-            chrome.runtime.sendMessage(
-              { action: 'GET_PRICE_COMPARISON', productData: freshProductData }, 
-              (response) => {
-                setLoading(false);
-                
-                if (response && response.success) {
-                  setComparison(response.data);
-                } else {
-                  setError(response?.error || 'Failed to get price comparison');
-                }
-              }
-            );
+            if (response && response.productData) {
+              setCurrentProduct(response.productData);
+              chrome.storage.local.set({ currentProduct: response.productData });
+              setStatus('Product data successfully retrieved from page');
+            } else {
+              setError('No product data could be extracted from this page');
+              setStatus('Make sure you are on a product page (not a search results page)');
+            }
           }
         );
-      });
+      } catch (err) {
+        console.error('Error requesting product data:', err);
+        setError(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    });
+  };
+
+  // Function to get price comparison
+  const fetchPriceComparison = async () => {
+    if (!currentProduct) {
+      setError('No product detected. Try visiting a product page first.');
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    setStatus('Fetching price comparison data...');
+    
+    try {
+      // Get price comparison from background script
+      chrome.runtime.sendMessage(
+        { action: 'GET_PRICE_COMPARISON', productData: currentProduct }, 
+        (response) => {
+          setLoading(false);
+          
+          if (chrome.runtime.lastError) {
+            setError(`Error: ${chrome.runtime.lastError.message}`);
+            return;
+          }
+          
+          if (response && response.success) {
+            setComparison(response.data);
+            setStatus('Price comparison data loaded successfully');
+          } else {
+            setError(response?.error || 'Failed to get price comparison');
+            setStatus(response?.errorDetails || 'An unknown error occurred');
+          }
+        }
+      );
     } catch (err) {
       setLoading(false);
       setError('An error occurred while fetching price data');
@@ -152,9 +206,9 @@ const Popup: React.FC = () => {
   const clearCache = () => {
     chrome.runtime.sendMessage({ action: 'CLEAR_CACHE' }, (response) => {
       if (response && response.success) {
-        alert('Cache cleared successfully');
+        setStatus('Cache cleared successfully');
       } else {
-        alert('Failed to clear cache');
+        setStatus('Failed to clear cache');
       }
     });
   };
@@ -165,9 +219,9 @@ const Popup: React.FC = () => {
       { action: 'UPDATE_SETTINGS', settings }, 
       (response) => {
         if (response && response.success) {
-          alert('Settings saved successfully');
+          setStatus('Settings saved successfully');
         } else {
-          alert('Failed to save settings');
+          setStatus('Failed to save settings');
         }
       }
     );
@@ -232,45 +286,55 @@ const Popup: React.FC = () => {
 
   // Render product comparison section
   const renderComparison = () => {
-    if (!currentProduct) {
-      return (
-        <div className="no-product">
-          <p>No product detected on this page.</p>
-          <p>Please navigate to a product page on Amazon, Walmart, or Target.</p>
-        </div>
-      );
-    }
-    
     return (
       <div className="comparison-container">
         <div className="source-product">
           <h3>Current Product</h3>
-          <div className="product-card">
-            {currentProduct.imageUrl && (
-              <img 
-                src={currentProduct.imageUrl} 
-                alt={currentProduct.title} 
-                className="product-image" 
-              />
-            )}
-            <div className="product-info">
-              <h4>{currentProduct.title}</h4>
-              <p>Price: {formatPrice(currentProduct.price)}</p>
-              <p>Platform: {currentProduct.marketplace}</p>
-              {currentProduct.brand && <p>Brand: {currentProduct.brand}</p>}
-              {currentProduct.upc && <p>UPC: {currentProduct.upc}</p>}
-              {currentProduct.asin && <p>ASIN: {currentProduct.asin}</p>}
+          
+          {currentProduct ? (
+            <div className="product-card">
+              {currentProduct.imageUrl && (
+                <img 
+                  src={currentProduct.imageUrl} 
+                  alt={currentProduct.title} 
+                  className="product-image" 
+                />
+              )}
+              <div className="product-info">
+                <h4>{currentProduct.title}</h4>
+                <p>Price: {formatPrice(currentProduct.price)}</p>
+                <p>Platform: {currentProduct.marketplace}</p>
+                {currentProduct.brand && <p>Brand: {currentProduct.brand}</p>}
+                {currentProduct.upc && <p>UPC: {currentProduct.upc}</p>}
+                {currentProduct.asin && <p>ASIN: {currentProduct.asin}</p>}
+              </div>
             </div>
+          ) : (
+            <div className="no-product">
+              <p>No product detected on this page.</p>
+              <p>Please navigate to a product page on Amazon, Walmart, or Target.</p>
+            </div>
+          )}
+          
+          <div className="button-container">
+            <button 
+              className="refresh-button"
+              onClick={requestProductData}
+              disabled={loading}
+            >
+              Refresh Product Data
+            </button>
+            
+            <button 
+              className="compare-button"
+              onClick={fetchPriceComparison}
+              disabled={loading || !currentProduct}
+            >
+              {loading ? 'Loading...' : 'Find Arbitrage Opportunities'}
+            </button>
           </div>
           
-          <button 
-            className="compare-button"
-            onClick={fetchPriceComparison}
-            disabled={loading}
-          >
-            {loading ? 'Loading...' : 'Find Arbitrage Opportunities'}
-          </button>
-          
+          {status && <div className="status-message">{status}</div>}
           {error && <div className="error-message">{error}</div>}
         </div>
         
@@ -529,6 +593,8 @@ const Popup: React.FC = () => {
         <button className="save-settings-button" onClick={saveSettings}>
           Save Settings
         </button>
+        
+        {status && <div className="status-message">{status}</div>}
       </div>
     );
   };
