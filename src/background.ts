@@ -45,14 +45,9 @@ interface ProductMatchResult {
   };
 }
 
-// Add debugging to help troubleshoot
-function logDebug(message: string, data?: any) {
-  console.log(`[E-commerce Arbitrage Background] ${message}`, data || '');
-}
-
 // Initialize
 chrome.runtime.onInstalled.addListener(() => {
-  logDebug('Extension installed or updated');
+  console.log('[E-commerce Arbitrage Background] Extension installed or updated');
   
   // Set default settings
   chrome.storage.local.set({
@@ -68,18 +63,18 @@ chrome.runtime.onInstalled.addListener(() => {
       }
     }
   }, () => {
-    logDebug('Default settings saved');
+    console.log('[E-commerce Arbitrage Background] Default settings saved');
   });
   
   // Initialize currentProduct as null to avoid undefined issues
   chrome.storage.local.set({ currentProduct: null }, () => {
-    logDebug('Initialized currentProduct as null');
+    console.log('[E-commerce Arbitrage Background] Initialized currentProduct as null');
   });
 });
 
 // Handle messages from content scripts and popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  logDebug('Received message:', message);
+  console.log('[E-commerce Arbitrage Background] Received message:', message);
   
   // Handle product data extracted from content script
   if (message.action === 'PRODUCT_DATA_EXTRACTED') {
@@ -90,10 +85,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   // Handle get pricing data request from popup
   else if (message.action === 'GET_PRICE_COMPARISON') {
-    logDebug('Getting price comparison for:', message.productData);
+    console.log('[E-commerce Arbitrage Background] Getting price comparison for:', message.productData);
     getPriceComparison(message.productData)
       .then(data => {
-        logDebug('Got price comparison data:', data);
+        console.log('[E-commerce Arbitrage Background] Got price comparison data:', data);
         sendResponse({ success: true, data });
       })
       .catch(error => {
@@ -110,7 +105,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Handle clear cache request
   else if (message.action === 'CLEAR_CACHE') {
     chrome.storage.local.remove(['productCache'], () => {
-      logDebug('Cache cleared');
+      console.log('[E-commerce Arbitrage Background] Cache cleared');
       sendResponse({ success: true });
     });
     return true; // Indicates async response
@@ -119,25 +114,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Handle settings update
   else if (message.action === 'UPDATE_SETTINGS') {
     chrome.storage.local.set({ settings: message.settings }, () => {
-      logDebug('Settings updated:', message.settings);
+      console.log('[E-commerce Arbitrage Background] Settings updated:', message.settings);
       sendResponse({ success: true });
     });
     return true; // Indicates async response
   }
   
   // If no handler matched, log a warning
-  logDebug('No handler for message action:', message.action);
+  console.log('[E-commerce Arbitrage Background] No handler for message action:', message.action);
   return false;
 });
 
 // Store extracted product data temporarily
 function handleExtractedProductData(productData: ProductData): void {
-  logDebug('Storing product data:', productData);
+  console.log('[E-commerce Arbitrage Background] Storing product data:', productData);
   chrome.storage.local.set({ currentProduct: productData }, () => {
     if (chrome.runtime.lastError) {
       console.error('Error storing product data:', chrome.runtime.lastError);
     } else {
-      logDebug('Product data stored successfully');
+      console.log('[E-commerce Arbitrage Background] Product data stored successfully');
     }
   });
 }
@@ -146,23 +141,23 @@ function handleExtractedProductData(productData: ProductData): void {
 async function getPriceComparison(productData: ProductData): Promise<ProductComparison> {
   // First check if we have a cached result
   try {
-    logDebug('Attempting to get price comparison for:', productData);
+    console.log('[E-commerce Arbitrage Background] Attempting to get price comparison for:', productData);
     
     if (!productData) {
       throw new Error('No product data provided');
     }
     
     const cacheKey = generateCacheKey(productData);
-    logDebug('Generated cache key:', cacheKey);
+    console.log('[E-commerce Arbitrage Background] Generated cache key:', cacheKey);
     
     const cachedResult = await getCachedComparison(cacheKey);
     
     if (cachedResult) {
-      logDebug('Found cached comparison result');
+      console.log('[E-commerce Arbitrage Background] Found cached comparison result');
       return cachedResult;
     }
     
-    logDebug('No cache hit, fetching from API');
+    console.log('[E-commerce Arbitrage Background] No cache hit, fetching from API');
     
     // Mock data for testing when API server is unavailable
     // Remove this in production or when API is working
@@ -170,7 +165,7 @@ async function getPriceComparison(productData: ProductData): Promise<ProductComp
     
     let matchedProducts;
     if (useMockData) {
-      logDebug('Using mock data instead of API call');
+      console.log('[E-commerce Arbitrage Background] Using mock data instead of API call');
       matchedProducts = generateMockProductMatches(productData);
     } else {
       // No cache hit, fetch from API
@@ -190,7 +185,7 @@ async function getPriceComparison(productData: ProductData): Promise<ProductComp
     // Cache the result
     await cacheComparisonResult(cacheKey, comparisonResult);
     
-    logDebug('Returning comparison result:', comparisonResult);
+    console.log('[E-commerce Arbitrage Background] Returning comparison result:', comparisonResult);
     return comparisonResult;
   } catch (error) {
     console.error('Error getting price comparison:', error);
@@ -268,7 +263,7 @@ function generateCacheKey(productData: ProductData): string {
 async function getCachedComparison(cacheKey: string): Promise<ProductComparison | null> {
   return new Promise((resolve) => {
     chrome.storage.local.get(['productCache', 'settings'], (result) => {
-      logDebug('Got from storage:', { cache: result.productCache ? 'exists' : 'not found', settings: result.settings });
+      console.log('[E-commerce Arbitrage Background] Got from storage:', { cache: result.productCache ? 'exists' : 'not found', settings: result.settings });
       
       const cache = result.productCache || {};
       const settings = result.settings || {};
@@ -280,15 +275,15 @@ async function getCachedComparison(cacheKey: string): Promise<ProductComparison 
         
         // Check if cache is still valid
         if (now - cachedItem.timestamp < cacheExpiration) {
-          logDebug('Using valid cached item');
+          console.log('[E-commerce Arbitrage Background] Using valid cached item');
           resolve(cachedItem);
           return;
         } else {
-          logDebug('Cache expired');
+          console.log('[E-commerce Arbitrage Background] Cache expired');
         }
       }
       
-      logDebug('No valid cache found');
+      console.log('[E-commerce Arbitrage Background] No valid cache found');
       resolve(null);
     });
   });
@@ -305,7 +300,7 @@ async function cacheComparisonResult(cacheKey: string, comparisonResult: Product
       
       // Save updated cache
       chrome.storage.local.set({ productCache: cache }, () => {
-        logDebug('Saved comparison result to cache');
+        console.log('[E-commerce Arbitrage Background] Saved comparison result to cache');
         resolve();
       });
     });
@@ -323,7 +318,7 @@ async function fetchProductMatches(productData: ProductData): Promise<{
     const settings = await getSettings();
     const apiBaseUrl = settings.apiBaseUrl || API_BASE_URL;
     
-    logDebug('Using API base URL:', apiBaseUrl);
+    console.log('[E-commerce Arbitrage Background] Using API base URL:', apiBaseUrl);
     
     // Create request body
     const requestData = {
@@ -333,7 +328,7 @@ async function fetchProductMatches(productData: ProductData): Promise<{
       product_brand: productData.brand
     };
     
-    logDebug('Sending API request with data:', requestData);
+    console.log('[E-commerce Arbitrage Background] Sending API request with data:', requestData);
     
     // Make API request
     const response = await fetch(`${apiBaseUrl}/search/multi`, {
@@ -350,7 +345,7 @@ async function fetchProductMatches(productData: ProductData): Promise<{
     }
     
     const result = await response.json();
-    logDebug('Received API response:', result);
+    console.log('[E-commerce Arbitrage Background] Received API response:', result);
     
     return result.data;
   } catch (error) {
@@ -368,11 +363,11 @@ function calculateProfitMargins(
     target?: ProductMatchResult[];
   }
 ): void {
-  logDebug('Calculating profit margins');
+  console.log('[E-commerce Arbitrage Background] Calculating profit margins');
   
   // Skip if source product has no price
   if (sourceProduct.price === null) {
-    logDebug('Source product has no price, skipping profit calculation');
+    console.log('[E-commerce Arbitrage Background] Source product has no price, skipping profit calculation');
     return;
   }
   
@@ -386,7 +381,7 @@ function calculateProfitMargins(
       target: 0.10
     };
     
-    logDebug('Using fee settings:', { includeFees, estimatedFees });
+    console.log('[E-commerce Arbitrage Background] Using fee settings:', { includeFees, estimatedFees });
     
     // Calculate for each marketplace
     Object.keys(matchedProducts).forEach(marketplace => {
@@ -419,7 +414,7 @@ function calculateProfitMargins(
           percentage: parseFloat(profitPercentage.toFixed(2))
         };
         
-        logDebug(`Calculated profit for ${marketplace} product:`, product.profit);
+        console.log(`[E-commerce Arbitrage Background] Calculated profit for ${marketplace} product:`, product.profit);
       });
     });
   });
