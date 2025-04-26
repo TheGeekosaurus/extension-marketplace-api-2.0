@@ -5,6 +5,8 @@
   --secondary-color: #3a53ab;
   --success-color: #27ae60;
   --danger-color: #e74c3c;
+  --warning-color: #f39c12;
+  --info-color: #3498db;
   --light-color: #f8f9fa;
   --dark-color: #343a40;
   --border-color: #dee2e6;
@@ -99,6 +101,12 @@ body {
   box-shadow: 0 2px 4px var(--shadow-color);
 }
 
+.button-container {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
 .product-card {
   display: flex;
   gap: 12px;
@@ -142,7 +150,7 @@ body {
   margin-bottom: 4px;
 }
 
-.compare-button, .view-button, .save-settings-button, .clear-cache-button {
+.compare-button, .view-button, .save-settings-button, .clear-cache-button, .refresh-button {
   background-color: var(--primary-color);
   color: #fff;
   border: none;
@@ -153,13 +161,21 @@ body {
   transition: background-color 0.2s;
 }
 
-.compare-button:hover, .view-button:hover, .save-settings-button:hover {
+.compare-button:hover, .view-button:hover, .save-settings-button:hover, .refresh-button:hover {
   background-color: var(--secondary-color);
 }
 
-.compare-button:disabled {
+.compare-button:disabled, .refresh-button:disabled {
   background-color: #b0b0b0;
   cursor: not-allowed;
+}
+
+.refresh-button {
+  background-color: var(--info-color);
+}
+
+.refresh-button:hover {
+  background-color: #2980b9;
 }
 
 .view-button {
@@ -190,6 +206,15 @@ body {
   margin: 12px 0;
   padding: 8px;
   background-color: rgba(231, 76, 60, 0.1);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.status-message {
+  color: var(--info-color);
+  margin: 12px 0;
+  padding: 8px;
+  background-color: rgba(52, 152, 219, 0.1);
   border-radius: 4px;
   font-size: 14px;
 }
