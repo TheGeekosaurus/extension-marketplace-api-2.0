@@ -154,8 +154,8 @@ function extractWalmartProductData(): ProductData | null {
       const cents = centsElement ? centsElement.textContent : '00';
       
       if (dollars) {
-        // Clean up the price text and convert to number
-        const priceText = dollars.toString().replace(/[^0-9.]/g, '');
+        // FIX: Use String() instead of toString() to handle potential null
+        const priceText = String(dollars).replace(/[^0-9.]/g, '');
         price = parseFloat(priceText);
         if (centsElement && !priceText.includes('.')) {
           price += parseFloat(cents) / 100;
