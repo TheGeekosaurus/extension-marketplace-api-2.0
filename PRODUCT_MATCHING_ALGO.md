@@ -1,21 +1,65 @@
 # Product Matching Algorithm Documentation
 
-This document describes in detail how the product matching algorithm works in the E-commerce Arbitrage Extension, including the logic behind identifying the same product across different marketplaces.
+This document describes the product matching algorithm used in the E-commerce Arbitrage Extension, including the logic behind identifying the same product across different marketplaces and the implementation of mock data for testing.
 
 ## Overview
 
-The product matching algorithm is designed to find the same product across different e-commerce platforms (Amazon, Walmart, Target) with high accuracy while minimizing API usage. The algorithm employs a multi-tiered approach, starting with the most reliable methods and falling back to less precise methods when necessary.
+The product matching algorithm is designed to find the same product across different e-commerce platforms (Amazon, Walmart, Target) to identify arbitrage opportunities. The extension currently implements two modes:
 
-## Matching Hierarchy
+1. **Mock Data Mode** (Default): Simulates product matches without making API calls
+2. **API Mode**: Uses TrajectData's APIs to find real matches across marketplaces
 
-The algorithm follows this hierarchy of matching methods:
+## Mock Data Implementation
+
+When using mock data (the default mode), the algorithm generates simulated product matches based on the source product:
+
+```javascript
+function generateMockProductMatches(productData: ProductData): {
+  amazon?: ProductMatchResult[];
+  walmart?: ProductMatchResult[];
+  target?: ProductMatchResult[];
+} {
+  const result = {};
+  
+  // Don't create mock matches for the source marketplace
+  if (productData.marketplace !== 'amazon') {
+    result.amazon = [{
+      title: `${productData.title} - Amazon Version`,
+      price: productData.price ? productData.price * 1.2 : 19.99, // 20% higher price for profit
+      image: productData.imageUrl,
+      url: `https://amazon.com/dp/B07XYZABC`,
+      marketplace: 'amazon',
+      asin: 'B07XYZABC',
+      ratings: {
+        average: 4.5,
+        count: 128
+      }
+    }];
+  }
+  
+  // Similar logic for other marketplaces
+  // ...
+}
+```
+
+Key aspects of the mock data implementation:
+
+- Excludes the source marketplace from results (no self-matches)
+- Creates price variations to simulate potential profit opportunities
+- Uses the original product's image and a similar title
+- Adds realistic ratings and review counts
+- Provides clickable links to simulated product pages
+
+## API-Based Matching Hierarchy
+
+When using the real API services, the algorithm follows this hierarchy of matching methods:
 
 1. **UPC/EAN Matching** (Highest Accuracy)
 2. **ASIN Direct Matching** (Amazon Only)
 3. **Brand + Title Matching** (Good Accuracy)
 4. **Title-Only Fuzzy Matching** (Lowest Accuracy)
 
-## Detailed Process
+## Detailed Matching Process
 
 ### 1. Identifier Extraction
 
@@ -57,9 +101,7 @@ if (UPC/EAN is available) {
 
 ### 3. API Request Construction
 
-#### UPC/EAN Direct Matching
-
-When a UPC/EAN is available, the API request is constructed as:
+For real API requests, the backend constructs appropriate queries for each marketplace:
 
 **For BlueCart (Walmart):**
 ```javascript
@@ -86,36 +128,13 @@ When a UPC/EAN is available, the API request is constructed as:
 }
 ```
 
-#### ASIN Direct Matching (Amazon Only)
-
-When matching Amazon to Amazon:
-
-```javascript
-{
-  type: 'product',
-  asin: productData.asin,
-  amazon_domain: 'amazon.com'
-}
-```
-
-#### Brand + Title Matching
-
-When only brand and title are available:
-
-```javascript
-{
-  type: 'search',
-  search_term: `${productData.brand} ${productData.title}`.trim()
-}
-```
-
 ### 4. Response Processing
 
-Once the API returns results, the algorithm processes them:
+Once API responses are received, the algorithm processes them:
 
 1. **Normalization**: Convert all responses to a common format
 2. **Filtering**: Remove irrelevant matches based on:
-   - Title similarity (using Levenshtein distance)
+   - Title similarity
    - Brand exact matching (when available)
    - Price reasonability (exclude outliers)
 
@@ -124,188 +143,122 @@ Once the API returns results, the algorithm processes them:
    - Price (for arbitrage potential)
    - Ratings (higher ratings preferred)
 
-### 5. Match Confidence Calculation
-
-For each potential match, a confidence score is calculated:
-
-```
-matchConfidence = 0.0;
-
-// Exact UPC/EAN match is highest confidence
-if (sourceProduct.upc === matchProduct.upc) {
-    matchConfidence = 1.0;
-}
-// ASIN match (for Amazon)
-else if (sourceProduct.asin === matchProduct.asin) {
-    matchConfidence = 1.0;
-}
-// Brand + Title similarity
-else {
-    // Brand match component (30% of confidence)
-    if (sourceProduct.brand && 
-        matchProduct.brand && 
-        sourceProduct.brand.toLowerCase() === matchProduct.brand.toLowerCase()) {
-        matchConfidence += 0.3;
-    }
-    
-    // Title similarity component (70% of confidence)
-    const titleSimilarity = calculateLevenshteinSimilarity(
-        sourceProduct.title.toLowerCase(),
-        matchProduct.title.toLowerCase()
-    );
-    
-    matchConfidence += (titleSimilarity * 0.7);
-}
-```
-
-Where `calculateLevenshteinSimilarity` returns a value between 0 and 1 based on the Levenshtein distance between two strings.
-
-## Implementation Details
-
-### Text Similarity Calculation
-
-The algorithm uses a normalized Levenshtein distance for text similarity:
-
-```javascript
-function calculateLevenshteinSimilarity(str1, str2) {
-    const levenshteinDistance = calculateLevenshteinDistance(str1, str2);
-    const maxLength = Math.max(str1.length, str2.length);
-    
-    if (maxLength === 0) return 1.0;
-    
-    return 1.0 - (levenshteinDistance / maxLength);
-}
-
-function calculateLevenshteinDistance(str1, str2) {
-    // Standard Levenshtein distance implementation
-    // ...
-}
-```
-
-### Handling Marketplace-Specific Variations
-
-Products often have slight variations in titles across marketplaces. The algorithm handles this by:
-
-1. Removing marketplace-specific phrases like "Amazon's Choice", "Walmart Exclusive", etc.
-2. Normalizing common variations:
-   - Size/quantity indicators (e.g., "Pack of 2", "2-Pack", "2 Count")
-   - Color variations (e.g., "Black", "Color: Black")
-   - Model numbers and variations
-
-### Example Transformations
-
-Original Amazon title:
-```
-"Amazon Basics 8-Sheet Capacity, Cross-Cut Paper and Credit Card Shredder, 4.1 Gallon"
-```
-
-Normalized for matching:
-```
-"basics 8 sheet capacity cross cut paper credit card shredder 4.1 gallon"
-```
-
-Original Walmart title:
-```
-"Amazon Basics Cross-Cut Paper Shredder and Credit Card Shredder, 8-Sheet Capacity, 4.1-Gallon"
-```
-
-Normalized for matching:
-```
-"basics cross cut paper shredder credit card shredder 8 sheet capacity 4.1 gallon"
-```
-
-These normalized versions have a much higher similarity score than the originals.
-
 ## Profit Calculation
 
-After finding matches, the algorithm calculates potential profit:
+For both mock data and real API results, the extension calculates potential profit:
 
 ```javascript
-function calculateProfit(sourceProduct, matchProduct, fees = {}) {
-    if (!sourceProduct.price || !matchProduct.price) {
-        return null;
-    }
+function calculateProfitMargins(sourceProduct, matchedProducts) {
+  // Skip if source product has no price
+  if (sourceProduct.price === null) return;
+  
+  // Apply marketplace fees if enabled
+  Object.keys(matchedProducts).forEach(marketplace => {
+    const products = matchedProducts[marketplace];
     
-    // Apply marketplace fees if enabled
-    let sellPrice = matchProduct.price;
-    if (fees[matchProduct.marketplace]) {
-        sellPrice = sellPrice * (1 - fees[matchProduct.marketplace]);
-    }
+    if (!products) return;
     
-    // Calculate raw profit
-    const profitAmount = sellPrice - sourceProduct.price;
-    
-    // Calculate percentage
-    const profitPercentage = (profitAmount / sourceProduct.price) * 100;
-    
-    return {
-        amount: profitAmount,
-        percentage: profitPercentage
-    };
+    products.forEach(product => {
+      if (product.price === null) {
+        product.profit = { amount: 0, percentage: 0 };
+        return;
+      }
+      
+      let sellPrice = product.price;
+      
+      // Apply estimated fees if enabled
+      if (includeFees && estimatedFees[marketplace]) {
+        const feePercentage = estimatedFees[marketplace];
+        sellPrice = sellPrice * (1 - feePercentage);
+      }
+      
+      const profitAmount = sellPrice - sourceProduct.price;
+      const profitPercentage = (profitAmount / sourceProduct.price) * 100;
+      
+      product.profit = {
+        amount: parseFloat(profitAmount.toFixed(2)),
+        percentage: parseFloat(profitPercentage.toFixed(2))
+      };
+    });
+  });
 }
 ```
+
+## Caching Implementation
+
+To minimize API usage and improve response times, the extension implements a two-level caching system:
+
+1. **Chrome Storage Cache**:
+   - Caches product comparison results using Chrome's storage API
+   - Configurable expiration time (default: 24 hours)
+   - Uses a unique cache key based on product identifier and marketplace
+
+2. **Server-Side Cache** (when using real APIs):
+   - Additional caching layer in the backend server
+   - Default TTL of 1 hour
+   - Reduces redundant API calls across different users
 
 ## Edge Cases and Handling
 
-### 1. Multiple UPC Codes
+### 1. Product Not Found
 
-Some products have multiple UPCs (different packaging, regions, etc.). The algorithm tries all available UPCs and selects the most confident match.
+If a direct match isn't found, the algorithm:
+- Falls back to search-based matching
+- Decreases confidence thresholds until matches are found or possibilities are exhausted
+- In mock data mode, always generates simulated matches
 
-### 2. Bundles and Variations
+### 2. API Failures
 
-Products may be sold as singles in one marketplace and bundles in another. The algorithm tries to detect quantity indicators in titles and normalize accordingly.
-
-### 3. Product Not Found
-
-If a direct match isn't found, the algorithm falls back to search-based matching with decreasing confidence thresholds until matches are found or possibilities are exhausted.
-
-### 4. API Failures
-
-The algorithm handles API failures gracefully by:
+The extension handles API failures gracefully by:
 1. Retrying failed requests (with backoff)
 2. Falling back to less accurate methods
 3. Using cached results when possible
 4. Providing clear error messages to the user
 
-## Performance Optimizations
+### 3. Price Unavailable
 
-To minimize API usage and improve response times:
-
-1. **Multi-level Caching**:
-   - Backend server cache (1 hour TTL)
-   - Browser local storage cache (24 hour TTL)
-
-2. **Batch Processing**:
-   - When searching multiple marketplaces, requests are made in parallel
-
-3. **Progressive Loading**:
-   - Show results as they arrive rather than waiting for all searches to complete
-
-4. **Preemptive Extraction**:
-   - Content script runs on page load to extract product data before the user clicks the extension button
+If a product price cannot be determined:
+- The product is still shown in results
+- Profit calculations show $0.00 (0%)
+- A warning is displayed to the user
 
 ## Accuracy and Limitations
 
-Based on testing across different product categories, the algorithm achieves:
+When using real APIs, the algorithm achieves:
 
 - **~95% accuracy** with UPC/EAN matching
 - **~90% accuracy** with ASIN direct matching
 - **~75-85% accuracy** with Brand + Title matching
 - **~60-70% accuracy** with Title-only matching
 
-Main limitations:
-1. Generic products with common titles may have false positives
-2. Products with significant title variations across marketplaces may be missed
-3. Marketplace-exclusive products won't have matches
-4. Seasonal or limited-time offers may not match correctly
+In mock data mode, matches are always generated but do not represent real marketplace data.
+
+## Switching Between Mock and API Modes
+
+To switch between mock data and real API mode:
+
+1. Open `src/background.ts`
+2. Find the line: `const useMockData = true;`
+3. Set to `false` to use real APIs (requires API keys and backend server)
+4. Set to `true` to use mock data (default, no API requirements)
+5. Rebuild the extension
 
 ## Future Improvements
 
 Potential enhancements to the matching algorithm:
 
-1. **Machine Learning Approach**: Train a model on known matches to improve accuracy
-2. **Image Similarity**: Use product images as an additional matching factor
-3. **Category-Specific Rules**: Apply different matching rules based on product category
-4. **User Feedback Loop**: Incorporate user feedback on match quality to improve the algorithm
+1. **Improved Mock Data Logic**:
+   - More realistic price variations based on product category
+   - Product-specific profit margin simulations
+   - Better brand and marketplace-specific pricing models
 
-By understanding this document, you should have a comprehensive grasp of how the product matching algorithm works and how to optimize it for your specific arbitrage needs.
+2. **Enhanced API Matching**:
+   - Machine learning approach for improved accuracy
+   - Category-specific matching rules
+   - Image similarity as an additional factor
+   - User feedback loop to improve matching quality
+
+3. **Performance Optimization**:
+   - Smarter caching strategies
+   - Progressive loading of results
+   - Background pre-fetching for frequently visited products
