@@ -1,7 +1,7 @@
 // background.ts - Handles API communication and caching
 
 // Configuration
-const API_BASE_URL = 'https://extension-marketplace-api-2-0-1.onrender.com';
+const API_BASE_URL = 'https://extension-marketplace-api-2-0-1.onrender.com/api';
 
 // Types
 interface ProductData {
@@ -45,9 +45,14 @@ interface ProductMatchResult {
   };
 }
 
+// Add debugging to help troubleshoot
+function logDebug(message: string, data?: any) {
+  console.log(`[E-commerce Arbitrage Background] ${message}`, data || '');
+}
+
 // Initialize
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('E-commerce Arbitrage Extension installed');
+  logDebug('Extension installed or updated');
   
   // Set default settings
   chrome.storage.local.set({
@@ -62,28 +67,50 @@ chrome.runtime.onInstalled.addListener(() => {
         target: 0.10
       }
     }
+  }, () => {
+    logDebug('Default settings saved');
+  });
+  
+  // Initialize currentProduct as null to avoid undefined issues
+  chrome.storage.local.set({ currentProduct: null }, () => {
+    logDebug('Initialized currentProduct as null');
   });
 });
 
 // Handle messages from content scripts and popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  logDebug('Received message:', message);
+  
   // Handle product data extracted from content script
   if (message.action === 'PRODUCT_DATA_EXTRACTED') {
     handleExtractedProductData(message.data);
-    sendResponse({ success: true });
+    sendResponse({ success: true, message: 'Product data received and stored' });
+    return true; // Keep the message channel open for async response
   }
   
   // Handle get pricing data request from popup
   else if (message.action === 'GET_PRICE_COMPARISON') {
+    logDebug('Getting price comparison for:', message.productData);
     getPriceComparison(message.productData)
-      .then(data => sendResponse({ success: true, data }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+      .then(data => {
+        logDebug('Got price comparison data:', data);
+        sendResponse({ success: true, data });
+      })
+      .catch(error => {
+        console.error('Error getting price comparison:', error);
+        sendResponse({ 
+          success: false, 
+          error: error.message,
+          errorDetails: error.toString()
+        });
+      });
     return true; // Indicates async response
   }
   
   // Handle clear cache request
   else if (message.action === 'CLEAR_CACHE') {
     chrome.storage.local.remove(['productCache'], () => {
+      logDebug('Cache cleared');
       sendResponse({ success: true });
     });
     return true; // Indicates async response
@@ -92,30 +119,63 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Handle settings update
   else if (message.action === 'UPDATE_SETTINGS') {
     chrome.storage.local.set({ settings: message.settings }, () => {
+      logDebug('Settings updated:', message.settings);
       sendResponse({ success: true });
     });
     return true; // Indicates async response
   }
+  
+  // If no handler matched, log a warning
+  logDebug('No handler for message action:', message.action);
+  return false;
 });
 
 // Store extracted product data temporarily
 function handleExtractedProductData(productData: ProductData): void {
-  chrome.storage.local.set({ currentProduct: productData });
+  logDebug('Storing product data:', productData);
+  chrome.storage.local.set({ currentProduct: productData }, () => {
+    if (chrome.runtime.lastError) {
+      console.error('Error storing product data:', chrome.runtime.lastError);
+    } else {
+      logDebug('Product data stored successfully');
+    }
+  });
 }
 
 // Get price comparison data for a product
 async function getPriceComparison(productData: ProductData): Promise<ProductComparison> {
   // First check if we have a cached result
   try {
+    logDebug('Attempting to get price comparison for:', productData);
+    
+    if (!productData) {
+      throw new Error('No product data provided');
+    }
+    
     const cacheKey = generateCacheKey(productData);
+    logDebug('Generated cache key:', cacheKey);
+    
     const cachedResult = await getCachedComparison(cacheKey);
     
     if (cachedResult) {
+      logDebug('Found cached comparison result');
       return cachedResult;
     }
     
-    // No cache hit, fetch from API
-    const matchedProducts = await fetchProductMatches(productData);
+    logDebug('No cache hit, fetching from API');
+    
+    // Mock data for testing when API server is unavailable
+    // Remove this in production or when API is working
+    const useMockData = true;
+    
+    let matchedProducts;
+    if (useMockData) {
+      logDebug('Using mock data instead of API call');
+      matchedProducts = generateMockProductMatches(productData);
+    } else {
+      // No cache hit, fetch from API
+      matchedProducts = await fetchProductMatches(productData);
+    }
     
     // Calculate profit for each matched product
     calculateProfitMargins(productData, matchedProducts);
@@ -130,11 +190,72 @@ async function getPriceComparison(productData: ProductData): Promise<ProductComp
     // Cache the result
     await cacheComparisonResult(cacheKey, comparisonResult);
     
+    logDebug('Returning comparison result:', comparisonResult);
     return comparisonResult;
   } catch (error) {
     console.error('Error getting price comparison:', error);
     throw error;
   }
+}
+
+// Generate mock product matches for testing
+function generateMockProductMatches(productData: ProductData): {
+  amazon?: ProductMatchResult[];
+  walmart?: ProductMatchResult[];
+  target?: ProductMatchResult[];
+} {
+  const result: {
+    amazon?: ProductMatchResult[];
+    walmart?: ProductMatchResult[];
+    target?: ProductMatchResult[];
+  } = {};
+  
+  // Don't create mock matches for the source marketplace
+  if (productData.marketplace !== 'amazon') {
+    result.amazon = [{
+      title: `${productData.title} - Amazon Version`,
+      price: productData.price ? productData.price * 1.2 : 19.99, // 20% higher price for profit
+      image: productData.imageUrl,
+      url: `https://amazon.com/dp/B07XYZABC`,
+      marketplace: 'amazon',
+      asin: 'B07XYZABC',
+      ratings: {
+        average: 4.5,
+        count: 128
+      }
+    }];
+  }
+  
+  if (productData.marketplace !== 'walmart') {
+    result.walmart = [{
+      title: `${productData.title} - Walmart Version`,
+      price: productData.price ? productData.price * 0.9 : 15.99, // 10% lower price
+      image: productData.imageUrl,
+      url: `https://walmart.com/ip/12345`,
+      marketplace: 'walmart',
+      item_id: '12345',
+      ratings: {
+        average: 4.2,
+        count: 87
+      }
+    }];
+  }
+  
+  if (productData.marketplace !== 'target') {
+    result.target = [{
+      title: `${productData.title} - Target Version`,
+      price: productData.price ? productData.price * 1.1 : 17.99, // 10% higher price
+      image: productData.imageUrl,
+      url: `https://target.com/p/item/-/A-12345`,
+      marketplace: 'target',
+      ratings: {
+        average: 4.0,
+        count: 63
+      }
+    }];
+  }
+  
+  return result;
 }
 
 // Generate a cache key for a product
@@ -147,6 +268,8 @@ function generateCacheKey(productData: ProductData): string {
 async function getCachedComparison(cacheKey: string): Promise<ProductComparison | null> {
   return new Promise((resolve) => {
     chrome.storage.local.get(['productCache', 'settings'], (result) => {
+      logDebug('Got from storage:', { cache: result.productCache ? 'exists' : 'not found', settings: result.settings });
+      
       const cache = result.productCache || {};
       const settings = result.settings || {};
       const cacheExpiration = (settings.cacheExpiration || 24) * 60 * 60 * 1000; // Convert hours to ms
@@ -157,11 +280,15 @@ async function getCachedComparison(cacheKey: string): Promise<ProductComparison 
         
         // Check if cache is still valid
         if (now - cachedItem.timestamp < cacheExpiration) {
+          logDebug('Using valid cached item');
           resolve(cachedItem);
           return;
+        } else {
+          logDebug('Cache expired');
         }
       }
       
+      logDebug('No valid cache found');
       resolve(null);
     });
   });
@@ -178,6 +305,7 @@ async function cacheComparisonResult(cacheKey: string, comparisonResult: Product
       
       // Save updated cache
       chrome.storage.local.set({ productCache: cache }, () => {
+        logDebug('Saved comparison result to cache');
         resolve();
       });
     });
@@ -195,6 +323,8 @@ async function fetchProductMatches(productData: ProductData): Promise<{
     const settings = await getSettings();
     const apiBaseUrl = settings.apiBaseUrl || API_BASE_URL;
     
+    logDebug('Using API base URL:', apiBaseUrl);
+    
     // Create request body
     const requestData = {
       source_marketplace: productData.marketplace,
@@ -202,6 +332,8 @@ async function fetchProductMatches(productData: ProductData): Promise<{
       product_title: productData.title,
       product_brand: productData.brand
     };
+    
+    logDebug('Sending API request with data:', requestData);
     
     // Make API request
     const response = await fetch(`${apiBaseUrl}/search/multi`, {
@@ -213,10 +345,13 @@ async function fetchProductMatches(productData: ProductData): Promise<{
     });
     
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`API error: ${response.status} - ${errorText}`);
     }
     
     const result = await response.json();
+    logDebug('Received API response:', result);
+    
     return result.data;
   } catch (error) {
     console.error('Error fetching product matches:', error);
@@ -233,8 +368,11 @@ function calculateProfitMargins(
     target?: ProductMatchResult[];
   }
 ): void {
+  logDebug('Calculating profit margins');
+  
   // Skip if source product has no price
   if (sourceProduct.price === null) {
+    logDebug('Source product has no price, skipping profit calculation');
     return;
   }
   
@@ -247,6 +385,8 @@ function calculateProfitMargins(
       walmart: 0.12,
       target: 0.10
     };
+    
+    logDebug('Using fee settings:', { includeFees, estimatedFees });
     
     // Calculate for each marketplace
     Object.keys(matchedProducts).forEach(marketplace => {
@@ -278,6 +418,8 @@ function calculateProfitMargins(
           amount: parseFloat(profitAmount.toFixed(2)),
           percentage: parseFloat(profitPercentage.toFixed(2))
         };
+        
+        logDebug(`Calculated profit for ${marketplace} product:`, product.profit);
       });
     });
   });
