@@ -1,60 +1,70 @@
-# E-commerce Arbitrage Assistant Features
+# Features Guide
 
-This document outlines the features and capabilities of the E-commerce Arbitrage Assistant Chrome extension, explaining how each component works and how to use it effectively.
+This document provides a comprehensive overview of the E-commerce Arbitrage Extension's features and capabilities.
 
 ## Core Features
 
-### 1. Product Data Extraction
+### Product Data Extraction
 
-The extension can automatically extract product information from supported e-commerce websites:
+The extension automatically extracts product information from supported marketplaces:
 
-- **Amazon**: Extracts ASIN, title, price, brand, and image URL
-- **Walmart**: Extracts product ID, UPC, title, price, brand, and image URL
-- **Target**: Extracts TCIN, UPC, title, price, brand, and image URL
-- **Home Depot**: Extracts product information when available
+- **Amazon**: ASIN, title, price, brand, image URL
+- **Walmart**: Product ID, UPC, title, price, brand, image URL
+- **Target**: TCIN, UPC, title, price, brand, image URL
 
-The extraction process happens automatically when you visit a product page and can be manually triggered with the "Refresh Product Data" button.
+Extraction happens automatically when visiting a product page and can be manually triggered with the "Refresh Product Data" button.
 
-### 2. Price Comparison
+### Price Comparison
 
-After extracting product data, the extension can search for the same product on other marketplaces to identify arbitrage opportunities:
+After extracting product data, the extension can search for identical products on other marketplaces:
 
 - Shows potential profit amount and percentage
 - Takes into account marketplace fees (customizable)
 - Displays product ratings and review counts
 - Provides direct links to matching products
 
-### 3. Mock Data Mode
+### Mock Data Mode
 
-The extension includes a mock data feature that works without requiring API keys or backend services:
+The default mode works without requiring API keys:
 
 - Simulates product matches based on the source product
-- Creates realistic price variations to demonstrate potential profits
-- Works offline and requires no additional setup
+- Creates realistic price variations based on marketplace and product category
+- Works offline with no additional setup
+- Demonstrates the extension's functionality without API costs
 
-### 4. Settings Customization
+### API Integration
 
-The Settings tab allows you to customize various aspects of the extension:
+For real marketplace data (optional):
 
-- **API Base URL**: For connecting to custom backend services
+- Connects to specialized APIs for accurate product matching
+- Uses UPC/EAN for precise matching when available
+- Falls back to brand and title matching
+- Caches results to minimize API usage
+
+### Settings Customization
+
+The Settings tab allows you to configure:
+
+- **API Base URL**: For connecting to your backend service
 - **Cache Expiration**: Control how long product data is cached
-- **Minimum Profit Percentage**: Filter opportunities by minimum profit threshold
+- **Minimum Profit Percentage**: Filter opportunities by profit threshold
 - **Marketplace Fees**: Customize fee percentages for each marketplace
 
 ## User Interface
 
 ### Comparison Tab
 
-The main tab provides product comparison functionality:
+The main tab provides:
 
-1. **Current Product Section**: Shows details of the product on the current page
+1. **Current Product Section**:
+   - Shows details of the product on the current page
    - Product title and image
-   - Price and platform information
+   - Price and marketplace information
    - ASIN/UPC and brand when available
 
 2. **Action Buttons**:
-   - **Refresh Product Data**: Manually triggers data extraction from the current page
-   - **Find Arbitrage Opportunities**: Searches for matches on other marketplaces
+   - "Refresh Product Data": Manually triggers data extraction
+   - "Find Arbitrage Opportunities": Searches for matches
 
 3. **Status Messages**:
    - Success and error notifications
@@ -65,14 +75,15 @@ The main tab provides product comparison functionality:
    - Grouped by marketplace (Amazon, Walmart, Target)
    - Shows profit calculations highlighted in green (positive) or red (negative)
    - Direct links to view matched products
+   - Total potential profit summary
 
 ### Settings Tab
 
-The settings interface allows customization of extension behavior:
+The settings interface allows customization of:
 
 1. **API Settings**:
    - Configure backend API URL
-   - Options for API usage and authentication
+   - Options for API usage
 
 2. **Cache Settings**:
    - Control cache duration (in hours)
@@ -86,120 +97,122 @@ The settings interface allows customization of extension behavior:
    - Customize fee percentages for Amazon, Walmart, and Target
    - Affects profit calculations
 
-## Supported Product Categories
+## Technical Features
 
-The extension has been successfully tested with various product categories:
+### Intelligent Product Matching
 
-1. **Pet Supplies**
-   - Dog nail grinders and clippers
-   - Pet grooming tools
-   - Pet care accessories
+The extension uses a sophisticated matching algorithm:
 
-2. **Household Goods**
-   - Vacuum cleaners
-   - Kitchen appliances
-   - Home organization products
+- UPC/EAN-based matching for highest accuracy
+- Brand and title matching as fallback
+- Price reasonability checks
+- Category-specific price patterns
 
-3. **Beauty Products**
-   - Body scrubs and skincare
-   - Hair care products
-   - Cosmetics
+### Multi-Level Caching
 
-4. **Grocery Items**
-   - Laundry detergent
-   - Packaged food products
-   - Household consumables
-
-5. **Electronics**
-   - Small accessories
-   - Cables and adapters
-   - Phone cases and screen protectors
-
-## Technical Implementation
-
-### Data Flow
-
-The extension follows this data flow for product analysis:
-
-1. **Content Script** extracts product data from the current page
-2. **Background Script** receives and stores the data
-3. **Popup UI** displays the extracted data and requests comparisons
-4. **Background Script** fetches or generates comparison data
-5. **Popup UI** displays the comparison results
-
-### Caching System
-
-To improve performance and reduce API usage, the extension implements a two-level caching system:
+To improve performance and reduce API usage:
 
 1. **Chrome Storage Cache**:
-   - Stores extracted product data and comparison results
-   - Configurable expiration time (default: 24 hours)
    - Persists across browser sessions
+   - Configurable expiration time
+   - Stores complete comparison results
 
-2. **Session Memory Cache**:
-   - Temporarily stores active product data
+2. **Memory Cache**:
+   - Fast access for current session
    - Cleared when the browser is closed
-   - Provides faster access than Chrome Storage
 
-### Mock Data Generation
+### DOM Resilience
 
-The extension's mock data system:
+The content scripts use multiple selector strategies:
 
-1. Creates simulated product matches based on the source product
-2. Generates price variations that demonstrate potential profit:
-   - Amazon: Usually priced 5-20% higher than source
-   - Walmart: Usually priced 5-15% lower than source
-   - Target: Varies between 5% lower to 10% higher than source
-   - Home Depot: Varies based on product category
+- Primary, secondary, and fallback selectors for each element
+- Regular expression patterns for URL and text extraction
+- Robust error handling for site changes
 
-3. Provides realistic metadata like ratings and review counts
+### Category Detection
 
-## Browser Compatibility
+The extension can detect product categories from titles:
 
-The extension is designed for Google Chrome but may work on other Chromium-based browsers:
+- Pet supplies
+- Household goods
+- Beauty products
+- Grocery items
+- Electronics
 
-- **Google Chrome**: Fully supported and tested
-- **Microsoft Edge**: Should work but not extensively tested
-- **Brave**: Should work but not extensively tested
-- **Opera**: May work but not tested
+This enables more accurate mock price simulations and better matching in API mode.
 
-## Future Development
+## Efficiency Features
 
-Planned features for future releases:
+### Smart API Usage
 
-1. **Enhanced Product Matching**:
-   - Improved accuracy for text-based matching
-   - Better handling of product variations
-   - Support for additional product attributes
+When using real APIs, the extension optimizes API calls:
 
-2. **Additional Marketplaces**:
+- Prioritizes identifier-based searches (UPC, ASIN)
+- Uses caching to minimize redundant requests
+- Implements backoff strategies for rate limiting
+- Handles API failures gracefully
+
+### Cache Management
+
+The caching system includes:
+
+- Automatic expiration based on configurable TTL
+- Manual cache clearing option
+- Status indicators for cache hits/misses
+- Separate cache keys for different product identifiers
+
+### Performance Optimization
+
+The extension is designed for efficient operation:
+
+- Minimal DOM manipulation in content scripts
+- Asynchronous message passing between components
+- Lazy loading of comparison data
+- Efficient state management with Zustand
+
+## Browser Integration
+
+### Chrome Sync
+
+Settings are stored in Chrome's local storage:
+
+- Persist across browser restarts
+- Can be manually cleared if needed
+
+### Permission Model
+
+The extension uses minimal permissions:
+
+- `activeTab`: Access to the current tab only
+- `storage`: For saving settings and cache
+- `scripting`: For content script injection
+- Host permissions only for supported marketplaces
+
+## Future Features
+
+Planned enhancements for upcoming versions:
+
+1. **Additional Marketplaces**:
    - eBay integration
-   - Best Buy integration
-   - International marketplace support
+   - Best Buy support
+   - International marketplace options
 
-3. **Analytics Features**:
+2. **Enhanced Matching**:
+   - Image similarity analysis
+   - Machine learning-based matching
+   - User feedback integration
+
+3. **Advanced Analytics**:
    - Historical price tracking
    - Profit trend analysis
-   - Inventory management recommendations
+   - Category performance insights
 
 4. **Export Capabilities**:
-   - CSV export of arbitrage opportunities
-   - Integration with spreadsheet applications
+   - CSV export of opportunities
    - Batch processing of product lists
+   - Reporting features
 
-5. **Mobile Companion App**:
-   - Scan barcodes in-store
-   - Check real-time arbitrage opportunities
+5. **Mobile Companion**:
+   - Barcode scanning in stores
+   - Real-time opportunity checking
    - Sync with desktop extension
-
-## Usage Tips
-
-For best results when using the extension:
-
-1. **Start with popular products** that are likely to be sold across multiple marketplaces
-2. **Look for brand name items** which are easier to match accurately
-3. **Check seasonal items** during peak seasons for better arbitrage opportunities
-4. **Use the refresh button** if product data doesn't appear automatically
-5. **Adjust fee percentages** to match current marketplace policies
-6. **Compare multiple variations** of the same product to find the best opportunities
-7. **Clear cache occasionally** to ensure you have the latest pricing data
