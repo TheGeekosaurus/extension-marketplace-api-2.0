@@ -5,7 +5,7 @@ import { MarketplaceFees, Settings } from '../types';
 /**
  * Default API base URL
  */
-export const DEFAULT_API_BASE_URL = 'https://extension-marketplace-api-2-0-1.onrender.com/api';
+export const DEFAULT_API_BASE_URL = 'https://extension-marketplace-api-2-0.onrender.com/api';
 
 /**
  * Default cache expiration time in hours
