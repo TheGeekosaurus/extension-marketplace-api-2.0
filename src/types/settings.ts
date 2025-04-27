@@ -1,15 +1,6 @@
 // src/types/settings.ts - Settings type definitions
 
-import { MarketplaceType } from './marketplace';
-
-/**
- * Marketplace fee structure
- */
-export interface MarketplaceFees {
-  amazon: number;
-  walmart: number;
-  target: number;
-}
+import { MarketplaceType, MarketplaceFees } from './marketplace';
 
 /**
  * User settings for the extension
