@@ -8,8 +8,8 @@ module.exports = {
   devtool: 'cheap-module-source-map',
   entry: {
     popup: './src/popup/index.tsx',
-    background: './src/background.ts',
-    contentScript: './src/contentScript.ts'
+    background: './src/background/index.ts',
+    contentScript: './src/content/index.ts'
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
