@@ -75,18 +75,6 @@ const SettingsView: React.FC = () => {
             onChange={handleSettingChange}
           />
         </div>
-        <div className="setting-item checkbox">
-          <input
-            type="checkbox"
-            id="useMockData"
-            name="useMockData"
-            checked={settings.useMockData || false}
-            onChange={handleSettingChange}
-          />
-          <label htmlFor="useMockData">
-            Use mock data (no API calls)
-          </label>
-        </div>
       </div>
       
       <div className="settings-group">
