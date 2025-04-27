@@ -47,7 +47,7 @@ export class ProfitService {
       
       if (!products) return;
       
-      products.forEach(product => {
+      products.forEach((product: ProductMatchResult) => {
         if (product.price === null) {
           product.profit = {
             amount: 0,
