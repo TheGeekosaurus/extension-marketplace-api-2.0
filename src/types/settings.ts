@@ -1,6 +1,6 @@
 // src/types/settings.ts - Settings type definitions
 
-import { MarketplaceFees } from './marketplace';
+import { MarketplaceType } from './marketplace';
 
 /**
  * User settings for the extension
@@ -35,6 +35,16 @@ export interface Settings {
    * Enable debug mode with additional logging
    */
   debugMode?: boolean;
+
+  /**
+   * Whether to use mock data instead of real API data
+   */
+  useMockData: boolean;
+  
+  /**
+   * Selected marketplace to search (if null, search all marketplaces)
+   */
+  selectedMarketplace: MarketplaceType | null;
 }
 
 /**
@@ -50,5 +60,7 @@ export const DEFAULT_SETTINGS: Settings = {
     walmart: 0.12,
     target: 0.10
   },
-  debugMode: false
+  debugMode: false,
+  useMockData: true,
+  selectedMarketplace: null
 };
