@@ -80,7 +80,7 @@ const SettingsView: React.FC = () => {
             type="checkbox"
             id="useMockData"
             name="useMockData"
-            checked={settings.useMockData}
+            checked={settings.useMockData || false}
             onChange={handleSettingChange}
           />
           <label htmlFor="useMockData">
@@ -206,7 +206,7 @@ const SettingsView: React.FC = () => {
             type="checkbox"
             id="debugMode"
             name="debugMode"
-            checked={settings.debugMode}
+            checked={settings.debugMode || false}
             onChange={handleSettingChange}
           />
           <label htmlFor="debugMode">
