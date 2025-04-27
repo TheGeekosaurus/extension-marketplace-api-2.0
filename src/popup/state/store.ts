@@ -1,8 +1,9 @@
 // src/popup/state/store.ts - Central state store for popup
 
 import { create } from 'zustand';
-import { ProductData, ProductComparison, Settings, DEFAULT_SETTINGS } from '../../types';
+import { ProductData, ProductComparison, Settings } from '../../types';
 import { sendMessage } from '../../common/messaging';
+import { DEFAULT_SETTINGS } from '../../common/constants';
 
 /**
  * Popup state interface
