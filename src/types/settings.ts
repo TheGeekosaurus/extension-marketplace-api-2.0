@@ -32,11 +32,6 @@ export interface Settings {
   estimatedFees: MarketplaceFees;
   
   /**
-   * Whether to use mock data instead of real API calls
-   */
-  useMockData?: boolean;
-  
-  /**
    * Enable debug mode with additional logging
    */
   debugMode?: boolean;
@@ -55,6 +50,5 @@ export const DEFAULT_SETTINGS: Settings = {
     walmart: 0.12,
     target: 0.10
   },
-  useMockData: true,
   debugMode: false
 };
