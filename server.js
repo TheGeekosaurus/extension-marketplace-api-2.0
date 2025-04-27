@@ -15,6 +15,22 @@ app.use(express.json());
 // Initialize cache with 1 hour TTL
 const productCache = new NodeCache({ stdTTL: 3600 });
 
+// Root endpoint - Add this to handle requests to the root path
+app.get('/', (req, res) => {
+  res.json({
+    message: 'E-commerce Arbitrage API is running',
+    version: '1.0.0',
+    endpoints: {
+      '/api/health': 'Health check endpoint',
+      '/api/test': 'API functionality test',
+      '/api/search/walmart': 'Search products on Walmart',
+      '/api/search/amazon': 'Search products on Amazon',
+      '/api/search/target': 'Search products on Target',
+      '/api/search/multi': 'Search across multiple marketplaces'
+    }
+  });
+});
+
 // API Routes
 const apiRouter = express.Router();
 
@@ -208,10 +224,13 @@ apiRouter.post('/search/multi', async (req, res) => {
           }
         }
         
-        // Make internal request to our own API endpoints
+        // Make request directly to API route instead of localhost
+        // This ensures it works properly in the production environment
+        const fullPath = `/api/search/${marketplace}`;
         const response = await axios.post(
-          `http://localhost:${PORT}/api/search/${marketplace}`, 
-          searchParams
+          fullPath, 
+          searchParams,
+          { baseURL: `http://localhost:${PORT}` }
         );
         
         results[marketplace] = response.data.data;
@@ -373,7 +392,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Also add this endpoint to check if the API is working correctly
+// API test endpoint
 app.get('/api/test', (req, res) => {
   res.json({
     message: 'API is working correctly',
