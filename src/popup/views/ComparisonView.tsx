@@ -31,9 +31,9 @@ const ComparisonView: React.FC = () => {
 
   // Determine if current product is from the selected marketplace
   const isCurrentProductFromSelectedMarketplace = 
-    settings.selectedMarketplace && 
-    currentProduct && 
-    currentProduct.marketplace === settings.selectedMarketplace;
+    Boolean(settings.selectedMarketplace) && 
+    Boolean(currentProduct) && 
+    currentProduct?.marketplace === settings.selectedMarketplace;
   
   return (
     <div className="comparison-container">
@@ -62,7 +62,7 @@ const ComparisonView: React.FC = () => {
             className="compare-button"
             onClick={fetchPriceComparison}
             disabled={loading || !currentProduct || isCurrentProductFromSelectedMarketplace}
-            title={isCurrentProductFromSelectedMarketplace ? 
+            title={isCurrentProductFromSelectedMarketplace && settings.selectedMarketplace ? 
               `Cannot search for arbitrage when the current product is from the selected marketplace (${settings.selectedMarketplace})` : 
               'Find arbitrage opportunities'}
           >
@@ -70,7 +70,7 @@ const ComparisonView: React.FC = () => {
           </button>
         </div>
         
-        {isCurrentProductFromSelectedMarketplace && (
+        {isCurrentProductFromSelectedMarketplace && settings.selectedMarketplace && (
           <div className="error-message">
             You have selected {formatMarketplace(settings.selectedMarketplace)} in Settings, but the current product is also from {formatMarketplace(settings.selectedMarketplace)}. 
             Please either change the selected marketplace or visit a product on a different marketplace.
