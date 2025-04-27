@@ -21,7 +21,7 @@ export class ApiClient {
     data?: R
   ): Promise<ApiResponse<T>> {
     try {
-      const settings = await getSettings();
+      const settings = getSettings();
       const apiBaseUrl = settings.apiBaseUrl;
       
       // Ensure endpoint starts with a slash if the base URL doesn't end with one
@@ -30,16 +30,23 @@ export class ApiClient {
       
       console.log(`[E-commerce Arbitrage API] Requesting ${method} ${url}`, data);
       
-      const response = await fetch(url, {
+      const requestOptions: RequestInit = {
         method,
         headers: {
           'Content-Type': 'application/json'
         },
         body: method === 'POST' ? JSON.stringify(data) : undefined
-      });
+      };
+      
+      console.log('[E-commerce Arbitrage API] Request options:', requestOptions);
+      
+      const response = await fetch(url, requestOptions);
+      
+      console.log(`[E-commerce Arbitrage API] Response status:`, response.status, response.statusText);
       
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(`[E-commerce Arbitrage API] Error response:`, errorText);
         throw new Error(`API error: ${response.status} - ${errorText}`);
       }
       
@@ -51,7 +58,7 @@ export class ApiClient {
         ...result
       };
     } catch (error) {
-      console.error(`Error making API request to ${endpoint}:`, error);
+      console.error(`[E-commerce Arbitrage API] Error making API request to ${endpoint}:`, error);
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error)
@@ -65,6 +72,7 @@ export class ApiClient {
    * @returns Information about API services
    */
   static async getApiInfo(): Promise<ApiResponse<any>> {
+    console.log('[E-commerce Arbitrage API] Getting API info');
     return this.makeRequest('/test', 'GET');
   }
   
@@ -74,6 +82,7 @@ export class ApiClient {
    * @returns API health status
    */
   static async checkHealth(): Promise<ApiResponse<any>> {
+    console.log('[E-commerce Arbitrage API] Checking API health');
     return this.makeRequest('/health', 'GET');
   }
 }
