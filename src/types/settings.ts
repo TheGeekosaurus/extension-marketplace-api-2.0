@@ -32,7 +32,7 @@ export interface Settings {
   estimatedFees: MarketplaceFees;
   
   /**
-   * Enable debug mode with additional logging
+   * Enable debug mode with additional logging and mock data
    */
   debugMode?: boolean;
   
@@ -55,6 +55,6 @@ export const DEFAULT_SETTINGS: Settings = {
     walmart: 0.12,
     target: 0.10
   },
-  debugMode: true,
+  debugMode: true, // Enable for development and testing
   selectedMarketplace: null
 };
