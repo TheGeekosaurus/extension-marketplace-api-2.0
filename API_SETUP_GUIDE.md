@@ -1,170 +1,159 @@
-# API Setup Guide for E-commerce Arbitrage Extension
+# API Setup Guide
 
-This guide explains how to set up the API services for the E-commerce Arbitrage Extension. Note that **the extension will work with mock data without any API setup**, so you can use it immediately for testing and demonstration purposes.
+This guide explains how to set up the API services for the E-commerce Arbitrage Extension to use real marketplace data instead of mock data.
 
-## Mock Data Mode
+## Overview
 
-By default, the extension is configured to use mock data instead of making real API calls. This means:
+By default, the extension uses mock data to demonstrate functionality without requiring API keys or backend services. To use real marketplace data, you'll need to:
 
-- No API keys are required for basic functionality
-- Price comparisons will be simulated based on the source product
-- You can test the extension without setting up a backend server
+1. Sign up for the required API services
+2. Configure your API keys
+3. Deploy the backend server
+4. Update the extension settings
 
-If you want to use real data from the APIs, follow the steps below to configure the necessary services and API keys.
+## Required API Services
 
-## TrajectData API Services Overview
-
-The extension uses the following API services from TrajectData for real data mode:
+The extension uses the following API services:
 
 1. **BlueCart API** - For Walmart product data
-2. **Rainforest API** - For Amazon product data 
-3. **BigBox API** - For Target product data (if available)
+2. **Rainforest API** - For Amazon product data
+3. **BigBox API** - For Target product data (optional)
 
-## Step 1: BlueCart API Setup (Walmart Data)
+## Step 1: Sign Up for API Services
 
-### Registration Process
-1. Visit [BlueCart API](https://bluecartapi.com) and click on "Sign Up" or "Get Started"
-2. Create an account using your email address
-3. Select a pricing plan based on your expected usage:
+### BlueCart API (Walmart Data)
+
+1. Visit [BlueCart API](https://bluecartapi.com) and create an account
+2. Choose a subscription plan:
    - Free tier: Limited requests (good for testing)
-   - Basic tier: Suitable for moderate usage
-   - Pro/Enterprise: For high-volume usage
+   - Paid tiers: For regular usage
+3. Generate an API key from your dashboard
 
-### Obtaining Your API Key
-1. After registration, log in to your BlueCart dashboard
-2. Navigate to "API Keys" or "Account Settings"
-3. Generate a new API key if one isn't already created
-4. Copy the API key to your clipboard
+### Rainforest API (Amazon Data)
 
-### Pricing Considerations
-- BlueCart typically charges per request
-- Consider starting with the smallest plan and upgrading as needed
-- Most plans offer around 1,000 requests for $20-30/month
-- If you're planning high-volume usage, contact their sales team for custom pricing
+1. Visit [Rainforest API](https://rainforestapi.com) and create an account
+2. Select a subscription plan:
+   - Free tier: ~100 requests for testing
+   - Paid tiers: For regular usage
+3. Copy your API key from the dashboard
 
-## Step 2: Rainforest API Setup (Amazon Data)
+### BigBox API (Target Data)
 
-### Registration Process
-1. Visit [Rainforest API](https://rainforestapi.com) and click on "Sign Up"
-2. Create an account with your email address
-3. Choose a subscription plan:
-   - Free tier: Usually offers ~100 requests for testing
-   - Standard/Business tiers: For regular usage
+The Target integration is optional. If you want to include Target data:
 
-### Obtaining Your API Key
-1. After signing up, go to your Rainforest API dashboard
-2. Look for "API Keys" or "Dashboard" section
-3. Create a new API key if needed
-4. Copy the generated API key
+1. Visit [BigBox API](https://bigboxapi.com) and create an account (if available)
+2. Select an appropriate subscription plan
+3. Generate an API key
 
-### Pricing Considerations
-- Rainforest typically has a credit-based pricing model
-- Different request types cost different amounts of credits
-- Product search requests usually cost 1 credit
-- Detailed product lookups may cost 2-3 credits
-- Monitor your usage to avoid unexpected charges
+## Step 2: Configure API Keys
 
-## Step 3: BigBox API Setup (Target Data)
+1. Create a `.env` file in the root directory (or copy from `.env.example`):
 
-### Registration Process
-1. Visit [BigBox API](https://bigboxapi.com) (if available) or the TrajectData website
-2. Follow the sign-up process
-3. Select an appropriate subscription plan
+```
+# API Keys for TrajectData services
+BLUECART_API_KEY=your_bluecart_key_here
+RAINFOREST_API_KEY=your_rainforest_key_here
+BIGBOX_API_KEY=your_bigbox_key_here  # Optional
 
-### Obtaining Your API Key
-1. Log in to your BigBox API account
-2. Navigate to the API key section
-3. Generate a new key
-4. Copy the key to your clipboard
+# Server Configuration
+PORT=3000
+NODE_ENV=development
 
-### Pricing Considerations
-- Target data may be more expensive than other marketplaces
-- If budget is a concern, you can start by implementing only Amazon and Walmart
-- Add Target integration later as your arbitrage business grows
+# Cache Settings
+CACHE_TTL=3600  # Time-to-live in seconds (1 hour)
+```
 
-## Step 4: Configure Your Extension for Real API Usage
+2. Replace the placeholder values with your actual API keys
 
-1. In your project directory, open the `.env` file
-2. Add your API keys to the corresponding variables:
-   ```
-   BLUECART_API_KEY=your_bluecart_api_key_here
-   RAINFOREST_API_KEY=your_rainforest_api_key_here
-   BIGBOX_API_KEY=your_bigbox_api_key_here
-   ```
-3. Save the file
+## Step 3: Deploy the Backend Server
 
-4. Open `src/background.ts` and update the following setting:
-   ```javascript
-   // Change this
-   const useMockData = true;
-   
-   // To this
-   const useMockData = false;
-   ```
+The backend server handles API requests and provides caching to minimize API usage.
 
-5. Rebuild the extension:
-   ```
-   npm run build
+### Local Development
+
+For local testing:
+
+```bash
+# Install dependencies if you haven't already
+npm install
+
+# Start the backend server
+npm run start:backend
+```
+
+The server will run on http://localhost:3000 by default.
+
+### Production Deployment
+
+For production use, you can deploy the server to any Node.js hosting service:
+
+1. **Render.com** (recommended):
+   - Connect your GitHub repository
+   - Create a new Web Service with the following settings:
+     - Build Command: `npm install`
+     - Start Command: `node server.js`
+   - Add your API keys as environment variables
+
+2. **Heroku**:
+   ```bash
+   heroku create
+   heroku config:set BLUECART_API_KEY=your_key RAINFOREST_API_KEY=your_key
+   git push heroku main
    ```
 
-6. Start the backend server:
-   ```
-   npm run start:backend
-   ```
+3. **Other providers** (AWS, Digital Ocean, etc.):
+   - Follow their documentation for Node.js deployments
+   - Make sure to set up the required environment variables
 
-## API Credit Optimization Tips
+## Step 4: Enable Real API Mode
 
-### General Best Practices
-1. **Use Caching Effectively**
-   - The default cache expiration is 24 hours, which works well for most products
-   - For products with volatile pricing, you may want to reduce this to 12 hours
-   - For stable products, consider increasing to 48-72 hours
+1. Open `src/background/index.ts`
+2. Find where mock service is used and modify it to use real APIs:
 
-2. **Prioritize Identifier-Based Searches**
-   - Searches by UPC or ASIN are more efficient than text-based searches
-   - Make sure your content scripts properly extract these identifiers
+```typescript
+// Change from mock implementation to real API
+// const matchedProducts = MockService.generateEnhancedMockMatches(productData);
+const response = await MarketplaceApi.searchAcrossMarketplaces(productData);
+const matchedProducts = response.data || {};
+```
 
-3. **Batch Your Research**
-   - Research similar products in one session to maximize cache hits
-   - Research categories of products methodically to improve efficiency
+3. Update the API base URL in the extension settings:
+   - Open the extension popup
+   - Go to the Settings tab
+   - Set the "API Base URL" to your deployed server URL (e.g., `https://your-server.onrender.com/api`)
+   - Click "Save Settings"
 
-### By Marketplace
-1. **Amazon (Rainforest API)**
-   - Product detail requests cost more than search requests
-   - When possible, extract information from search results instead of detailed lookups
+## API Credit Optimization
 
-2. **Walmart (BlueCart API)**
-   - Search by UPC whenever available for most accurate results
-   - Avoid broad category searches which consume more credits
+To minimize API costs:
 
-3. **Target (BigBox API)**
-   - If implementing Target integration, prioritize high-margin products only
-   - Target's product details can be expensive to query
+1. **Use the Caching System**:
+   - The default cache expiration is 24 hours
+   - Adjust the cache duration in Settings based on your needs
 
-## Monitoring and Managing API Usage
+2. **Prioritize UPC/ASIN Searches**:
+   - The extension attempts to extract UPC or ASIN from product pages
+   - These identifier-based searches are more efficient than text searches
 
-1. Each API service provides a dashboard to monitor your usage
-2. Set up budget alerts if available
-3. The extension automatically tracks cache hit rates, which you can view in browser console logs
-4. Consider implementing a usage logging system in the backend for better tracking
+3. **Monitor API Usage**:
+   - Check your usage in each API service's dashboard
+   - The extension records cache hit rates in the browser console
 
-## Troubleshooting API Issues
+## Troubleshooting
 
-If you encounter issues with the API connections:
+If you encounter issues with API connections:
 
-1. **Check API Key Validity**
-   - Ensure your API keys are correctly entered in the `.env` file
-   - Verify that your subscription is active and has available credits
+1. **Check API Key Validity**:
+   - Verify that your API keys are correctly entered in the `.env` file
+   - Ensure your subscription is active
 
-2. **Network Connectivity**
-   - Make sure your server can connect to the API endpoints
-   - Check for any firewall or proxy settings that might block the connections
+2. **Test the API Server**:
+   - Visit `https://your-server.com/api/health` to check server status
+   - Try `https://your-server.com/api/test` to verify API functionality
 
-3. **Rate Limiting**
-   - Most APIs have rate limits - check if you're hitting these limits
-   - Implement request throttling or backoff strategies if necessary
+3. **Server Connectivity**:
+   - Check for CORS issues (the server includes CORS middleware)
+   - Verify that your extension has permission to access the API domain
 
-4. **Fallback to Mock Data**
-   - If API issues persist, you can temporarily switch back to mock data mode
-
-By following these guidelines, you'll be able to effectively set up and use the API services for the E-commerce Arbitrage Extension.
+4. **Fallback to Mock Data**:
+   - If API issues persist, you can switch back to mock data mode
