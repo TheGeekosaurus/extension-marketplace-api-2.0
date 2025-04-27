@@ -51,7 +51,7 @@ export interface Settings {
  * Default settings
  */
 export const DEFAULT_SETTINGS: Settings = {
-  apiBaseUrl: 'https://extension-marketplace-api-2-0-1.onrender.com/api',
+  apiBaseUrl: 'https://extension-marketplace-api-2-0.onrender.com/api',
   cacheExpiration: 24,
   minimumProfitPercentage: 10,
   includeFees: true,
