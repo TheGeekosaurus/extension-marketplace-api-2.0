@@ -3,6 +3,15 @@
 import { MarketplaceType } from './marketplace';
 
 /**
+ * Marketplace fee structure
+ */
+export interface MarketplaceFees {
+  amazon: number;
+  walmart: number;
+  target: number;
+}
+
+/**
  * User settings for the extension
  */
 export interface Settings {
@@ -39,12 +48,12 @@ export interface Settings {
   /**
    * Whether to use mock data instead of real API data
    */
-  useMockData: boolean;
+  useMockData?: boolean;
   
   /**
    * Selected marketplace to search (if null, search all marketplaces)
    */
-  selectedMarketplace: MarketplaceType | null;
+  selectedMarketplace?: MarketplaceType | null;
 }
 
 /**
