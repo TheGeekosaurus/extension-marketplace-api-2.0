@@ -1,14 +1,93 @@
 # E-commerce Arbitrage Assistant
 
-A Chrome extension for e-commerce arbitrage that helps users compare product prices between marketplaces (Amazon, Walmart, Target) to identify potential profit opportunities.
+A Chrome extension that helps e-commerce arbitrage sellers identify profit opportunities by comparing product prices between Amazon, Walmart, and Target.
 
 ## Features
 
-- Extracts product information from current page (Amazon, Walmart, or Target)
-- Uses mock data to simulate API calls when backend services are unavailable
-- Shows price comparisons and potential profit margins
-- Caches previously matched products to minimize API usage
-- Customizable settings for profit calculation and marketplace fees
+- **Automatic Product Detection**: Extracts product data from current page on supported marketplaces
+- **Price Comparison**: Shows potential profit margins across marketplaces
+- **Mock Data Mode**: Works without API keys using simulated data (default)
+- **Real API Integration**: Optional connection to marketplace data APIs
+- **Profit Calculation**: Configurable fee settings and minimum profit filters
+- **Caching System**: Minimizes API usage and improves performance
+
+## Installation
+
+### Local Development
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/ecommerce-arbitrage-extension.git
+   cd ecommerce-arbitrage-extension
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Build the extension:
+   ```bash
+   npm run build
+   ```
+
+4. Load the extension in Chrome:
+   - Navigate to `chrome://extensions/`
+   - Enable "Developer mode"
+   - Click "Load unpacked" and select the `dist` folder from your project
+
+### Production Build
+
+For deployment to Chrome Web Store:
+
+```bash
+npm run build
+# The extension package will be created in the dist folder
+```
+
+## Usage
+
+1. Navigate to a product page on a supported marketplace (Amazon, Walmart, or Target)
+2. Click the extension icon in your browser toolbar
+3. The extension automatically extracts product data from the current page
+4. Click "Find Arbitrage Opportunities" to see potential profit opportunities
+5. Use the Settings tab to configure your preferences
+
+### Supported Product Types
+
+The extension has been tested with various product categories including:
+
+- Pet supplies (dog nail grinders, pet clippers)
+- Household goods (vacuum cleaners, kitchen appliances)
+- Beauty products (body scrubs, skin care)
+- Grocery items (laundry detergent, packaged foods)
+- Electronics (cables, phone accessories)
+
+## Configuration
+
+### Mock Data Mode (Default)
+
+By default, the extension uses mock data instead of making real API calls. This allows you to test the extension without setting up API keys or backend services.
+
+### Real API Mode
+
+To use real marketplace data, you'll need to:
+
+1. Sign up for the required API services
+2. Configure your API keys
+3. Deploy the backend server
+4. Update the extension settings
+
+See [API_SETUP.md](API_SETUP.md) for detailed instructions.
+
+## Architecture
+
+The extension consists of several main components:
+
+- **Content Scripts**: Extract product data from marketplace pages
+- **Background Script**: Manages data processing and API communication
+- **Popup UI**: React-based interface for user interaction
+- **Backend Server**: Optional Express server for API integration
 
 ## Project Structure
 
@@ -16,110 +95,64 @@ A Chrome extension for e-commerce arbitrage that helps users compare product pri
 ecommerce-arbitrage-extension/
 ├── dist/                      # Build output folder
 ├── public/                    # Static assets
-│   ├── icons/                 # Extension icons
-│   └── manifest.json          # Chrome extension manifest
-├── src/                       # Source code
+├── src/
+│   ├── background/            # Background script components
+│   │   ├── api/               # API service integrations
+│   │   ├── services/          # Business logic services
+│   │   └── utils/             # Utility functions
+│   ├── content/               # Content scripts
+│   │   ├── extractors/        # Site-specific data extractors
+│   │   ├── selectors/         # DOM selectors for extraction
+│   │   └── utils/             # Extraction utilities
 │   ├── popup/                 # Popup UI components
-│   │   ├── index.tsx          # Popup entry point
-│   │   ├── Popup.tsx          # Main popup component
-│   │   ├── Popup.css          # Popup styles
-│   │   └── popup.html         # Popup HTML template
-│   ├── background.ts          # Background script
-│   └── contentScript.ts       # Content script for product data extraction
+│   │   ├── components/        # Reusable UI components
+│   │   ├── state/             # State management
+│   │   ├── views/             # Main view components
+│   │   └── index.tsx          # Popup entry point
+│   ├── common/                # Shared code
+│   └── types/                 # TypeScript type definitions
 ├── server.js                  # Backend server for API integration
-├── .env                       # Environment variables configuration
-├── package.json               # npm dependencies and scripts
-├── tsconfig.json              # TypeScript configuration
-└── webpack.config.js          # Webpack configuration
+└── docs/                      # Documentation files
 ```
 
-## Setup Instructions
+## Development
 
-### 1. Prerequisites
+### Available Scripts
 
-- Node.js (v16 or newer)
-- npm (v8 or newer)
-- Chrome browser
+- `npm run build`: Build the extension for production
+- `npm run watch:extension`: Build with watch mode for development
+- `npm run start:backend`: Start the backend server for API integration
 
-### 2. Clone and Install Dependencies
+### Adding Support for New Marketplaces
 
-```bash
-git clone <repository-url>
-cd ecommerce-arbitrage-extension
-npm install
-```
+To add support for a new marketplace:
 
-### 3. Configure API Keys
+1. Create a new extractor in `src/content/extractors/`
+2. Add selectors in `src/content/selectors/`
+3. Update the marketplace types in `src/types/marketplace.ts`
+4. Modify the content script to detect the new marketplace
 
-1. Sign up for TrajectData API services (optional, extension will work with mock data):
-   - BlueCart API for Walmart data: [https://bluecartapi.com](https://bluecartapi.com)
-   - Rainforest API for Amazon data: [https://rainforestapi.com](https://rainforestapi.com)
-   - BigBox API for Target data (if available): [https://bigboxapi.com](https://bigboxapi.com)
+## Deployment
 
-2. Copy the `.env.example` file to `.env` and add your API keys:
+### Extension
+
+Build the extension package:
 
 ```bash
-cp .env.example .env
-# Edit the .env file with your API keys
-```
-
-### 4. Build the Extension
-
-```bash
-# Build the extension
 npm run build
-
-# Or for development with watch mode
-npm run watch:extension
 ```
 
-### 5. Load the Extension in Chrome
+Then upload the contents of the `dist` directory to the Chrome Web Store.
 
-1. Open Chrome and navigate to `chrome://extensions/`
-2. Enable "Developer mode" (toggle in the top-right corner)
-3. Click "Load unpacked" and select the `dist` folder from your project
-4. The extension should now be installed and visible in your browser toolbar
+### Backend Server
 
-## Using the Extension
+The backend server can be deployed to any Node.js hosting service:
 
-1. Navigate to a product page on Amazon, Walmart, or Target
-2. Click on the extension icon in your browser toolbar
-3. The extension will automatically attempt to extract product data
-4. If no data is detected, click the "Refresh Product Data" button
-5. Once product data is loaded, click "Find Arbitrage Opportunities" to see potential profit opportunities
-6. Use the Settings tab to configure profit margins, marketplace fees, and other preferences
-
-## Troubleshooting
-
-If the extension doesn't work as expected:
-
-1. Make sure you're on a product detail page, not a search results or category page
-2. Click the "Refresh Product Data" button to manually trigger data extraction
-3. Check the browser console for logs (F12 > Console) - look for logs with the prefix `[E-commerce Arbitrage]`
-4. If you encounter a "Communication error", try reloading the page
-5. For product pages with unusual layouts, try different products or marketplaces
-
-## Mock Data Implementation
-
-The extension includes a mock data feature that simulates API responses when the backend services are unavailable. This allows for testing and demonstration without requiring actual API keys or backend server setup.
-
-To disable mock data and use real API calls:
-
-1. Go to `src/background.ts`
-2. Find the line `const useMockData = true;`
-3. Change it to `const useMockData = false;`
-4. Rebuild the extension
-
-## Supported Product Types
-
-The extension has been tested with various product types including:
-
-- Pet supplies (e.g., dog nail grinders, pet clippers)
-- Household goods (e.g., vacuum cleaners)
-- Beauty products (e.g., body scrubs)
-- Grocery items (e.g., laundry detergent)
-
-It may work with other product categories as well, but extraction success depends on the specific structure of the product page.
+```bash
+# Example using render.com
+npm run build
+# Follow your hosting service's deployment instructions
+```
 
 ## License
 
