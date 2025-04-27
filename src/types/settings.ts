@@ -32,11 +32,6 @@ export interface Settings {
   estimatedFees: MarketplaceFees;
   
   /**
-   * Enable debug mode with additional logging and mock data
-   */
-  debugMode?: boolean;
-  
-  /**
    * Selected marketplace to search (if null, search all marketplaces)
    */
   selectedMarketplace?: MarketplaceType | null;
@@ -55,6 +50,5 @@ export const DEFAULT_SETTINGS: Settings = {
     walmart: 0.12,
     target: 0.10
   },
-  debugMode: true, // Enable for development and testing
   selectedMarketplace: null
 };
