@@ -4,7 +4,7 @@ import { ProductData, ProductComparison } from '../types';
 import { MarketplaceApi } from './api/marketplaceApi';
 import { CacheService } from './services/cacheService';
 import { ProfitService } from './services/profitService';
-import { initializeSettings, getSettings, saveSettings } from './services/settingsService';
+import { initializeSettings, getSettings, loadSettings, saveSettings } from './services/settingsService';
 import { createLogger } from './utils/logger';
 import { handleError } from './utils/errorHandler';
 
@@ -40,7 +40,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   else if (message.action === 'GET_PRICE_COMPARISON') {
     logger.info('Getting price comparison for:', message.productData);
     
-    getPriceComparison(message.productData)
+    // First ensure we have the latest settings
+    loadSettings()
+      .then(() => {
+        return getPriceComparison(message.productData);
+      })
       .then(data => {
         logger.info('Got price comparison data');
         logger.debug('Price comparison data details:', data);
@@ -122,7 +126,13 @@ async function getPriceComparison(productData: ProductData): Promise<ProductComp
       throw new Error('No product data provided');
     }
     
-    const cacheKey = CacheService.generateProductCacheKey(productData);
+    // Load current settings (ensures we have the latest)
+    const settings = await loadSettings();
+    logger.info('Using settings:', settings);
+    
+    // Generate a cache key that includes the selected marketplace setting
+    const marketplaceSuffix = settings.selectedMarketplace ? `-${settings.selectedMarketplace}` : '';
+    const cacheKey = CacheService.generateProductCacheKey(productData) + marketplaceSuffix;
     logger.info('Generated cache key:', cacheKey);
     
     // Check cache first
@@ -135,8 +145,8 @@ async function getPriceComparison(productData: ProductData): Promise<ProductComp
     
     logger.info('No cache hit, fetching fresh data');
     
-    // Fetch from API
-    logger.info('Fetching product matches from API');
+    // Fetch from API or mock service
+    logger.info('Fetching product matches');
     const response = await MarketplaceApi.searchAcrossMarketplaces(productData);
     
     if (!response.success) {

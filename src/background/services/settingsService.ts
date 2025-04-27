@@ -36,7 +36,8 @@ export async function loadSettings(): Promise<Settings> {
         return;
       }
       
-      // Merge with default settings
+      // Merge with default settings to ensure all fields exist
+      // This is important when adding new settings fields
       const loadedSettings = result.settings || {};
       const mergedSettings = {
         ...DEFAULT_SETTINGS,
@@ -60,7 +61,13 @@ export async function loadSettings(): Promise<Settings> {
  */
 export async function saveSettings(settings: Settings): Promise<void> {
   return new Promise<void>((resolve, reject) => {
-    chrome.storage.local.set({ settings }, () => {
+    // Ensure all required settings are present by merging with defaults
+    const mergedSettings = {
+      ...DEFAULT_SETTINGS,
+      ...settings
+    };
+    
+    chrome.storage.local.set({ settings: mergedSettings }, () => {
       if (chrome.runtime.lastError) {
         console.error('Error saving settings:', chrome.runtime.lastError);
         reject(chrome.runtime.lastError);
@@ -68,9 +75,9 @@ export async function saveSettings(settings: Settings): Promise<void> {
       }
       
       // Update cache
-      cachedSettings = settings;
+      cachedSettings = mergedSettings;
       
-      console.log('[E-commerce Arbitrage Settings] Saved settings:', settings);
+      console.log('[E-commerce Arbitrage Settings] Saved settings:', mergedSettings);
       resolve();
     });
   });
@@ -99,8 +106,8 @@ export async function updateSettings(partialSettings: Partial<Settings>): Promis
 export async function initializeSettings(): Promise<void> {
   const settings = await loadSettings();
   
-  // Already initialized
-  if (Object.keys(settings).length > 0) {
+  // Already initialized with required fields
+  if (settings.useMockData !== undefined && settings.selectedMarketplace !== undefined) {
     return;
   }
   

@@ -4,6 +4,7 @@ import React from 'react';
 import { useSettings } from '../state/selectors';
 import { usePopupStore } from '../state/store';
 import StatusMessage from '../components/StatusMessage';
+import { MarketplaceType } from '../../types';
 
 /**
  * Settings view component
@@ -31,7 +32,14 @@ const SettingsView: React.FC = () => {
 
     // For regular settings (not nested)
     if (!name.includes('.')) {
-      updateSettings({ [name]: inputValue });
+      if (name === 'selectedMarketplace') {
+        // Handle the marketplace selection dropdown
+        updateSettings({ 
+          [name]: value === 'null' ? null : value as MarketplaceType 
+        });
+      } else {
+        updateSettings({ [name]: inputValue });
+      }
     }
   };
   
@@ -66,6 +74,36 @@ const SettingsView: React.FC = () => {
             value={settings.apiBaseUrl}
             onChange={handleSettingChange}
           />
+        </div>
+        <div className="setting-item checkbox">
+          <input
+            type="checkbox"
+            id="useMockData"
+            name="useMockData"
+            checked={settings.useMockData}
+            onChange={handleSettingChange}
+          />
+          <label htmlFor="useMockData">
+            Use mock data (no API calls)
+          </label>
+        </div>
+      </div>
+      
+      <div className="settings-group">
+        <h4>Search Settings</h4>
+        <div className="setting-item">
+          <label htmlFor="selectedMarketplace">Search Only In:</label>
+          <select
+            id="selectedMarketplace"
+            name="selectedMarketplace"
+            value={settings.selectedMarketplace || 'null'}
+            onChange={handleSettingChange}
+          >
+            <option value="null">All Marketplaces</option>
+            <option value="amazon">Amazon Only</option>
+            <option value="walmart">Walmart Only</option>
+            <option value="target">Target Only</option>
+          </select>
         </div>
       </div>
       
