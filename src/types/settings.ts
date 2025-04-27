@@ -35,11 +35,6 @@ export interface Settings {
    * Enable debug mode with additional logging
    */
   debugMode?: boolean;
-
-  /**
-   * Whether to use mock data instead of real API data
-   */
-  useMockData?: boolean;
   
   /**
    * Selected marketplace to search (if null, search all marketplaces)
@@ -60,7 +55,6 @@ export const DEFAULT_SETTINGS: Settings = {
     walmart: 0.12,
     target: 0.10
   },
-  debugMode: false,
-  useMockData: true,
+  debugMode: true,
   selectedMarketplace: null
 };
