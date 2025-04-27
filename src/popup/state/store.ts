@@ -114,7 +114,8 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       setLoading, 
       setError, 
       setStatus, 
-      setComparison 
+      setComparison,
+      settings 
     } = get();
     
     if (!currentProduct) {
@@ -124,9 +125,18 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     
     setLoading(true);
     setError(null);
-    setStatus('Fetching price comparison data...');
+    
+    // Show which marketplace we're searching in the status message
+    if (settings.selectedMarketplace) {
+      setStatus(`Fetching price comparison data from ${settings.selectedMarketplace.charAt(0).toUpperCase() + settings.selectedMarketplace.slice(1)}...`);
+    } else {
+      setStatus('Fetching price comparison data from all marketplaces...');
+    }
     
     try {
+      // Ensure we have the latest settings before making the API request
+      await loadSettings();
+      
       const response = await sendMessage({ 
         action: 'GET_PRICE_COMPARISON', 
         productData: currentProduct 
@@ -134,7 +144,11 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       
       if (response && response.success) {
         setComparison(response.data);
-        setStatus('Price comparison data loaded successfully');
+        if (settings.selectedMarketplace) {
+          setStatus(`Price comparison data from ${settings.selectedMarketplace} loaded successfully`);
+        } else {
+          setStatus('Price comparison data loaded successfully');
+        }
       } else {
         setError(response?.error || 'Failed to get price comparison');
         setStatus(response?.errorDetails || 'An unknown error occurred');
@@ -186,3 +200,16 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     }
   }
 }));
+
+/**
+ * Load settings from chrome storage
+ * @returns Promise that resolves to loaded settings
+ */
+export async function loadSettings(): Promise<Settings> {
+  return new Promise<Settings>((resolve) => {
+    chrome.storage.local.get(['settings'], (result) => {
+      const settings = result.settings || DEFAULT_SETTINGS;
+      resolve(settings);
+    });
+  });
+}
