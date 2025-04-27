@@ -1,5 +1,7 @@
 // src/types/product.ts - Centralized product type definitions
 
+import { MarketplaceType } from './marketplace';
+
 /**
  * Represents product data extracted from a marketplace page
  */
