@@ -1,7 +1,7 @@
 services:
   # Backend API Service
   - type: web
-    name: ecommerce-arbitrage-api
+    name: extension-marketplace-api-2-0
     runtime: node
     plan: free
     buildCommand: npm install
@@ -10,7 +10,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 10000
+        value: 3000
       - key: BLUECART_API_KEY
         sync: false
       - key: RAINFOREST_API_KEY
