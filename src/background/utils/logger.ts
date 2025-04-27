@@ -1,7 +1,5 @@
 // src/background/utils/logger.ts - Enhanced logging utility
 
-import { getSettings } from '../services/settingsService';
-
 /**
  * Log levels
  */
@@ -31,7 +29,7 @@ export class Logger {
   }
   
   /**
-   * Log a debug message (only in debug mode)
+   * Log a debug message
    * 
    * @param message - Message to log
    * @param data - Optional data to include
@@ -78,13 +76,6 @@ export class Logger {
    * @param data - Optional data to include
    */
   private log(level: LogLevel, message: string, data?: any): void {
-    const settings = getSettings();
-    
-    // Only log debug messages if in debug mode
-    if (level === LogLevel.DEBUG && !settings.debugMode) {
-      return;
-    }
-    
     const prefix = `[E-commerce Arbitrage][${this.module}]`;
     const timestamp = new Date().toISOString();
     const logMessage = `${timestamp} ${prefix} ${message}`;
