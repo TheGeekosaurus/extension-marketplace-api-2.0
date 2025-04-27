@@ -145,8 +145,8 @@ async function getPriceComparison(productData: ProductData): Promise<ProductComp
     
     logger.info('No cache hit, fetching fresh data');
     
-    // Fetch from API or mock service
-    logger.info('Fetching product matches');
+    // Fetch from API
+    logger.info('Fetching product matches from API');
     const response = await MarketplaceApi.searchAcrossMarketplaces(productData);
     
     if (!response.success) {
