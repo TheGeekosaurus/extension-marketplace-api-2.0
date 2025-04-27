@@ -96,9 +96,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const productData = extractProductData();
       console.log('[E-commerce Arbitrage] Sending product data response:', productData);
       sendResponse({ productData });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('[E-commerce Arbitrage] Error retrieving product data:', error);
-      sendResponse({ error: error.toString() });
+      sendResponse({ error: error instanceof Error ? error.toString() : String(error) });
     }
   }
   return true; // Keep the message channel open for async response
