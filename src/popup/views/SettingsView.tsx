@@ -187,22 +187,6 @@ const SettingsView: React.FC = () => {
         </div>
       </div>
       
-      <div className="settings-group">
-        <h4>Debug Settings</h4>
-        <div className="setting-item checkbox">
-          <input
-            type="checkbox"
-            id="debugMode"
-            name="debugMode"
-            checked={settings.debugMode || false}
-            onChange={handleSettingChange}
-          />
-          <label htmlFor="debugMode">
-            Enable debug mode
-          </label>
-        </div>
-      </div>
-      
       <button className="save-settings-button" onClick={saveSettings}>
         Save Settings
       </button>

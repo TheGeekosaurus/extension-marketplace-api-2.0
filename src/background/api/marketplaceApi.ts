@@ -12,7 +12,6 @@ import { BlueCartApi } from './bluecart';
 import { RainforestApi } from './rainforest';
 import { BigBoxApi } from './bigbox';
 import { getSettings } from '../services/settingsService';
-import { MockService } from '../services/mockService';
 
 /**
  * Combined marketplace API for multi-marketplace searches
@@ -73,27 +72,6 @@ export class MarketplaceApi {
       };
       
       console.log('[E-commerce Arbitrage API] Multi-marketplace search for:', requestData);
-      
-      // Check if we should use mock data (for testing purposes)
-      if (settings.debugMode) {
-        console.log('[E-commerce Arbitrage API] Using mock data for testing');
-        let mockData = MockService.generateEnhancedMockMatches(productData);
-        
-        // Filter mock data to only include the selected marketplace if one is set
-        if (settings.selectedMarketplace) {
-          const filteredMockData: Record<string, ProductMatchResult[]> = {};
-          if (mockData[settings.selectedMarketplace]) {
-            filteredMockData[settings.selectedMarketplace] = mockData[settings.selectedMarketplace];
-          }
-          mockData = filteredMockData;
-        }
-        
-        return {
-          success: true,
-          source: "api", // Change "mock" to "api" to match type definition
-          data: mockData
-        };
-      }
       
       // Make the API request - specify 'search/multi' (not '/search/multi')
       const response = await ApiClient.makeRequest<Record<string, ProductMatchResult[]>>(
