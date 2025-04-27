@@ -10,7 +10,7 @@ The extension is built with:
 - **React**: For the popup UI
 - **Zustand**: For state management
 - **Webpack**: For bundling
-- **Express**: For the backend server (optional)
+- **Express**: For the backend server
 
 ## Setup Development Environment
 
@@ -54,7 +54,6 @@ Key components:
 - `api/`: API client implementations
 - `services/`: Business logic
   - `cacheService.ts`: Manages caching of data
-  - `mockService.ts`: Generates mock data
   - `profitService.ts`: Calculates profit margins
   - `settingsService.ts`: Manages user settings
 - `utils/`: Utility functions
@@ -103,8 +102,7 @@ Located in `server.js`, the Express server provides:
 2. Popup sends request to background script
 3. Background script checks cache for existing comparison data
 4. If not in cache:
-   - In mock mode: Generates simulated matches
-   - In API mode: Makes API requests to find matches
+   - Makes API requests to find matches
 5. Calculates profit margins for each match
 6. Returns results to popup for display
 
@@ -127,8 +125,7 @@ To add support for a new marketplace:
 3. Update `MarketplaceType` in `src/types/marketplace.ts`
 4. Modify the content script to detect the new marketplace
 5. Add API client for the marketplace
-6. Update the mock data generation logic
-7. Add fee settings for the new marketplace
+6. Update the fee settings for the new marketplace
 
 Example for a new marketplace called "ShopMart":
 
