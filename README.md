@@ -6,8 +6,7 @@ A Chrome extension that helps e-commerce arbitrage sellers identify profit oppor
 
 - **Automatic Product Detection**: Extracts product data from current page on supported marketplaces
 - **Price Comparison**: Shows potential profit margins across marketplaces
-- **Mock Data Mode**: Works without API keys using simulated data (default)
-- **Real API Integration**: Optional connection to marketplace data APIs
+- **Live API Integration**: Connects to marketplace data APIs to find matching products
 - **Profit Calculation**: Configurable fee settings and minimum profit filters
 - **Caching System**: Minimizes API usage and improves performance
 
@@ -65,13 +64,9 @@ The extension has been tested with various product categories including:
 
 ## Configuration
 
-### Mock Data Mode (Default)
+### API Mode
 
-By default, the extension uses mock data instead of making real API calls. This allows you to test the extension without setting up API keys or backend services.
-
-### Real API Mode
-
-To use real marketplace data, you'll need to:
+The extension uses dedicated API services to search for products across marketplaces. To use it, you need to:
 
 1. Sign up for the required API services
 2. Configure your API keys
@@ -87,7 +82,7 @@ The extension consists of several main components:
 - **Content Scripts**: Extract product data from marketplace pages
 - **Background Script**: Manages data processing and API communication
 - **Popup UI**: React-based interface for user interaction
-- **Backend Server**: Optional Express server for API integration
+- **Backend Server**: Express server for API integration
 
 ## Project Structure
 
