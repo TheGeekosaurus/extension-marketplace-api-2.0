@@ -12,7 +12,6 @@ import { BlueCartApi } from './bluecart';
 import { RainforestApi } from './rainforest';
 import { BigBoxApi } from './bigbox';
 import { getSettings } from '../services/settingsService';
-import { MockService } from '../services/mockService';
 
 /**
  * Combined marketplace API for multi-marketplace searches
@@ -52,35 +51,6 @@ export class MarketplaceApi {
         return {
           success: true,
           data: {}
-        };
-      }
-      
-      // Use mock data if set in settings
-      if (settings.useMockData) {
-        console.log('[E-commerce Arbitrage API] Using mock data');
-        const mockData = MockService.generateEnhancedMockMatches(productData);
-        
-        // If we're searching specific marketplaces, filter the mock data
-        if (settings.selectedMarketplace) {
-          const filteredData: Record<string, ProductMatchResult[]> = {};
-          
-          marketplaces.forEach(marketplace => {
-            if (mockData[marketplace]) {
-              filteredData[marketplace] = mockData[marketplace];
-            }
-          });
-          
-          return {
-            success: true,
-            source: 'cache', // Use 'cache' instead of 'mock' to match the expected type
-            data: filteredData
-          };
-        }
-        
-        return {
-          success: true,
-          source: 'cache', // Use 'cache' instead of 'mock' to match the expected type
-          data: mockData
         };
       }
       
