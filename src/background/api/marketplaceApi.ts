@@ -71,7 +71,7 @@ export class MarketplaceApi {
         const mockData = MockService.generateEnhancedMockMatches(productData);
         return {
           success: true,
-          source: 'mock',
+          source: "api", // Change "mock" to "api" to match type definition
           data: mockData
         };
       }
