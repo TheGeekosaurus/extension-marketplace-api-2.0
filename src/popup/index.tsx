@@ -1,4 +1,5 @@
-// index.tsx - Entry point for popup
+// src/popup/index.tsx - Entry point for popup
+
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import Popup from './Popup';
