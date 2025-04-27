@@ -24,7 +24,7 @@ export interface MultiSearchRequest {
  */
 export interface ApiResponse<T> {
   success: boolean;
-  source?: 'api' | 'cache';
+  source?: 'api' | 'cache' | 'mock'; // Added 'mock' as a valid source
   data?: T;
   error?: string;
   errorDetails?: string;
