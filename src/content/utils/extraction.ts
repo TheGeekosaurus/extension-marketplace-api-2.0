@@ -10,8 +10,12 @@ import { MarketplaceType } from '../../types';
  */
 export function findElement(selectors: string[]): Element | null {
   for (const selector of selectors) {
-    const element = document.querySelector(selector);
-    if (element) return element;
+    try {
+      const element = document.querySelector(selector);
+      if (element) return element;
+    } catch (e) {
+      console.error(`[E-commerce Arbitrage] Error with selector ${selector}:`, e);
+    }
   }
   return null;
 }
@@ -51,15 +55,15 @@ export function extractWithRegex(patterns: RegExp[], text: string): string | nul
 export function parsePrice(priceText: string | null): number | null {
   if (!priceText) return null;
   
-  // Remove currency symbols and commas
-  const priceMatch = priceText.match(/[$£€]?([0-9,.]+)/);
-  if (!priceMatch) return null;
+  // Remove currency symbols, commas, and whitespace
+  const cleanedText = priceText.replace(/[^\d.,]/g, '');
   
-  // Convert to number
+  // Handle different number formats
   try {
-    return parseFloat(priceMatch[1].replace(/,/g, ''));
+    // Convert to number
+    return parseFloat(cleanedText.replace(/,/g, '.'));
   } catch (error) {
-    console.error('Error parsing price:', error);
+    console.error('[E-commerce Arbitrage] Error parsing price:', error);
     return null;
   }
 }
@@ -104,5 +108,52 @@ export function findInElements(
       if (match && match[0]) return match[0];
     }
   }
+  return null;
+}
+
+/**
+ * Finds UPC or similar identifiers in page content
+ * 
+ * @param regexPattern Pattern to match identifier
+ * @returns Extracted identifier or null
+ */
+export function findIdentifierInPage(regexPattern: RegExp): string | null {
+  const pageSource = document.documentElement.innerHTML;
+  const match = pageSource.match(regexPattern);
+  return match && match[1] ? match[1] : null;
+}
+
+/**
+ * Get image URL safely from an img element
+ * 
+ * @param imgElement Image element
+ * @returns Image URL or null
+ */
+export function getImageUrl(imgElement: Element | null): string | null {
+  if (!imgElement) return null;
+  
+  try {
+    // Try src attribute
+    const src = (imgElement as HTMLImageElement).src;
+    if (src) return src;
+    
+    // Try data-src attribute (lazy loading)
+    const dataSrc = imgElement.getAttribute('data-src');
+    if (dataSrc) return dataSrc;
+    
+    // Try srcset attribute
+    const srcset = imgElement.getAttribute('srcset');
+    if (srcset) {
+      // Get first URL from srcset
+      const srcsetParts = srcset.split(',');
+      if (srcsetParts.length > 0) {
+        const firstSrc = srcsetParts[0].trim().split(' ')[0];
+        if (firstSrc) return firstSrc;
+      }
+    }
+  } catch (e) {
+    console.error('[E-commerce Arbitrage] Error getting image URL:', e);
+  }
+  
   return null;
 }
