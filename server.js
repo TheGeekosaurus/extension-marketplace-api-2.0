@@ -333,25 +333,6 @@ function processWalmartResponse(data) {
   try {
     console.log('Processing Walmart response');
     
-    // Simulate results for now
-    // For testing, create a mock product response
-    return [
-      {
-        title: "Walmart Test Product",
-        price: 14.99,
-        image: "https://i5.walmartimages.com/asr/example.jpeg",
-        url: "https://www.walmart.com/ip/test-product/12345",
-        marketplace: 'walmart',
-        item_id: "12345",
-        upc: "123456789012",
-        ratings: {
-          average: 4.5,
-          count: 120
-        }
-      }
-    ];
-    
-    /* Uncomment and adjust when BlueCart API is properly set up
     // Handle search results
     if (data.search_results) {
       console.log(`Found ${data.search_results.length} Walmart search results`);
@@ -390,7 +371,6 @@ function processWalmartResponse(data) {
     
     console.log('No Walmart search results or product data found');
     return [];
-    */
   } catch (error) {
     console.error('Error processing Walmart response:', error);
     return [];
@@ -401,24 +381,6 @@ function processAmazonResponse(data) {
   try {
     console.log('Processing Amazon response');
     
-    // Simulate results for now
-    // For testing, create a mock product response
-    return [
-      {
-        title: "Amazon Test Product",
-        price: 19.99,
-        image: "https://m.media-amazon.com/images/I/example.jpg",
-        url: "https://www.amazon.com/dp/ABCDEF1234",
-        marketplace: 'amazon',
-        asin: "ABCDEF1234",
-        ratings: {
-          average: 4.2,
-          count: 350
-        }
-      }
-    ];
-    
-    /* Uncomment and adjust when Rainforest API is properly set up
     // Handle search results
     if (data.search_results) {
       console.log(`Found ${data.search_results.length} Amazon search results`);
@@ -455,7 +417,6 @@ function processAmazonResponse(data) {
     
     console.log('No Amazon search results or product data found');
     return [];
-    */
   } catch (error) {
     console.error('Error processing Amazon response:', error);
     return [];
@@ -466,25 +427,6 @@ function processTargetResponse(data) {
   try {
     console.log('Processing Target response');
     
-    // Simulate results for now
-    // For testing, create a mock product response
-    return [
-      {
-        title: "Target Test Product",
-        price: 16.99,
-        image: "https://target.scene7.com/is/image/Target/example",
-        url: "https://www.target.com/p/test-product/-/A-12345",
-        marketplace: 'target',
-        tcin: "12345",
-        upc: "123456789014",
-        ratings: {
-          average: 4.3,
-          count: 85
-        }
-      }
-    ];
-    
-    /* Uncomment and adjust when BigBox API is properly set up
     // Target API response structure may vary
     // This is a placeholder implementation
     if (data.search_results) {
@@ -506,7 +448,6 @@ function processTargetResponse(data) {
     
     console.log('No Target search results found');
     return [];
-    */
   } catch (error) {
     console.error('Error processing Target response:', error);
     return [];
