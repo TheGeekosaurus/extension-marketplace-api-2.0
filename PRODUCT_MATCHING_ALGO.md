@@ -1,264 +1,119 @@
-# Product Matching Algorithm Documentation
+# Product Matching Algorithm
 
-This document describes the product matching algorithm used in the E-commerce Arbitrage Extension, including the logic behind identifying the same product across different marketplaces and the implementation of mock data for testing.
+This document explains how the E-commerce Arbitrage Extension matches products across different marketplaces to identify arbitrage opportunities.
 
 ## Overview
 
-The product matching algorithm is designed to find the same product across different e-commerce platforms (Amazon, Walmart, Target) to identify arbitrage opportunities. The extension currently implements two modes:
+The product matching algorithm is designed to find identical products across Amazon, Walmart, and Target to calculate potential profit margins. The extension implements two modes:
 
 1. **Mock Data Mode** (Default): Simulates product matches without making API calls
-2. **API Mode**: Uses TrajectData's APIs to find real matches across marketplaces
+2. **API Mode**: Uses specialized APIs to find real matches across marketplaces
 
 ## Mock Data Implementation
 
-When using mock data (the default mode), the algorithm generates simulated product matches based on the source product:
+In mock data mode, the algorithm generates realistic simulated matches based on the source product:
 
-```javascript
-function generateMockProductMatches(productData: ProductData): {
-  amazon?: ProductMatchResult[];
-  walmart?: ProductMatchResult[];
-  target?: ProductMatchResult[];
-} {
-  const result = {};
-  
-  // Don't create mock matches for the source marketplace
-  if (productData.marketplace !== 'amazon') {
-    result.amazon = [{
-      title: `${productData.title} - Amazon Version`,
-      price: productData.price ? productData.price * 1.2 : 19.99, // 20% higher price for profit
-      image: productData.imageUrl,
-      url: `https://amazon.com/dp/B07XYZABC`,
-      marketplace: 'amazon',
-      asin: 'B07XYZABC',
-      ratings: {
-        average: 4.5,
-        count: 128
-      }
-    }];
-  }
-  
-  // Similar logic for other marketplaces
-  // ...
-}
-```
+- Creates price variations that reflect typical marketplace pricing patterns
+- Excludes matches for the source marketplace (no self-matches)
+- Adjusts prices based on detected product category
+- Generates realistic ratings and review counts
 
-Key aspects of the mock data implementation:
+### Price Variation Logic
 
-- Excludes the source marketplace from results (no self-matches)
-- Creates price variations to simulate potential profit opportunities
-- Uses the original product's image and a similar title
-- Adds realistic ratings and review counts
-- Provides clickable links to simulated product pages
+The algorithm applies different price multipliers based on product category and marketplace:
 
-## API-Based Matching Hierarchy
+| Category | Amazon | Walmart | Target |
+|----------|--------|---------|--------|
+| Pet Supplies | +25% | -15% | +5% |
+| Household | +15% | -20% | -5% |
+| Beauty | +20% | -10% | +15% |
+| Grocery | +30% | -25% | -15% |
+| Electronics | +5% | +0% | +10% |
+| General | +20% | -10% | +10% |
 
-When using the real API services, the algorithm follows this hierarchy of matching methods:
+This reflects real-world pricing patterns where Amazon often charges premium prices for convenience, while Walmart typically offers lower prices on household and grocery items.
 
-1. **UPC/EAN Matching** (Highest Accuracy)
-2. **ASIN Direct Matching** (Amazon Only)
-3. **Brand + Title Matching** (Good Accuracy)
-4. **Title-Only Fuzzy Matching** (Lowest Accuracy)
+## API-Based Matching
 
-## Detailed Matching Process
+When using real APIs, the algorithm follows this matching hierarchy (from most to least accurate):
 
-### 1. Identifier Extraction
+1. **UPC/EAN Matching**: Direct product identification using universal product codes
+2. **ASIN Direct Matching**: Amazon-specific product identification
+3. **Brand + Title Matching**: Fuzzy matching using brand and product name
+4. **Title-Only Matching**: Last resort using just the product name
 
-When a user visits a product page, the content script attempts to extract the following identifiers:
+### Matching Process
 
-**For Amazon:**
-- ASIN (Always available in URL)
-- UPC/EAN (May be available in product details)
-- Brand (Usually available)
-- Product Title (Always available)
+1. **Identifier Extraction**:
+   - The content script extracts available identifiers (UPC, ASIN, product ID)
+   - It also captures brand, title, and other metadata
 
-**For Walmart:**
-- Item ID (Available in URL)
-- UPC (Often available in product details or page source)
-- Brand (Usually available)
-- Product Title (Always available)
+2. **Strategy Selection**:
+   ```
+   if (UPC/EAN available) {
+       Use UPC/EAN for direct matching (most accurate)
+   } else if (source is Amazon AND target is Amazon) {
+       Use ASIN for direct matching
+   } else if (Brand available) {
+       Use Brand + Title for search-based matching
+   } else {
+       Use Title for fuzzy matching (least accurate)
+   }
+   ```
 
-**For Target:**
-- TCIN (Available in URL or page source)
-- UPC (Sometimes available in page source)
-- Brand (Usually available)
-- Product Title (Always available)
+3. **API Request Construction**:
+   - Constructs appropriate queries for each marketplace API
+   - Uses the most specific identifier available
 
-### 2. Matching Strategy Selection
-
-Based on available identifiers, the algorithm determines the best matching strategy:
-
-```
-if (UPC/EAN is available) {
-    Use UPC/EAN for direct matching (most accurate)
-} else if (source is Amazon AND target is Amazon) {
-    Use ASIN for direct matching
-} else if (Brand is available) {
-    Use Brand + Title for search-based matching
-} else {
-    Use Title for fuzzy matching (least accurate)
-}
-```
-
-### 3. API Request Construction
-
-For real API requests, the backend constructs appropriate queries for each marketplace:
-
-**For BlueCart (Walmart):**
-```javascript
-{
-  type: 'product',
-  upc: productData.upc  // 12-digit UPC
-}
-```
-
-**For Rainforest (Amazon):**
-```javascript
-{
-  type: 'search',
-  amazon_domain: 'amazon.com',
-  search_term: productData.upc  // Search by UPC
-}
-```
-
-**For BigBox (Target):**
-```javascript
-{
-  type: 'product',
-  upc: productData.upc
-}
-```
-
-### 4. Response Processing
-
-Once API responses are received, the algorithm processes them:
-
-1. **Normalization**: Convert all responses to a common format
-2. **Filtering**: Remove irrelevant matches based on:
-   - Title similarity
-   - Brand exact matching (when available)
-   - Price reasonability (exclude outliers)
-
-3. **Ranking**: Sort results by:
-   - Match confidence score
-   - Price (for arbitrage potential)
-   - Ratings (higher ratings preferred)
+4. **Result Processing**:
+   - Normalizes responses to a common format
+   - Filters results by relevance and similarity
+   - Ranks by confidence score, price, and ratings
 
 ## Profit Calculation
 
-For both mock data and real API results, the extension calculates potential profit:
+Once matching products are found (either through mock data or real APIs), the extension calculates potential profit:
+
+1. Takes the source product's price as the purchase cost
+2. Takes the matched product's price as the selling price
+3. Applies marketplace fees if enabled in settings
+4. Calculates profit amount and percentage
+5. Filters results based on minimum profit threshold
 
 ```javascript
-function calculateProfitMargins(sourceProduct, matchedProducts) {
-  // Skip if source product has no price
-  if (sourceProduct.price === null) return;
-  
-  // Apply marketplace fees if enabled
-  Object.keys(matchedProducts).forEach(marketplace => {
-    const products = matchedProducts[marketplace];
-    
-    if (!products) return;
-    
-    products.forEach(product => {
-      if (product.price === null) {
-        product.profit = { amount: 0, percentage: 0 };
-        return;
-      }
-      
-      let sellPrice = product.price;
-      
-      // Apply estimated fees if enabled
-      if (includeFees && estimatedFees[marketplace]) {
-        const feePercentage = estimatedFees[marketplace];
-        sellPrice = sellPrice * (1 - feePercentage);
-      }
-      
-      const profitAmount = sellPrice - sourceProduct.price;
-      const profitPercentage = (profitAmount / sourceProduct.price) * 100;
-      
-      product.profit = {
-        amount: parseFloat(profitAmount.toFixed(2)),
-        percentage: parseFloat(profitPercentage.toFixed(2))
-      };
-    });
-  });
-}
+// Simplified calculation logic
+profitAmount = sellingPrice * (1 - marketplaceFee) - purchasePrice;
+profitPercentage = (profitAmount / purchasePrice) * 100;
 ```
 
-## Caching Implementation
+## Caching System
 
-To minimize API usage and improve response times, the extension implements a two-level caching system:
+To minimize API usage and improve performance, the extension implements a two-level caching system:
 
 1. **Chrome Storage Cache**:
-   - Caches product comparison results using Chrome's storage API
+   - Persistently stores product comparison results
    - Configurable expiration time (default: 24 hours)
-   - Uses a unique cache key based on product identifier and marketplace
 
-2. **Server-Side Cache** (when using real APIs):
-   - Additional caching layer in the backend server
-   - Default TTL of 1 hour
-   - Reduces redundant API calls across different users
+2. **Memory Cache**:
+   - Temporarily stores active product data for faster access
+   - Cleared when the browser is closed
 
-## Edge Cases and Handling
+## Algorithm Accuracy
 
-### 1. Product Not Found
-
-If a direct match isn't found, the algorithm:
-- Falls back to search-based matching
-- Decreases confidence thresholds until matches are found or possibilities are exhausted
-- In mock data mode, always generates simulated matches
-
-### 2. API Failures
-
-The extension handles API failures gracefully by:
-1. Retrying failed requests (with backoff)
-2. Falling back to less accurate methods
-3. Using cached results when possible
-4. Providing clear error messages to the user
-
-### 3. Price Unavailable
-
-If a product price cannot be determined:
-- The product is still shown in results
-- Profit calculations show $0.00 (0%)
-- A warning is displayed to the user
-
-## Accuracy and Limitations
-
-When using real APIs, the algorithm achieves:
+When using real APIs, the expected accuracy rates are:
 
 - **~95% accuracy** with UPC/EAN matching
 - **~90% accuracy** with ASIN direct matching
 - **~75-85% accuracy** with Brand + Title matching
 - **~60-70% accuracy** with Title-only matching
 
-In mock data mode, matches are always generated but do not represent real marketplace data.
-
-## Switching Between Mock and API Modes
-
-To switch between mock data and real API mode:
-
-1. Open `src/background.ts`
-2. Find the line: `const useMockData = true;`
-3. Set to `false` to use real APIs (requires API keys and backend server)
-4. Set to `true` to use mock data (default, no API requirements)
-5. Rebuild the extension
+In mock data mode, matches are always generated but represent simulated data rather than actual marketplace listings.
 
 ## Future Improvements
 
-Potential enhancements to the matching algorithm:
+Planned enhancements to the matching algorithm:
 
-1. **Improved Mock Data Logic**:
-   - More realistic price variations based on product category
-   - Product-specific profit margin simulations
-   - Better brand and marketplace-specific pricing models
-
-2. **Enhanced API Matching**:
-   - Machine learning approach for improved accuracy
-   - Category-specific matching rules
-   - Image similarity as an additional factor
-   - User feedback loop to improve matching quality
-
-3. **Performance Optimization**:
-   - Smarter caching strategies
-   - Progressive loading of results
-   - Background pre-fetching for frequently visited products
+1. **Image-based similarity** as an additional matching factor
+2. **Machine learning approach** for improved accuracy
+3. **Category-specific matching rules** for better results in specialized niches
+4. **User feedback loop** to improve matching quality over time
