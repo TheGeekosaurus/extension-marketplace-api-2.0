@@ -8,7 +8,8 @@ import {
   extractWithRegex, 
   parsePrice, 
   logExtraction,
-  findInElements
+  findInElements,
+  getImageUrl
 } from '../utils/extraction';
 
 /**
@@ -48,24 +49,48 @@ export function extractWalmartProductData(): ProductData | null {
       const centsElement = findElement(walmartSelectors.priceCents);
       const cents = centsElement ? extractText(centsElement) || '00' : '00';
       
-      const priceText = dollarsValue.replace(/[^0-9.]/g, '');
+      // Try to parse price directly from the combined value
+      price = parsePrice(dollarsValue);
       
-      if (priceText) {
-        price = parseFloat(priceText);
-        if (centsElement && !priceText.includes('.')) {
-          price += parseFloat(cents) / 100;
+      // If price couldn't be parsed, try with cents
+      if (price === null || price === 0) {
+        // Remove currency symbols and non-numeric characters except decimal point
+        const cleanValue = dollarsValue.replace(/[^\d.]/g, '');
+        
+        // Add cents if needed
+        if (!cleanValue.includes('.') && cents) {
+          price = parseFloat(`${cleanValue}.${cents}`);
+        } else {
+          price = parseFloat(cleanValue);
         }
-        logExtraction('walmart', 'Extracted price', price);
       }
+      
+      // Try to extract directly from the page
+      if (isNaN(price) || price === 0) {
+        const priceMatch = document.body.innerText.match(/\$\s*(\d+\.\d{2})/);
+        if (priceMatch && priceMatch[1]) {
+          price = parseFloat(priceMatch[1]);
+        }
+      }
+      
+      logExtraction('walmart', 'Extracted price', price);
     }
     
     // Extract brand
     const brandElement = findElement(walmartSelectors.brand);
-    const brand = extractText(brandElement);
+    let brand = extractText(brandElement);
+    
+    // Clean up brand text
+    if (brand?.includes('Visit the ')) {
+      brand = brand.replace('Visit the ', '').replace(' Store', '');
+    }
+    
     logExtraction('walmart', 'Extracted brand', brand);
     
     // Try to find UPC in product details
     let upc: string | null = null;
+    
+    // Look in details section
     const detailsSection = findElement(['.prod-ProductDetails', '[data-testid="product-details"]']);
     
     if (detailsSection) {
@@ -76,19 +101,33 @@ export function extractWalmartProductData(): ProductData | null {
       }
     }
     
-    // For Walmart, we can often find this in the page source
+    // If not found in details, try page source
     if (!upc) {
       const pageSource = document.documentElement.innerHTML;
-      const upcMatch = pageSource.match(walmartRegexPatterns.upc[1]);
-      if (upcMatch && upcMatch[1]) {
-        upc = upcMatch[1];
-        logExtraction('walmart', 'Found UPC in page source', upc);
+      
+      // Try specific regex patterns
+      for (const pattern of walmartRegexPatterns.upc) {
+        const upcMatch = pageSource.match(pattern);
+        if (upcMatch && upcMatch[1]) {
+          upc = upcMatch[1];
+          logExtraction('walmart', 'Found UPC in page source', upc);
+          break;
+        }
+      }
+      
+      // Try general search
+      if (!upc) {
+        const genericUpcMatch = pageSource.match(/UPC:?\s*(\d{12})/i);
+        if (genericUpcMatch && genericUpcMatch[1]) {
+          upc = genericUpcMatch[1];
+          logExtraction('walmart', 'Found UPC with generic search', upc);
+        }
       }
     }
     
     // Get main product image
     const imageElement = findElement(walmartSelectors.image);
-    const imageUrl = imageElement ? (imageElement as HTMLImageElement).src : null;
+    const imageUrl = getImageUrl(imageElement);
     logExtraction('walmart', 'Extracted image URL', imageUrl);
     
     const productData: ProductData = {
