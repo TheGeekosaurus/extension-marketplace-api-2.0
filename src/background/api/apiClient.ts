@@ -24,9 +24,13 @@ export class ApiClient {
       const settings = await getSettings();
       const apiBaseUrl = settings.apiBaseUrl;
       
-      console.log(`[E-commerce Arbitrage API] Requesting ${method} ${endpoint}`, data);
+      // Ensure endpoint starts with a slash if the base URL doesn't end with one
+      const formattedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+      const url = `${apiBaseUrl}${formattedEndpoint}`;
       
-      const response = await fetch(`${apiBaseUrl}${endpoint}`, {
+      console.log(`[E-commerce Arbitrage API] Requesting ${method} ${url}`, data);
+      
+      const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json'
