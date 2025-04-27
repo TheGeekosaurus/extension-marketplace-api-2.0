@@ -1,10 +1,10 @@
 # API Setup Guide
 
-This guide explains how to set up the API services for the E-commerce Arbitrage Extension to use real marketplace data instead of mock data.
+This guide explains how to set up the API services for the E-commerce Arbitrage Extension to use real marketplace data.
 
 ## Overview
 
-By default, the extension uses mock data to demonstrate functionality without requiring API keys or backend services. To use real marketplace data, you'll need to:
+The extension connects to specialized API services to gather product data from different marketplaces. To use this functionality, you'll need to:
 
 1. Sign up for the required API services
 2. Configure your API keys
@@ -50,7 +50,7 @@ The Target integration is optional. If you want to include Target data:
 1. Create a `.env` file in the root directory (or copy from `.env.example`):
 
 ```
-# API Keys for TrajectData services
+# API Keys for marketplace data services
 BLUECART_API_KEY=your_bluecart_key_here
 RAINFOREST_API_KEY=your_rainforest_key_here
 BIGBOX_API_KEY=your_bigbox_key_here  # Optional
@@ -105,31 +105,20 @@ For production use, you can deploy the server to any Node.js hosting service:
    - Follow their documentation for Node.js deployments
    - Make sure to set up the required environment variables
 
-## Step 4: Enable Real API Mode
+## Step 4: Configure Extension Settings
 
-1. Open `src/background/index.ts`
-2. Find where mock service is used and modify it to use real APIs:
-
-```typescript
-// Change from mock implementation to real API
-// const matchedProducts = MockService.generateEnhancedMockMatches(productData);
-const response = await MarketplaceApi.searchAcrossMarketplaces(productData);
-const matchedProducts = response.data || {};
-```
-
-3. Update the API base URL in the extension settings:
-   - Open the extension popup
-   - Go to the Settings tab
-   - Set the "API Base URL" to your deployed server URL (e.g., `https://your-server.onrender.com/api`)
-   - Click "Save Settings"
+1. Open the extension
+2. Go to the Settings tab
+3. Set the "API Base URL" to your deployed server URL (e.g., `https://your-server.onrender.com/api`)
+4. Click "Save Settings"
 
 ## API Credit Optimization
 
 To minimize API costs:
 
 1. **Use the Caching System**:
-   - The default cache expiration is 24 hours
    - Adjust the cache duration in Settings based on your needs
+   - The default cache expiration is 24 hours
 
 2. **Prioritize UPC/ASIN Searches**:
    - The extension attempts to extract UPC or ASIN from product pages
@@ -137,7 +126,6 @@ To minimize API costs:
 
 3. **Monitor API Usage**:
    - Check your usage in each API service's dashboard
-   - The extension records cache hit rates in the browser console
 
 ## Troubleshooting
 
@@ -155,5 +143,6 @@ If you encounter issues with API connections:
    - Check for CORS issues (the server includes CORS middleware)
    - Verify that your extension has permission to access the API domain
 
-4. **Fallback to Mock Data**:
-   - If API issues persist, you can switch back to mock data mode
+4. **Verify Extension Settings**:
+   - Make sure the API Base URL in the extension settings is correct
+   - Clear the cache to ensure you're making fresh requests

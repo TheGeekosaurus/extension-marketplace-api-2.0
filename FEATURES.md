@@ -16,27 +16,17 @@ Extraction happens automatically when visiting a product page and can be manuall
 
 ### Price Comparison
 
-After extracting product data, the extension can search for identical products on other marketplaces:
+After extracting product data, the extension searches for identical products on other marketplaces:
 
 - Shows potential profit amount and percentage
 - Takes into account marketplace fees (customizable)
 - Displays product ratings and review counts
 - Provides direct links to matching products
 
-### Mock Data Mode
-
-The default mode works without requiring API keys:
-
-- Simulates product matches based on the source product
-- Creates realistic price variations based on marketplace and product category
-- Works offline with no additional setup
-- Demonstrates the extension's functionality without API costs
-
 ### API Integration
 
-For real marketplace data (optional):
+The extension connects to specialized marketplace APIs for accurate product matching:
 
-- Connects to specialized APIs for accurate product matching
 - Uses UPC/EAN for precise matching when available
 - Falls back to brand and title matching
 - Caches results to minimize API usage
@@ -83,7 +73,6 @@ The settings interface allows customization of:
 
 1. **API Settings**:
    - Configure backend API URL
-   - Options for API usage
 
 2. **Cache Settings**:
    - Control cache duration (in hours)
@@ -139,13 +128,13 @@ The extension can detect product categories from titles:
 - Grocery items
 - Electronics
 
-This enables more accurate mock price simulations and better matching in API mode.
+This enables more accurate matching with the API.
 
 ## Efficiency Features
 
 ### Smart API Usage
 
-When using real APIs, the extension optimizes API calls:
+The extension optimizes API calls:
 
 - Prioritizes identifier-based searches (UPC, ASIN)
 - Uses caching to minimize redundant requests
