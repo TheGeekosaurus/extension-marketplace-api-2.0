@@ -12,7 +12,7 @@
     "https://*.amazon.com/*",
     "https://*.walmart.com/*",
     "https://*.target.com/*",
-    "https://extension-marketplace-api-2-0-1.onrender.com/*"
+    "https://extension-marketplace-api-2-0.onrender.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
