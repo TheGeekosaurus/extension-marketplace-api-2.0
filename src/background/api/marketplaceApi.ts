@@ -37,12 +37,21 @@ export class MarketplaceApi {
         // If a specific marketplace is selected and it's not the source, use only that
         if (settings.selectedMarketplace !== productData.marketplace) {
           marketplaces = [settings.selectedMarketplace];
+          console.log('[E-commerce Arbitrage API] Searching only in selected marketplace:', marketplaces);
+        } else {
+          console.log('[E-commerce Arbitrage API] Selected marketplace is the same as source, no marketplaces to search');
+          // Return empty result when the selected marketplace is the same as the source
+          return {
+            success: true,
+            data: {}
+          };
         }
       } else {
         // Otherwise, search all except the source
         marketplaces = ['amazon', 'walmart', 'target'].filter(
           marketplace => marketplace !== productData.marketplace
         ) as MarketplaceType[];
+        console.log('[E-commerce Arbitrage API] No marketplace selected, searching all other marketplaces:', marketplaces);
       }
       
       console.log('[E-commerce Arbitrage API] Searching marketplaces:', marketplaces);
@@ -68,7 +77,17 @@ export class MarketplaceApi {
       // Check if we should use mock data (for testing purposes)
       if (settings.debugMode) {
         console.log('[E-commerce Arbitrage API] Using mock data for testing');
-        const mockData = MockService.generateEnhancedMockMatches(productData);
+        let mockData = MockService.generateEnhancedMockMatches(productData);
+        
+        // Filter mock data to only include the selected marketplace if one is set
+        if (settings.selectedMarketplace) {
+          const filteredMockData: Record<string, ProductMatchResult[]> = {};
+          if (mockData[settings.selectedMarketplace]) {
+            filteredMockData[settings.selectedMarketplace] = mockData[settings.selectedMarketplace];
+          }
+          mockData = filteredMockData;
+        }
+        
         return {
           success: true,
           source: "api", // Change "mock" to "api" to match type definition
@@ -77,11 +96,29 @@ export class MarketplaceApi {
       }
       
       // Make the API request - specify 'search/multi' (not '/search/multi')
-      return ApiClient.makeRequest<Record<string, ProductMatchResult[]>>(
+      const response = await ApiClient.makeRequest<Record<string, ProductMatchResult[]>>(
         'search/multi', 
         'POST', 
-        requestData
+        {
+          ...requestData,
+          // Add selected_marketplace to the request to tell the backend which marketplace to search
+          selected_marketplace: settings.selectedMarketplace || null
+        }
       );
+      
+      // If we have a specific marketplace selected, filter the response to only include that marketplace
+      if (settings.selectedMarketplace && response.success && response.data) {
+        const filteredData: Record<string, ProductMatchResult[]> = {};
+        if (response.data[settings.selectedMarketplace]) {
+          filteredData[settings.selectedMarketplace] = response.data[settings.selectedMarketplace];
+        }
+        return {
+          ...response,
+          data: filteredData
+        };
+      }
+      
+      return response;
     } catch (error) {
       console.error('[E-commerce Arbitrage API] Error in multi-marketplace search:', error);
       return {

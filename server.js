@@ -234,11 +234,13 @@ apiRouter.post('/search/multi', async (req, res) => {
       source_marketplace, // Where the product was found (amazon, walmart, target)
       product_id, // UPC, ASIN, or other product identifier
       product_title, // Product title for fuzzy matching if IDs fail
-      product_brand // Brand name for improved matching
+      product_brand, // Brand name for improved matching
+      selected_marketplace // The marketplace selected in the settings (if any)
     } = req.body;
     
     // Generate unique cache key for this request
-    const cacheKey = `multi-${source_marketplace}-${product_id}-${product_title?.substring(0, 20)}`;
+    const marketplaceSuffix = selected_marketplace ? `-${selected_marketplace}` : '';
+    const cacheKey = `multi-${source_marketplace}-${product_id}-${product_title?.substring(0, 20)}${marketplaceSuffix}`;
     
     // Check cache first
     const cachedResult = productCache.get(cacheKey);
@@ -248,9 +250,19 @@ apiRouter.post('/search/multi', async (req, res) => {
     }
     
     // Determine which marketplaces to search (all except source)
-    const marketplaces = ['amazon', 'walmart', 'target'].filter(
+    let marketplaces = ['amazon', 'walmart', 'target'].filter(
       marketplace => marketplace !== source_marketplace
     );
+    
+    // If a specific marketplace is selected, only search that one
+    if (selected_marketplace) {
+      // Make sure the selected marketplace is not the source marketplace
+      if (selected_marketplace !== source_marketplace) {
+        marketplaces = [selected_marketplace];
+      } else {
+        marketplaces = []; // No marketplaces to search when selected is the same as source
+      }
+    }
     
     console.log('Searching these marketplaces:', marketplaces);
     

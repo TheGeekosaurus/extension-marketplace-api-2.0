@@ -130,6 +130,17 @@ async function getPriceComparison(productData: ProductData): Promise<ProductComp
     const settings = await loadSettings();
     logger.info('Using settings:', settings);
     
+    // Check if the current product is from the selected marketplace
+    if (settings.selectedMarketplace && productData.marketplace === settings.selectedMarketplace) {
+      logger.info('Current product is from the selected marketplace. No search needed.');
+      // Return empty comparison when the product is from the selected marketplace
+      return {
+        sourceProduct: productData,
+        matchedProducts: {},
+        timestamp: Date.now()
+      };
+    }
+    
     // Generate a cache key that includes the selected marketplace setting
     const marketplaceSuffix = settings.selectedMarketplace ? `-${settings.selectedMarketplace}` : '';
     const cacheKey = CacheService.generateProductCacheKey(productData) + marketplaceSuffix;
