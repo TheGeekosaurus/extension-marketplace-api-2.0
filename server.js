@@ -12,11 +12,22 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Add request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  console.log('Request headers:', req.headers);
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log('Request body:', req.body);
+  }
+  next();
+});
+
 // Initialize cache with 1 hour TTL
 const productCache = new NodeCache({ stdTTL: 3600 });
 
 // Root endpoint - Add this to handle requests to the root path
 app.get('/', (req, res) => {
+  console.log('Root endpoint called');
   res.json({
     message: 'E-commerce Arbitrage API is running',
     version: '1.0.0',
@@ -37,6 +48,7 @@ const apiRouter = express.Router();
 // Walmart product search using BlueCart API
 apiRouter.post('/search/walmart', async (req, res) => {
   try {
+    console.log('Walmart search called with:', req.body);
     const { query, upc, asin } = req.body;
     
     // Generate cache key based on search parameters
@@ -45,9 +57,12 @@ apiRouter.post('/search/walmart', async (req, res) => {
     // Check cache first
     const cachedResult = productCache.get(cacheKey);
     if (cachedResult) {
-      console.log('Serving cached Walmart result');
+      console.log('Serving cached Walmart result for:', cacheKey);
       return res.json({ source: 'cache', data: cachedResult });
     }
+    
+    // Log API key status (redacted for security)
+    console.log('BlueCart API Key available:', !!process.env.BLUECART_API_KEY);
     
     // Construct API request for BlueCart
     const blueCartUrl = 'https://api.bluecartapi.com/request';
@@ -64,10 +79,14 @@ apiRouter.post('/search/walmart', async (req, res) => {
       delete params.search_term;
     }
     
+    console.log('Making BlueCart API request with params:', { ...params, api_key: '[REDACTED]' });
+    
     const response = await axios.get(blueCartUrl, { params });
+    console.log('BlueCart API response status:', response.status);
     
     // Process and format the response
     const formattedResponse = processWalmartResponse(response.data);
+    console.log('Processed Walmart results:', formattedResponse.length);
     
     // Cache the result
     productCache.set(cacheKey, formattedResponse);
@@ -75,6 +94,10 @@ apiRouter.post('/search/walmart', async (req, res) => {
     res.json({ source: 'api', data: formattedResponse });
   } catch (error) {
     console.error('Walmart search error:', error.message);
+    if (error.response) {
+      console.error('API response status:', error.response.status);
+      console.error('API response data:', error.response.data);
+    }
     res.status(500).json({ 
       error: 'Failed to fetch Walmart data', 
       message: error.message 
@@ -85,6 +108,7 @@ apiRouter.post('/search/walmart', async (req, res) => {
 // Amazon product search using Rainforest API
 apiRouter.post('/search/amazon', async (req, res) => {
   try {
+    console.log('Amazon search called with:', req.body);
     const { query, upc, asin } = req.body;
     
     // Generate cache key based on search parameters
@@ -93,9 +117,12 @@ apiRouter.post('/search/amazon', async (req, res) => {
     // Check cache first
     const cachedResult = productCache.get(cacheKey);
     if (cachedResult) {
-      console.log('Serving cached Amazon result');
+      console.log('Serving cached Amazon result for:', cacheKey);
       return res.json({ source: 'cache', data: cachedResult });
     }
+    
+    // Log API key status (redacted for security)
+    console.log('Rainforest API Key available:', !!process.env.RAINFOREST_API_KEY);
     
     // Construct API request for Rainforest
     const rainforestUrl = 'https://api.rainforestapi.com/request';
@@ -113,10 +140,14 @@ apiRouter.post('/search/amazon', async (req, res) => {
       delete params.search_term;
     }
     
+    console.log('Making Rainforest API request with params:', { ...params, api_key: '[REDACTED]' });
+    
     const response = await axios.get(rainforestUrl, { params });
+    console.log('Rainforest API response status:', response.status);
     
     // Process and format the response
     const formattedResponse = processAmazonResponse(response.data);
+    console.log('Processed Amazon results:', formattedResponse.length);
     
     // Cache the result
     productCache.set(cacheKey, formattedResponse);
@@ -124,6 +155,10 @@ apiRouter.post('/search/amazon', async (req, res) => {
     res.json({ source: 'api', data: formattedResponse });
   } catch (error) {
     console.error('Amazon search error:', error.message);
+    if (error.response) {
+      console.error('API response status:', error.response.status);
+      console.error('API response data:', error.response.data);
+    }
     res.status(500).json({ 
       error: 'Failed to fetch Amazon data', 
       message: error.message 
@@ -134,6 +169,7 @@ apiRouter.post('/search/amazon', async (req, res) => {
 // Target product search using BigBox API (if available)
 apiRouter.post('/search/target', async (req, res) => {
   try {
+    console.log('Target search called with:', req.body);
     const { query, upc } = req.body;
     
     // Generate cache key based on search parameters
@@ -142,9 +178,12 @@ apiRouter.post('/search/target', async (req, res) => {
     // Check cache first
     const cachedResult = productCache.get(cacheKey);
     if (cachedResult) {
-      console.log('Serving cached Target result');
+      console.log('Serving cached Target result for:', cacheKey);
       return res.json({ source: 'cache', data: cachedResult });
     }
+    
+    // Log API key status (redacted for security)
+    console.log('BigBox API Key available:', !!process.env.BIGBOX_API_KEY);
     
     // Construct API request for BigBox API
     const bigboxUrl = 'https://api.bigboxapi.com/request';
@@ -161,10 +200,14 @@ apiRouter.post('/search/target', async (req, res) => {
       delete params.search_term;
     }
     
+    console.log('Making BigBox API request with params:', { ...params, api_key: '[REDACTED]' });
+    
     const response = await axios.get(bigboxUrl, { params });
+    console.log('BigBox API response status:', response.status);
     
     // Process and format the response
     const formattedResponse = processTargetResponse(response.data);
+    console.log('Processed Target results:', formattedResponse.length);
     
     // Cache the result
     productCache.set(cacheKey, formattedResponse);
@@ -172,6 +215,10 @@ apiRouter.post('/search/target', async (req, res) => {
     res.json({ source: 'api', data: formattedResponse });
   } catch (error) {
     console.error('Target search error:', error.message);
+    if (error.response) {
+      console.error('API response status:', error.response.status);
+      console.error('API response data:', error.response.data);
+    }
     res.status(500).json({ 
       error: 'Failed to fetch Target data', 
       message: error.message 
@@ -182,6 +229,7 @@ apiRouter.post('/search/target', async (req, res) => {
 // Multi-marketplace search for a given product
 apiRouter.post('/search/multi', async (req, res) => {
   try {
+    console.log('Multi-marketplace search called with:', req.body);
     const { 
       source_marketplace, // Where the product was found (amazon, walmart, target)
       product_id, // UPC, ASIN, or other product identifier
@@ -195,7 +243,7 @@ apiRouter.post('/search/multi', async (req, res) => {
     // Check cache first
     const cachedResult = productCache.get(cacheKey);
     if (cachedResult) {
-      console.log('Serving cached multi-marketplace result');
+      console.log('Serving cached multi-marketplace result for:', cacheKey);
       return res.json({ source: 'cache', data: cachedResult });
     }
     
@@ -204,11 +252,14 @@ apiRouter.post('/search/multi', async (req, res) => {
       marketplace => marketplace !== source_marketplace
     );
     
+    console.log('Searching these marketplaces:', marketplaces);
+    
     const results = {};
     
     // Execute searches in parallel
     await Promise.all(marketplaces.map(async (marketplace) => {
       try {
+        console.log(`Searching ${marketplace} for product match`);
         // Construct the search request based on marketplace and available identifiers
         const searchParams = { 
           query: `${product_brand || ''} ${product_title}`.trim() 
@@ -218,27 +269,38 @@ apiRouter.post('/search/multi', async (req, res) => {
         if (product_id) {
           if (marketplace === 'amazon' && source_marketplace === 'amazon') {
             searchParams.asin = product_id;
+            console.log('Using ASIN for Amazon search:', product_id);
           } else if ((['walmart', 'target'].includes(marketplace)) && 
                     product_id.length === 12 && /^\d+$/.test(product_id)) {
             searchParams.upc = product_id;
+            console.log('Using UPC for search:', product_id);
+          } else {
+            console.log('Product ID not usable as UPC/ASIN, using text search');
           }
         }
         
         // Make request directly to API route instead of localhost
         // This ensures it works properly in the production environment
         const fullPath = `/api/search/${marketplace}`;
+        const baseUrl = req.protocol + '://' + req.get('host');
+        const apiUrl = `${baseUrl}${fullPath}`;
+        
+        console.log(`Making internal API request to: ${apiUrl}`, searchParams);
+        
         const response = await axios.post(
-          fullPath, 
-          searchParams,
-          { baseURL: `http://localhost:${PORT}` }
+          apiUrl, 
+          searchParams
         );
         
+        console.log(`Got ${marketplace} search response:`, response.status);
         results[marketplace] = response.data.data;
       } catch (error) {
         console.error(`Multi-search ${marketplace} error:`, error.message);
         results[marketplace] = { error: error.message };
       }
     }));
+    
+    console.log('Got search results:', Object.keys(results));
     
     // Cache the result
     productCache.set(cacheKey, results);
@@ -260,8 +322,11 @@ apiRouter.post('/search/multi', async (req, res) => {
 // Helper functions to process API responses from different providers
 function processWalmartResponse(data) {
   try {
+    console.log('Processing Walmart response');
+    
     // Handle search results
     if (data.search_results) {
+      console.log(`Found ${data.search_results.length} Walmart search results`);
       return data.search_results.map(item => ({
         title: item.title,
         price: item.price?.current_price || null,
@@ -279,6 +344,7 @@ function processWalmartResponse(data) {
     
     // Handle single product result
     if (data.product) {
+      console.log('Found Walmart product result');
       return [{
         title: data.product.title,
         price: data.product.buybox_winner?.price?.value || null,
@@ -294,6 +360,7 @@ function processWalmartResponse(data) {
       }];
     }
     
+    console.log('No Walmart search results or product data found');
     return [];
   } catch (error) {
     console.error('Error processing Walmart response:', error);
@@ -303,8 +370,11 @@ function processWalmartResponse(data) {
 
 function processAmazonResponse(data) {
   try {
+    console.log('Processing Amazon response');
+    
     // Handle search results
     if (data.search_results) {
+      console.log(`Found ${data.search_results.length} Amazon search results`);
       return data.search_results.map(item => ({
         title: item.title,
         price: parseFloat(item.price?.value || 0),
@@ -321,6 +391,7 @@ function processAmazonResponse(data) {
     
     // Handle single product result
     if (data.product) {
+      console.log('Found Amazon product result');
       return [{
         title: data.product.title,
         price: parseFloat(data.product.buybox_winner?.price?.value || 0),
@@ -335,6 +406,7 @@ function processAmazonResponse(data) {
       }];
     }
     
+    console.log('No Amazon search results or product data found');
     return [];
   } catch (error) {
     console.error('Error processing Amazon response:', error);
@@ -344,9 +416,12 @@ function processAmazonResponse(data) {
 
 function processTargetResponse(data) {
   try {
+    console.log('Processing Target response');
+    
     // Target API response structure may vary
     // This is a placeholder implementation
     if (data.search_results) {
+      console.log(`Found ${data.search_results.length} Target search results`);
       return data.search_results.map(item => ({
         title: item.title,
         price: item.price?.current_price || null,
@@ -362,6 +437,7 @@ function processTargetResponse(data) {
       }));
     }
     
+    console.log('No Target search results found');
     return [];
   } catch (error) {
     console.error('Error processing Target response:', error);
@@ -388,7 +464,12 @@ app.get('/api/health', (req, res) => {
     status: 'ok', 
     timestamp: new Date().toISOString(),
     version: '1.0.0',
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    apiKeys: {
+      blueCart: !!process.env.BLUECART_API_KEY,
+      rainforest: !!process.env.RAINFOREST_API_KEY,
+      bigBox: !!process.env.BIGBOX_API_KEY
+    }
   });
 });
 
