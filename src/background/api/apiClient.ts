@@ -24,9 +24,15 @@ export class ApiClient {
       const settings = getSettings();
       const apiBaseUrl = settings.apiBaseUrl;
       
-      // Ensure endpoint starts with a slash if the base URL doesn't end with one
+      // Make sure endpoint has the right format
+      // If the endpoint doesn't start with '/', add it
       const formattedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-      const url = `${apiBaseUrl}${formattedEndpoint}`;
+      
+      // Make sure the apiBaseUrl doesn't end with '/' if the endpoint starts with '/'
+      const formattedBaseUrl = apiBaseUrl.endsWith('/') ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
+      
+      // Construct the full URL
+      const url = `${formattedBaseUrl}${formattedEndpoint}`;
       
       console.log(`[E-commerce Arbitrage API] Requesting ${method} ${url}`, data);
       

@@ -12,6 +12,7 @@ import { BlueCartApi } from './bluecart';
 import { RainforestApi } from './rainforest';
 import { BigBoxApi } from './bigbox';
 import { getSettings } from '../services/settingsService';
+import { MockService } from '../services/mockService';
 
 /**
  * Combined marketplace API for multi-marketplace searches
@@ -64,9 +65,20 @@ export class MarketplaceApi {
       
       console.log('[E-commerce Arbitrage API] Multi-marketplace search for:', requestData);
       
-      // Make the API request
+      // Check if we should use mock data (for testing purposes)
+      if (settings.debugMode) {
+        console.log('[E-commerce Arbitrage API] Using mock data for testing');
+        const mockData = MockService.generateEnhancedMockMatches(productData);
+        return {
+          success: true,
+          source: 'mock',
+          data: mockData
+        };
+      }
+      
+      // Make the API request - specify 'search/multi' (not '/search/multi')
       return ApiClient.makeRequest<Record<string, ProductMatchResult[]>>(
-        '/search/multi', 
+        'search/multi', 
         'POST', 
         requestData
       );
