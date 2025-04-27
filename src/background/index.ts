@@ -3,7 +3,6 @@
 import { ProductData, ProductComparison } from '../types';
 import { MarketplaceApi } from './api/marketplaceApi';
 import { CacheService } from './services/cacheService';
-import { MockService } from './services/mockService';
 import { ProfitService } from './services/profitService';
 import { initializeSettings, getSettings, saveSettings } from './services/settingsService';
 import { createLogger } from './utils/logger';
@@ -136,25 +135,15 @@ async function getPriceComparison(productData: ProductData): Promise<ProductComp
     
     logger.info('No cache hit, fetching fresh data');
     
-    // Determine if we should use mock data
-    const settings = getSettings();
-    const useMockData = settings.useMockData || false;
+    // Fetch from API
+    logger.info('Fetching product matches from API');
+    const response = await MarketplaceApi.searchAcrossMarketplaces(productData);
     
-    let matchedProducts;
-    if (useMockData) {
-      logger.info('Using mock data instead of API call');
-      matchedProducts = MockService.generateEnhancedMockMatches(productData);
-    } else {
-      // No cache hit, fetch from API
-      logger.info('Fetching product matches from API');
-      const response = await MarketplaceApi.searchAcrossMarketplaces(productData);
-      
-      if (!response.success) {
-        throw new Error(response.error || 'API request failed');
-      }
-      
-      matchedProducts = response.data || {};
+    if (!response.success) {
+      throw new Error(response.error || 'API request failed');
     }
+    
+    const matchedProducts = response.data || {};
     
     // Calculate profit for each matched product
     const productsWithProfit = ProfitService.calculateProfitMargins(
