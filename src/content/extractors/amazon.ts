@@ -8,7 +8,8 @@ import {
   extractWithRegex, 
   parsePrice, 
   logExtraction,
-  findInElements
+  findInElements,
+  getImageUrl
 } from '../utils/extraction';
 
 /**
@@ -48,15 +49,32 @@ export function extractAmazonProductData(): ProductData | null {
     if (brand?.startsWith('Brand: ')) {
       brand = brand.replace('Brand: ', '');
     }
+    if (brand?.startsWith('Visit the ')) {
+      brand = brand.replace('Visit the ', '').replace(' Store', '');
+    }
     logExtraction('amazon', 'Extracted brand', brand);
     
     // Try to find UPC/EAN in product details
     let upc: string | null = null;
+    
+    // Check in detail elements
     const detailRows = document.querySelectorAll(amazonSelectors.details.join(', '));
     
     upc = findInElements(detailRows, 'upc', amazonRegexPatterns.upc) || 
           findInElements(detailRows, 'ean', amazonRegexPatterns.upc) || 
           findInElements(detailRows, 'gtin', amazonRegexPatterns.upc);
+    
+    // If not found in elements, try page source
+    if (!upc) {
+      const pageSource = document.documentElement.innerHTML;
+      const upcMatch = pageSource.match(/UPC.*?(\d{12,13})/i) || 
+                       pageSource.match(/EAN.*?(\d{12,13})/i) ||
+                       pageSource.match(/ISBN.*?(\d{10,13})/i);
+      
+      if (upcMatch && upcMatch[1]) {
+        upc = upcMatch[1];
+      }
+    }
     
     if (upc) {
       logExtraction('amazon', 'Found UPC/EAN', upc);
@@ -64,7 +82,7 @@ export function extractAmazonProductData(): ProductData | null {
     
     // Get main product image
     const imageElement = findElement(amazonSelectors.image);
-    const imageUrl = imageElement ? (imageElement as HTMLImageElement).src : null;
+    const imageUrl = getImageUrl(imageElement);
     logExtraction('amazon', 'Extracted image URL', imageUrl);
     
     const productData: ProductData = {
