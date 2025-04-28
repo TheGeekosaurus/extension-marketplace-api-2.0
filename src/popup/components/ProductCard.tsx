@@ -67,6 +67,18 @@ export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({ product 
                 ? `${formatPrice(priceDiff)} cheaper to buy from source and sell here` 
                 : `${formatPrice(priceDiff)} cheaper to buy here and sell at source`}
             </p>
+            
+            {/* Fee breakdown section */}
+            {product.fee_breakdown && (
+              <div className="fee-breakdown">
+                <p className="fee-breakdown-title">Fee breakdown:</p>
+                <p>Marketplace fee ({(product.fee_breakdown.marketplace_fee_percentage * 100).toFixed(1)}%): 
+                  {formatPrice(product.fee_breakdown.marketplace_fee_amount)}
+                </p>
+                <p>Additional fees: {formatPrice(product.fee_breakdown.additional_fees)}</p>
+                <p className="fee-total">Total fees: {formatPrice(product.fee_breakdown.total_fees)}</p>
+              </div>
+            )}
           </>
         )}
         
