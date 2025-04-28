@@ -39,27 +39,21 @@ export const useStatus = () => usePopupStore(state => state.status);
 export const useActiveTab = () => usePopupStore(state => state.activeTab);
 
 /**
- * Use filtered products based on minimum profit percentage
+ * Use all products without filtering
  * 
- * @param products - Products to filter
- * @returns Filtered products
+ * @param products - Products to return
+ * @returns All matched products
  */
 export const useFilteredProducts = (products: ProductMatchResult[] | undefined): ProductMatchResult[] => {
-  const settings = useSettings();
-  
   if (!products) return [];
-  
-  return products.filter(product => 
-    product.profit && product.profit.percentage >= settings.minimumProfitPercentage
-  );
+  return products;
 };
 
 /**
- * Check if we have profitable opportunities in the current comparison
+ * Check if we have any matched opportunities in the current comparison
  */
-export const useHasProfitableOpportunities = (): boolean => {
+export const useHasMatchedOpportunities = (): boolean => {
   const comparison = useComparison();
-  const settings = useSettings();
   
   if (!comparison) return false;
   
@@ -67,12 +61,8 @@ export const useHasProfitableOpportunities = (): boolean => {
   
   for (const marketplace in matchedProducts) {
     const products = matchedProducts[marketplace as keyof typeof matchedProducts];
-    if (!products) continue;
-    
-    for (const product of products) {
-      if (product.profit && product.profit.percentage >= settings.minimumProfitPercentage) {
-        return true;
-      }
+    if (products && products.length > 0) {
+      return true;
     }
   }
   
@@ -81,10 +71,10 @@ export const useHasProfitableOpportunities = (): boolean => {
 
 /**
  * Calculate the total potential profit across all opportunities
+ * (Only counts positive profits for the summary)
  */
 export const useTotalPotentialProfit = () => {
   const comparison = useComparison();
-  const settings = useSettings();
   
   if (!comparison) return { amount: 0, percentage: 0 };
   
@@ -97,7 +87,7 @@ export const useTotalPotentialProfit = () => {
     if (!products) continue;
     
     for (const product of products) {
-      if (product.profit && product.profit.percentage >= settings.minimumProfitPercentage) {
+      if (product.profit && product.profit.amount > 0) {
         totalAmount += product.profit.amount;
         count++;
       }
