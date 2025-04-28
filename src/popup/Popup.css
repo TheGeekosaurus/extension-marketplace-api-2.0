@@ -141,13 +141,14 @@ body {
 }
 
 .product-info h5 {
-  font-size: 14px;
-  margin-bottom: 4px;
+  font-size: 16px;
+  margin-bottom: 8px;
+  font-weight: 600;
 }
 
 .product-info p {
   font-size: 14px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .compare-button, .view-button, .save-settings-button, .clear-cache-button, .refresh-button {
@@ -181,7 +182,7 @@ body {
 .view-button {
   display: inline-block;
   text-decoration: none;
-  margin-top: 4px;
+  margin-top: 8px;
   padding: 4px 12px;
   font-size: 12px;
 }
@@ -234,10 +235,23 @@ body {
   margin-bottom: 12px;
   padding-bottom: 4px;
   border-bottom: 1px solid var(--border-color);
+  font-size: 18px;
+  color: var(--dark-color);
+}
+
+/* Fee and profit styling */
+.fee-item {
+  margin-bottom: 6px;
+}
+
+.fee-item.negative {
+  color: var(--danger-color);
+  font-weight: 400;
 }
 
 .profit {
-  font-weight: 500;
+  font-weight: 600;
+  margin-top: 8px;
 }
 
 .profit.positive {
@@ -246,6 +260,13 @@ body {
 
 .profit.negative {
   color: var(--danger-color);
+}
+
+/* Hide elements that are no longer needed */
+.fee-breakdown-title,
+.fee-total,
+.price-diff {
+  display: none;
 }
 
 .timestamp {
@@ -271,6 +292,7 @@ body {
   margin-bottom: 12px;
   padding-bottom: 4px;
   border-bottom: 1px solid var(--border-color);
+  font-size: 16px;
 }
 
 .setting-item {
@@ -310,10 +332,22 @@ body {
 
 /* Profit summary */
 .profit-summary {
-  padding: 10px;
-  margin-bottom: 15px;
+  padding: 12px;
+  margin-bottom: 16px;
   background-color: rgba(39, 174, 96, 0.1);
   border-radius: 4px;
   font-weight: 500;
   font-size: 16px;
+  border: 1px solid rgba(39, 174, 96, 0.3);
+}
+
+.profit-summary p {
+  margin-bottom: 4px;
+}
+
+.profit-summary p:last-child {
+  font-size: 12px;
+  color: #666;
+  margin-top: 8px;
+  margin-bottom: 0;
 }
