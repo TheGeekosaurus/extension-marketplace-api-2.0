@@ -35,8 +35,10 @@ export class ProfitService {
     const settings = getSettings();
     const includeFees = settings.includeFees !== false; // Default to true
     const estimatedFees = settings.estimatedFees;
+    const additionalFees = settings.additionalFees || 0;
     
-    console.log('[E-commerce Arbitrage Profit] Using fee settings:', { includeFees, estimatedFees });
+    console.log('[E-commerce Arbitrage Profit] Using fee settings:', 
+      { includeFees, estimatedFees, additionalFees });
     
     // Clone the matched products to avoid modifying the original
     const result = JSON.parse(JSON.stringify(matchedProducts));
@@ -57,14 +59,16 @@ export class ProfitService {
         }
         
         let sellPrice = product.price;
+        const feePercentage = estimatedFees[marketplace as keyof typeof estimatedFees] || 0;
         
-        // Apply estimated fees if enabled
-        if (includeFees && estimatedFees[marketplace as keyof typeof estimatedFees]) {
-          const feePercentage = estimatedFees[marketplace as keyof typeof estimatedFees];
-          sellPrice = sellPrice * (1 - feePercentage);
-        }
+        // Calculate marketplace fees
+        const marketplaceFeeAmount = includeFees ? (sellPrice * feePercentage) : 0;
         
-        const profitAmount = sellPrice - sourceProduct.price!;
+        // Apply additional fees
+        const totalFees = marketplaceFeeAmount + additionalFees;
+        
+        // Calculate net profit
+        const profitAmount = sellPrice - sourceProduct.price! - totalFees;
         const profitPercentage = (profitAmount / sourceProduct.price!) * 100;
         
         product.profit = {
@@ -72,7 +76,16 @@ export class ProfitService {
           percentage: parseFloat(profitPercentage.toFixed(2))
         };
         
-        console.log(`[E-commerce Arbitrage Profit] Calculated profit for ${marketplace} product:`, product.profit);
+        // Add fee breakdown
+        product.fee_breakdown = {
+          marketplace_fee_percentage: feePercentage,
+          marketplace_fee_amount: parseFloat(marketplaceFeeAmount.toFixed(2)),
+          additional_fees: parseFloat(additionalFees.toFixed(2)), 
+          total_fees: parseFloat(totalFees.toFixed(2))
+        };
+        
+        console.log(`[E-commerce Arbitrage Profit] Calculated profit for ${marketplace} product:`, 
+          { profit: product.profit, fees: product.fee_breakdown });
       });
     });
     
