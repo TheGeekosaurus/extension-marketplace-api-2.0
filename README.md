@@ -7,6 +7,7 @@ A Chrome extension that helps e-commerce arbitrage sellers identify profit oppor
 - **Automatic Product Detection**: Extracts product data from current page on supported marketplaces
 - **Price Comparison**: Shows potential profit margins across marketplaces
 - **Live API Integration**: Connects to marketplace data APIs to find matching products
+- **Marketplace Selection**: Filter searches to focus on a specific marketplace
 - **Profit Calculation**: Configurable fee settings and minimum profit filters
 - **Caching System**: Minimizes API usage and improves performance
 
@@ -73,7 +74,7 @@ The extension uses dedicated API services to search for products across marketpl
 3. Deploy the backend server
 4. Update the extension settings
 
-See [API_SETUP.md](API_SETUP.md) for detailed instructions.
+See [API_SETUP_GUIDE.md](API_SETUP_GUIDE.md) for detailed instructions.
 
 ## Architecture
 
