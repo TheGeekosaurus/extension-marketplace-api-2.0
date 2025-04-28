@@ -73,7 +73,8 @@ export class MarketplaceApi {
       
       console.log('[E-commerce Arbitrage API] Multi-marketplace search for:', requestData);
       
-      // Make the API request - specify 'search/multi' (not '/search/multi')
+      // Make the API request to the correct path
+      // Use 'search/multi' which will be prefixed with /api/ by the ApiClient
       const response = await ApiClient.makeRequest<Record<string, ProductMatchResult[]>>(
         'search/multi', 
         'POST', 
