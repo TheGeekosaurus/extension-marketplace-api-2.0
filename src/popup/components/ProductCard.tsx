@@ -42,6 +42,7 @@ export const SourceProductCard: React.FC<SourceProductCardProps> = ({ product })
  */
 export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({ product }) => {
   const isProfitable = product.profit && product.profit.amount > 0;
+  const priceDiff = product.profit ? Math.abs(product.profit.amount) : 0;
   
   return (
     <div className="product-card matched">
@@ -55,9 +56,20 @@ export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({ product 
       <div className="product-info">
         <h5>{product.title}</h5>
         <p>Price: {formatPrice(product.price)}</p>
-        <p className={isProfitable ? 'profit positive' : 'profit negative'}>
-          Profit: {formatProfit(product.profit)}
-        </p>
+        
+        {product.profit && (
+          <>
+            <p className={isProfitable ? 'profit positive' : 'profit negative'}>
+              Profit: {formatProfit(product.profit)}
+            </p>
+            <p className="price-diff">
+              {isProfitable 
+                ? `${formatPrice(priceDiff)} cheaper to buy from source and sell here` 
+                : `${formatPrice(priceDiff)} cheaper to buy here and sell at source`}
+            </p>
+          </>
+        )}
+        
         {product.ratings && (
           <p>Rating: {product.ratings.average} ({product.ratings.count} reviews)</p>
         )}
