@@ -2,12 +2,14 @@
   "name": "ecommerce-arbitrage-extension",
   "version": "1.0.0",
   "description": "Chrome extension for e-commerce arbitrage using API-based data retrieval",
-  "main": "index.js",
+  "main": "server/index.js",
   "scripts": {
-    "start:backend": "nodemon server.js",
+    "start:backend": "nodemon server/index.js",
+    "start:backend:prod": "node server/index.js",
     "build:extension": "webpack --config webpack.config.js",
     "watch:extension": "webpack --config webpack.config.js --watch",
-    "build": "npm run build:extension"
+    "build": "npm run build:extension",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "MIT",
