@@ -80,32 +80,6 @@ export class ProfitService {
   }
   
   /**
-   * Filter product matches by minimum profit percentage
-   * 
-   * @param matchedProducts - Products with profit calculations
-   * @param minProfitPercentage - Minimum profit percentage
-   * @returns Filtered product matches
-   */
-  static filterByMinimumProfit(
-    matchedProducts: Record<string, ProductMatchResult[]>,
-    minProfitPercentage: number
-  ): Record<string, ProductMatchResult[]> {
-    const result: Record<string, ProductMatchResult[]> = {};
-    
-    Object.entries(matchedProducts).forEach(([marketplace, products]) => {
-      const filteredProducts = products.filter(product => 
-        product.profit && product.profit.percentage >= minProfitPercentage
-      );
-      
-      if (filteredProducts.length > 0) {
-        result[marketplace] = filteredProducts;
-      }
-    });
-    
-    return result;
-  }
-  
-  /**
    * Calculate total potential profit across all matched products
    * 
    * @param matchedProducts - Products with profit calculations
@@ -119,9 +93,12 @@ export class ProfitService {
     
     Object.values(matchedProducts).forEach(products => {
       products.forEach(product => {
-        if (product.profit && product.profit.amount > 0) {
-          totalAmount += product.profit.amount;
-          count++;
+        if (product.profit) {
+          // Only count positive profits for the total
+          if (product.profit.amount > 0) {
+            totalAmount += product.profit.amount;
+            count++;
+          }
         }
       });
     });
