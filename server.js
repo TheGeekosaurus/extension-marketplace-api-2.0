@@ -66,17 +66,23 @@ apiRouter.post('/search/walmart', async (req, res) => {
     
     // Construct API request for BlueCart
     const blueCartUrl = 'https://api.bluecartapi.com/request';
-    const params = {
+    let params = {
       api_key: process.env.BLUECART_API_KEY,
-      type: 'search',
-      search_term: query
+      walmart_domain: 'walmart.com'
     };
     
-    // Use UPC if available for more precise search
+    // Use UPC or ASIN if available for more precise product lookup
     if (upc) {
       params.type = 'product';
-      params.item_id = upc;
-      delete params.search_term;
+      params.gtin = upc;
+    } else if (asin) {
+      // For walmart search with ASIN, it's better to use text search
+      params.type = 'search';
+      params.search_term = query;
+    } else {
+      // Regular text search
+      params.type = 'search';
+      params.search_term = query;
     }
     
     console.log('Making BlueCart API request with params:', { ...params, api_key: '[REDACTED]' });
@@ -283,7 +289,7 @@ apiRouter.post('/search/multi', async (req, res) => {
             searchParams.asin = product_id;
             console.log('Using ASIN for Amazon search:', product_id);
           } else if ((['walmart', 'target'].includes(marketplace)) && 
-                    product_id.length === 12 && /^\d+$/.test(product_id)) {
+                    product_id.length >= 12 && /^\d+$/.test(product_id)) {
             searchParams.upc = product_id;
             console.log('Using UPC for search:', product_id);
           } else {
@@ -333,48 +339,73 @@ function processWalmartResponse(data) {
   try {
     console.log('Processing Walmart response');
     
+    // Check if the response was successful
+    if (!data.request_info || data.request_info.success !== true) {
+      console.error('BlueCart API error:', data);
+      return [];
+    }
+    
     // Handle search results
-    if (data.search_results) {
+    if (data.search_results && Array.isArray(data.search_results)) {
       console.log(`Found ${data.search_results.length} Walmart search results`);
       return data.search_results.map(item => ({
-        title: item.title,
-        price: item.price?.current_price || null,
-        image: item.image,
-        url: item.link,
+        title: item.product?.title || '',
+        price: extractPrice(item),
+        image: item.product?.main_image || item.product?.images?.[0] || null,
+        url: item.product?.link || '',
         marketplace: 'walmart',
-        item_id: item.item_id || null,
-        upc: item.upc || null,
+        item_id: item.product?.item_id || null,
+        upc: item.product?.upc || null,
         ratings: {
-          average: item.rating || null,
-          count: item.ratings_total || 0
-        }
+          average: item.product?.rating || null,
+          count: item.product?.ratings_total || 0
+        },
+        // Include additional data that might be useful
+        brand: item.product?.brand || '',
+        in_stock: item.inventory?.in_stock === true
       }));
     }
     
-    // Handle single product result
+    // Handle single product result (for product type requests)
     if (data.product) {
       console.log('Found Walmart product result');
       return [{
-        title: data.product.title,
-        price: data.product.buybox_winner?.price?.value || null,
-        image: data.product.main_image?.link || null,
-        url: data.product.link,
+        title: data.product.title || '',
+        price: data.product.buybox_winner?.price || null,
+        image: data.product.main_image?.link || data.product.images?.[0]?.link || null,
+        url: data.product.link || '',
         marketplace: 'walmart',
         item_id: data.product.item_id || null,
         upc: data.product.upc || null,
         ratings: {
           average: data.product.rating || null,
           count: data.product.ratings_total || 0
-        }
+        },
+        brand: data.product.brand || '',
+        in_stock: data.product.buybox_winner?.availability?.in_stock === true
       }];
     }
     
-    console.log('No Walmart search results or product data found');
+    console.log('No Walmart search results or product data found in response');
     return [];
   } catch (error) {
     console.error('Error processing Walmart response:', error);
+    console.error('Raw response structure:', JSON.stringify(Object.keys(data), null, 2));
     return [];
   }
+}
+
+// Helper function to extract price from different possible structures
+function extractPrice(item) {
+  if (item.offers?.primary?.price) {
+    return parseFloat(item.offers.primary.price);
+  }
+  
+  if (item.product?.price) {
+    return parseFloat(item.product.price);
+  }
+  
+  return null;
 }
 
 function processAmazonResponse(data) {
@@ -456,10 +487,6 @@ function processTargetResponse(data) {
 
 // Mount API router to /api path
 app.use('/api', apiRouter);
-
-// Also mount all api routes directly for backwards compatibility
-// This allows requests to both /api/search/multi and /search/multi to work
-app.use('/', apiRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
