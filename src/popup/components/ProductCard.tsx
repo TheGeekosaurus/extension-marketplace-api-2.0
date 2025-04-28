@@ -42,7 +42,6 @@ export const SourceProductCard: React.FC<SourceProductCardProps> = ({ product })
  */
 export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({ product }) => {
   const isProfitable = product.profit && product.profit.amount > 0;
-  const priceDiff = product.profit ? Math.abs(product.profit.amount) : 0;
   
   return (
     <div className="product-card matched">
@@ -57,29 +56,22 @@ export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({ product 
         <h5>{product.title}</h5>
         <p>Price: {formatPrice(product.price)}</p>
         
-        {product.profit && (
+        {product.fee_breakdown && (
           <>
-            <p className={isProfitable ? 'profit positive' : 'profit negative'}>
-              Profit: {formatProfit(product.profit)}
+            <p className="fee-item negative">
+              Marketplace fees ({(product.fee_breakdown.marketplace_fee_percentage * 100).toFixed(1)}%): 
+              {formatPrice(product.fee_breakdown.marketplace_fee_amount)}
             </p>
-            <p className="price-diff">
-              {isProfitable 
-                ? `${formatPrice(priceDiff)} cheaper to buy from source and sell here` 
-                : `${formatPrice(priceDiff)} cheaper to buy here and sell at source`}
+            <p className="fee-item negative">
+              Additional fees: {formatPrice(product.fee_breakdown.additional_fees)}
             </p>
-            
-            {/* Fee breakdown section */}
-            {product.fee_breakdown && (
-              <div className="fee-breakdown">
-                <p className="fee-breakdown-title">Fee breakdown:</p>
-                <p>Marketplace fee ({(product.fee_breakdown.marketplace_fee_percentage * 100).toFixed(1)}%): 
-                  {formatPrice(product.fee_breakdown.marketplace_fee_amount)}
-                </p>
-                <p>Additional fees: {formatPrice(product.fee_breakdown.additional_fees)}</p>
-                <p className="fee-total">Total fees: {formatPrice(product.fee_breakdown.total_fees)}</p>
-              </div>
-            )}
           </>
+        )}
+        
+        {product.profit && (
+          <p className={isProfitable ? 'profit positive' : 'profit negative'}>
+            Profit: {formatProfit(product.profit)}
+          </p>
         )}
         
         {product.ratings && (
