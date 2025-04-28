@@ -457,6 +457,10 @@ function processTargetResponse(data) {
 // Mount API router to /api path
 app.use('/api', apiRouter);
 
+// Also mount all api routes directly for backwards compatibility
+// This allows requests to both /api/search/multi and /search/multi to work
+app.use('/', apiRouter);
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date() });

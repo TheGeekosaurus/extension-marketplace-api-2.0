@@ -4,6 +4,7 @@ import { MarketplaceFees, Settings } from '../types';
 
 /**
  * Default API base URL
+ * Note: The /api prefix is added to endpoints in the ApiClient
  */
 export const DEFAULT_API_BASE_URL = 'https://extension-marketplace-api-2-0.onrender.com';
 

@@ -25,8 +25,16 @@ export class ApiClient {
       const apiBaseUrl = settings.apiBaseUrl;
       
       // Make sure endpoint has the right format
-      // If the endpoint doesn't start with '/', add it
-      const formattedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+      // Ensure that the endpoint has the /api prefix
+      let formattedEndpoint = endpoint;
+      if (!formattedEndpoint.startsWith('/')) {
+        formattedEndpoint = `/${formattedEndpoint}`;
+      }
+      
+      // Always prepend /api to the endpoint if it's not already there
+      if (!formattedEndpoint.startsWith('/api/')) {
+        formattedEndpoint = `/api${formattedEndpoint}`;
+      }
       
       // Make sure the apiBaseUrl doesn't end with '/' if the endpoint starts with '/'
       const formattedBaseUrl = apiBaseUrl.endsWith('/') ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
