@@ -31,6 +31,7 @@ export interface ProductMatchResult {
   upc?: string;
   profit?: ProfitInfo;
   ratings?: RatingsInfo;
+  fee_breakdown?: FeeBreakdown;
 }
 
 /**
@@ -47,6 +48,16 @@ export interface ProfitInfo {
 export interface RatingsInfo {
   average: number | null;
   count: number | null;
+}
+
+/**
+ * Represents fee breakdown information for profit calculation
+ */
+export interface FeeBreakdown {
+  marketplace_fee_percentage: number;
+  marketplace_fee_amount: number;
+  additional_fees: number;
+  total_fees: number;
 }
 
 /**

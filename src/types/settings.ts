@@ -35,6 +35,11 @@ export interface Settings {
    * Selected marketplace to search (if null, search all marketplaces)
    */
   selectedMarketplace?: MarketplaceType | null;
+  
+  /**
+   * Additional fees (shipping, packaging, etc.)
+   */
+  additionalFees: number;
 }
 
 /**
@@ -50,5 +55,6 @@ export const DEFAULT_SETTINGS: Settings = {
     walmart: 0.12,
     target: 0.10
   },
-  selectedMarketplace: null
+  selectedMarketplace: null,
+  additionalFees: 0
 };

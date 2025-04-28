@@ -45,7 +45,7 @@ app.get('/', (req, res) => {
 // API Routes
 const apiRouter = express.Router();
 
-// Enhanced Walmart product search using BlueCart API
+// Walmart product search using BlueCart API - Optimized for speed and single best match
 apiRouter.post('/search/walmart', async (req, res) => {
   try {
     console.log('Walmart search called with:', req.body);
@@ -64,60 +64,45 @@ apiRouter.post('/search/walmart', async (req, res) => {
     // Log API key status (redacted for security)
     console.log('BlueCart API Key available:', !!process.env.BLUECART_API_KEY);
     
-    let formattedResponse = [];
+    let result = null;
 
-    // If UPC is provided, try product lookup first, then search as fallback
+    // First attempt: Try UPC-based product lookup if UPC is provided
     if (upc) {
       try {
-        // First attempt: Try UPC-based product lookup
+        console.log('Attempting direct UPC product lookup');
         const productResult = await attemptWalmartProductLookup(upc);
         if (productResult && productResult.length > 0) {
-          console.log('Successfully found Walmart product by UPC');
-          formattedResponse = productResult;
-        } else {
-          // Second attempt: Try UPC-based search
-          console.log('Product lookup by UPC failed, trying search with UPC...');
-          const searchResult = await attemptWalmartSearch(upc);
-          if (searchResult && searchResult.length > 0) {
-            console.log('Successfully found Walmart product by UPC search');
-            formattedResponse = searchResult;
-          } else {
-            // Third attempt: Try text search with UPC
-            console.log('UPC search failed, trying text search with brand and title...');
-            if (query) {
-              const textResult = await attemptWalmartSearch(query);
-              formattedResponse = textResult;
-            } else {
-              console.log('No query provided for text search fallback');
-            }
-          }
+          console.log('Found product by UPC lookup');
+          result = productResult[0]; // Take the first result
         }
       } catch (error) {
-        console.error('Error in UPC-based lookup/search:', error.message);
-        
-        // Fallback to text search if UPC methods fail
-        if (query) {
-          console.log('Falling back to text search...');
-          const textResult = await attemptWalmartSearch(query);
-          formattedResponse = textResult;
-        }
+        console.error('Error in UPC product lookup:', error.message);
       }
-    } else if (query) {
-      // If no UPC, just do a text search
-      const searchResult = await attemptWalmartSearch(query);
-      formattedResponse = searchResult;
-    } else {
-      console.log('No UPC or query provided for Walmart search');
     }
     
-    // Limit to best 1-2 matches
-    const limitedResults = getBestMatches(formattedResponse, query || upc, 2);
-    console.log(`Limited from ${formattedResponse.length} to ${limitedResults.length} best Walmart results`);
+    // Second attempt: Only if first attempt failed
+    if (!result && (upc || query)) {
+      try {
+        console.log('Attempting search with:', upc || query);
+        const searchResults = await attemptWalmartSearch(upc || query);
+        if (searchResults && searchResults.length > 0) {
+          // Find best match by scoring
+          console.log('Found search results, selecting best match');
+          const scoredResults = scoreProducts(searchResults, upc || query);
+          result = scoredResults[0]; // Take the highest scored result
+        }
+      } catch (error) {
+        console.error('Error in search:', error.message);
+      }
+    }
+    
+    // Format the final response
+    const formattedResponse = result ? [result] : [];
     
     // Cache the result
-    productCache.set(cacheKey, limitedResults);
+    productCache.set(cacheKey, formattedResponse);
     
-    res.json({ source: 'api', data: limitedResults });
+    res.json({ source: 'api', data: formattedResponse });
   } catch (error) {
     console.error('Walmart search error:', error.message);
     if (error.response) {
@@ -179,7 +164,7 @@ async function attemptWalmartSearch(searchTerm) {
   }
 }
 
-// Amazon product search using Rainforest API
+// Amazon product search - Optimized for speed and single best match
 apiRouter.post('/search/amazon', async (req, res) => {
   try {
     console.log('Amazon search called with:', req.body);
@@ -198,41 +183,62 @@ apiRouter.post('/search/amazon', async (req, res) => {
     // Log API key status (redacted for security)
     console.log('Rainforest API Key available:', !!process.env.RAINFOREST_API_KEY);
     
-    // Construct API request for Rainforest
-    const rainforestUrl = 'https://api.rainforestapi.com/request';
-    const params = {
-      api_key: process.env.RAINFOREST_API_KEY,
-      type: 'search',
-      amazon_domain: 'amazon.com',
-      search_term: query
-    };
+    let result = null;
     
-    // Use ASIN if available for more precise search
+    // First attempt: Try ASIN-based product lookup if available
     if (asin) {
-      params.type = 'product';
-      params.asin = asin;
-      delete params.search_term;
-    } else if (upc) {
-      // If we have a UPC but no ASIN, use the UPC as the search term
-      params.search_term = upc;
+      try {
+        console.log('Attempting direct ASIN product lookup');
+        const rainforestUrl = 'https://api.rainforestapi.com/request';
+        const params = {
+          api_key: process.env.RAINFOREST_API_KEY,
+          type: 'product',
+          amazon_domain: 'amazon.com',
+          asin: asin
+        };
+        
+        const response = await axios.get(rainforestUrl, { params });
+        const processedResults = processAmazonResponse(response.data);
+        if (processedResults && processedResults.length > 0) {
+          console.log('Found product by ASIN lookup');
+          result = processedResults[0];
+        }
+      } catch (error) {
+        console.error('Error in ASIN product lookup:', error.message);
+      }
     }
     
-    console.log('Making Rainforest API request with params:', { ...params, api_key: '[REDACTED]' });
+    // Second attempt: Search by UPC or query if first attempt failed
+    if (!result && (upc || query)) {
+      try {
+        console.log('Attempting search with:', upc || query);
+        const rainforestUrl = 'https://api.rainforestapi.com/request';
+        const params = {
+          api_key: process.env.RAINFOREST_API_KEY,
+          type: 'search',
+          amazon_domain: 'amazon.com',
+          search_term: upc || query
+        };
+        
+        const response = await axios.get(rainforestUrl, { params });
+        const processedResults = processAmazonResponse(response.data);
+        if (processedResults && processedResults.length > 0) {
+          console.log('Found search results, selecting best match');
+          const scoredResults = scoreProducts(processedResults, upc || query);
+          result = scoredResults[0];
+        }
+      } catch (error) {
+        console.error('Error in search:', error.message);
+      }
+    }
     
-    const response = await axios.get(rainforestUrl, { params });
-    console.log('Rainforest API response status:', response.status);
-    
-    // Process and format the response
-    const formattedResponse = processAmazonResponse(response.data);
-    
-    // Limit to best 1-2 matches
-    const limitedResults = getBestMatches(formattedResponse, query || upc || asin, 2);
-    console.log(`Limited from ${formattedResponse.length} to ${limitedResults.length} best Amazon results`);
+    // Format the final response
+    const formattedResponse = result ? [result] : [];
     
     // Cache the result
-    productCache.set(cacheKey, limitedResults);
+    productCache.set(cacheKey, formattedResponse);
     
-    res.json({ source: 'api', data: limitedResults });
+    res.json({ source: 'api', data: formattedResponse });
   } catch (error) {
     console.error('Amazon search error:', error.message);
     if (error.response) {
@@ -246,7 +252,7 @@ apiRouter.post('/search/amazon', async (req, res) => {
   }
 });
 
-// Target product search using BigBox API (if available)
+// Target product search - Optimized for speed and single best match
 apiRouter.post('/search/target', async (req, res) => {
   try {
     console.log('Target search called with:', req.body);
@@ -265,37 +271,60 @@ apiRouter.post('/search/target', async (req, res) => {
     // Log API key status (redacted for security)
     console.log('BigBox API Key available:', !!process.env.BIGBOX_API_KEY);
     
-    // Construct API request for BigBox API
-    const bigboxUrl = 'https://api.bigboxapi.com/request';
-    const params = {
-      api_key: process.env.BIGBOX_API_KEY,
-      type: 'search',
-      search_term: query
-    };
+    let result = null;
     
-    // Use UPC if available for more precise search
+    // First attempt: Try UPC-based product lookup if available
     if (upc) {
-      params.type = 'product';
-      params.upc = upc;
-      delete params.search_term;
+      try {
+        console.log('Attempting direct UPC product lookup');
+        const bigboxUrl = 'https://api.bigboxapi.com/request';
+        const params = {
+          api_key: process.env.BIGBOX_API_KEY,
+          type: 'product',
+          upc: upc
+        };
+        
+        const response = await axios.get(bigboxUrl, { params });
+        const processedResults = processTargetResponse(response.data);
+        if (processedResults && processedResults.length > 0) {
+          console.log('Found product by UPC lookup');
+          result = processedResults[0];
+        }
+      } catch (error) {
+        console.error('Error in UPC product lookup:', error.message);
+      }
     }
     
-    console.log('Making BigBox API request with params:', { ...params, api_key: '[REDACTED]' });
+    // Second attempt: Search by query if first attempt failed
+    if (!result && query) {
+      try {
+        console.log('Attempting search with query:', query);
+        const bigboxUrl = 'https://api.bigboxapi.com/request';
+        const params = {
+          api_key: process.env.BIGBOX_API_KEY,
+          type: 'search',
+          search_term: query
+        };
+        
+        const response = await axios.get(bigboxUrl, { params });
+        const processedResults = processTargetResponse(response.data);
+        if (processedResults && processedResults.length > 0) {
+          console.log('Found search results, selecting best match');
+          const scoredResults = scoreProducts(processedResults, query);
+          result = scoredResults[0];
+        }
+      } catch (error) {
+        console.error('Error in search:', error.message);
+      }
+    }
     
-    const response = await axios.get(bigboxUrl, { params });
-    console.log('BigBox API response status:', response.status);
-    
-    // Process and format the response
-    const formattedResponse = processTargetResponse(response.data);
-    
-    // Limit to best 1-2 matches
-    const limitedResults = getBestMatches(formattedResponse, query || upc, 2);
-    console.log(`Limited from ${formattedResponse.length} to ${limitedResults.length} best Target results`);
+    // Format the final response
+    const formattedResponse = result ? [result] : [];
     
     // Cache the result
-    productCache.set(cacheKey, limitedResults);
+    productCache.set(cacheKey, formattedResponse);
     
-    res.json({ source: 'api', data: limitedResults });
+    res.json({ source: 'api', data: formattedResponse });
   } catch (error) {
     console.error('Target search error:', error.message);
     if (error.response) {
@@ -318,12 +347,14 @@ apiRouter.post('/search/multi', async (req, res) => {
       product_id, // UPC, ASIN, or other product identifier
       product_title, // Product title for fuzzy matching if IDs fail
       product_brand, // Brand name for improved matching
-      selected_marketplace // The marketplace selected in the settings (if any)
+      selected_marketplace, // The marketplace selected in the settings (if any)
+      additional_fees = 0 // Additional fees set by the user
     } = req.body;
     
     // Generate unique cache key for this request
     const marketplaceSuffix = selected_marketplace ? `-${selected_marketplace}` : '';
-    const cacheKey = `multi-${source_marketplace}-${product_id}-${product_title?.substring(0, 20)}${marketplaceSuffix}`;
+    const feesSuffix = `-fees${additional_fees}`;
+    const cacheKey = `multi-${source_marketplace}-${product_id}-${product_title?.substring(0, 20)}${marketplaceSuffix}${feesSuffix}`;
     
     // Check cache first
     const cachedResult = productCache.get(cacheKey);
@@ -379,6 +410,9 @@ apiRouter.post('/search/multi', async (req, res) => {
           }
         }
         
+        // Pass along the additional fees
+        searchParams.additional_fees = additional_fees;
+        
         // Call the appropriate endpoint for this marketplace
         const endpointPath = `/search/${marketplace}`;
         
@@ -391,7 +425,15 @@ apiRouter.post('/search/multi', async (req, res) => {
         );
         
         console.log(`Got ${marketplace} search response:`, response.status);
-        results[marketplace] = response.data.data || [];
+        
+        // Add fee breakdown to each result
+        const resultsWithFees = addFeeBreakdown(
+          response.data.data || [], 
+          marketplace, 
+          additional_fees
+        );
+        
+        results[marketplace] = resultsWithFees;
       } catch (error) {
         console.error(`Multi-search ${marketplace} error:`, error.message);
         results[marketplace] = { error: error.message };
@@ -594,17 +636,13 @@ function processTargetResponse(data) {
 }
 
 /**
- * Get the best matches from a list of products
+ * Score products by relevance to query
  * @param {Array} products - List of product matches
  * @param {string} query - The search query or identifier
- * @param {number} limit - Maximum number of results to return
- * @returns {Array} - Limited list of best matches
+ * @returns {Array} - Scored products sorted by score (highest first)
  */
-function getBestMatches(products, query, limit = 2) {
+function scoreProducts(products, query) {
   if (!products || products.length === 0) return [];
-  if (products.length <= limit) return products;
-  
-  // If we only have one product from a direct lookup, it's likely the best match
   if (products.length === 1) return products;
   
   // Score each product based on multiple factors
@@ -647,13 +685,44 @@ function getBestMatches(products, query, limit = 2) {
     return { ...product, score };
   });
   
-  // Sort by score (highest first) and take top N
-  const sortedProducts = scoredProducts.sort((a, b) => b.score - a.score);
+  // Sort by score (highest first)
+  return scoredProducts.sort((a, b) => b.score - a.score);
+}
+
+/**
+ * Add fee breakdown to each product
+ * @param {Array} products - Array of products
+ * @param {string} marketplace - Marketplace name
+ * @param {number} additionalFees - Additional fees from user input
+ * @returns {Array} - Products with fee breakdown added
+ */
+function addFeeBreakdown(products, marketplace, additionalFees = 0) {
+  // Default marketplace fee percentages
+  const marketplaceFees = {
+    amazon: 0.15,  // 15%
+    walmart: 0.12, // 12%
+    target: 0.10   // 10%
+  };
   
-  // Remove the score property before returning
-  return sortedProducts.slice(0, limit).map(product => {
-    const { score, ...cleanProduct } = product;
-    return cleanProduct;
+  const feePercentage = marketplaceFees[marketplace] || 0.10;
+  const additionalFeesNum = parseFloat(additionalFees) || 0;
+  
+  return products.map(product => {
+    if (!product || !product.price) return product;
+    
+    const price = product.price;
+    const marketplaceFeeAmount = price * feePercentage;
+    const totalFees = marketplaceFeeAmount + additionalFeesNum;
+    
+    return {
+      ...product,
+      fees: {
+        marketplace_fee_percentage: feePercentage,
+        marketplace_fee_amount: parseFloat(marketplaceFeeAmount.toFixed(2)),
+        additional_fees: parseFloat(additionalFeesNum.toFixed(2)),
+        total_fees: parseFloat(totalFees.toFixed(2))
+      }
+    };
   });
 }
 
