@@ -64,9 +64,9 @@ const ComparisonView: React.FC = () => {
             disabled={loading || !currentProduct || isCurrentProductFromSelectedMarketplace}
             title={isCurrentProductFromSelectedMarketplace && settings.selectedMarketplace ? 
               `Cannot search for arbitrage when the current product is from the selected marketplace (${settings.selectedMarketplace})` : 
-              'Find arbitrage opportunities'}
+              'Find matching products on other marketplaces'}
           >
-            {loading ? 'Loading...' : 'Find Arbitrage Opportunities'}
+            {loading ? 'Loading...' : 'Find Matching Products'}
           </button>
         </div>
         
@@ -82,7 +82,7 @@ const ComparisonView: React.FC = () => {
       
       {comparison && (
         <div className="matched-products">
-          <h3>Arbitrage Opportunities</h3>
+          <h3>Matching Products</h3>
           
           {/* Show which marketplace we're showing results for */}
           {settings.selectedMarketplace && (
@@ -91,10 +91,11 @@ const ComparisonView: React.FC = () => {
             </div>
           )}
           
-          {/* Summary of opportunities */}
+          {/* Summary of opportunities with positive profit */}
           {totalProfit.amount > 0 && (
             <div className="profit-summary">
               <p>Total potential profit: <span className="profit positive">${totalProfit.amount.toFixed(2)}</span></p>
+              <p><small>Note: This summary includes only positive profit opportunities</small></p>
             </div>
           )}
           

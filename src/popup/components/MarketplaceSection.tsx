@@ -18,8 +18,8 @@ const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
   marketplace, 
   products
 }) => {
-  // Use the selector to get filtered products
-  const filteredProducts = useFilteredProducts(products);
+  // Use the selector to get all products (no filtering by profit)
+  const allProducts = useFilteredProducts(products);
   
   if (!products || products.length === 0) {
     return null;
@@ -28,15 +28,15 @@ const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
   return (
     <div className="marketplace-section">
       <h4>{formatMarketplace(marketplace)}</h4>
-      {filteredProducts.length > 0 ? (
-        filteredProducts.map((product, index) => (
+      {allProducts.length > 0 ? (
+        allProducts.map((product, index) => (
           <MatchedProductCard 
             key={`${marketplace}-${index}`} 
             product={product} 
           />
         ))
       ) : (
-        <p>No profitable opportunities found on {formatMarketplace(marketplace)}.</p>
+        <p>No matching products found on {formatMarketplace(marketplace)}.</p>
       )}
     </div>
   );

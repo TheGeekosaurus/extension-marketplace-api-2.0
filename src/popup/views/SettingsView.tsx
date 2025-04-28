@@ -115,21 +115,7 @@ const SettingsView: React.FC = () => {
       </div>
       
       <div className="settings-group">
-        <h4>Arbitrage Settings</h4>
-        <div className="setting-item">
-          <label htmlFor="minimumProfitPercentage">
-            Minimum Profit Percentage:
-          </label>
-          <input
-            type="number"
-            id="minimumProfitPercentage"
-            name="minimumProfitPercentage"
-            min="0"
-            max="100"
-            value={settings.minimumProfitPercentage}
-            onChange={handleSettingChange}
-          />
-        </div>
+        <h4>Fee Settings</h4>
         <div className="setting-item checkbox">
           <input
             type="checkbox"
