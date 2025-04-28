@@ -110,12 +110,14 @@ apiRouter.post('/search/walmart', async (req, res) => {
       console.log('No UPC or query provided for Walmart search');
     }
     
-    console.log('Processed Walmart results:', formattedResponse.length);
+    // Limit to best 1-2 matches
+    const limitedResults = getBestMatches(formattedResponse, query || upc, 2);
+    console.log(`Limited from ${formattedResponse.length} to ${limitedResults.length} best Walmart results`);
     
     // Cache the result
-    productCache.set(cacheKey, formattedResponse);
+    productCache.set(cacheKey, limitedResults);
     
-    res.json({ source: 'api', data: formattedResponse });
+    res.json({ source: 'api', data: limitedResults });
   } catch (error) {
     console.error('Walmart search error:', error.message);
     if (error.response) {
@@ -222,12 +224,15 @@ apiRouter.post('/search/amazon', async (req, res) => {
     
     // Process and format the response
     const formattedResponse = processAmazonResponse(response.data);
-    console.log('Processed Amazon results:', formattedResponse.length);
+    
+    // Limit to best 1-2 matches
+    const limitedResults = getBestMatches(formattedResponse, query || upc || asin, 2);
+    console.log(`Limited from ${formattedResponse.length} to ${limitedResults.length} best Amazon results`);
     
     // Cache the result
-    productCache.set(cacheKey, formattedResponse);
+    productCache.set(cacheKey, limitedResults);
     
-    res.json({ source: 'api', data: formattedResponse });
+    res.json({ source: 'api', data: limitedResults });
   } catch (error) {
     console.error('Amazon search error:', error.message);
     if (error.response) {
@@ -282,12 +287,15 @@ apiRouter.post('/search/target', async (req, res) => {
     
     // Process and format the response
     const formattedResponse = processTargetResponse(response.data);
-    console.log('Processed Target results:', formattedResponse.length);
+    
+    // Limit to best 1-2 matches
+    const limitedResults = getBestMatches(formattedResponse, query || upc, 2);
+    console.log(`Limited from ${formattedResponse.length} to ${limitedResults.length} best Target results`);
     
     // Cache the result
-    productCache.set(cacheKey, formattedResponse);
+    productCache.set(cacheKey, limitedResults);
     
-    res.json({ source: 'api', data: formattedResponse });
+    res.json({ source: 'api', data: limitedResults });
   } catch (error) {
     console.error('Target search error:', error.message);
     if (error.response) {
@@ -583,6 +591,70 @@ function processTargetResponse(data) {
     console.error('Error processing Target response:', error);
     return [];
   }
+}
+
+/**
+ * Get the best matches from a list of products
+ * @param {Array} products - List of product matches
+ * @param {string} query - The search query or identifier
+ * @param {number} limit - Maximum number of results to return
+ * @returns {Array} - Limited list of best matches
+ */
+function getBestMatches(products, query, limit = 2) {
+  if (!products || products.length === 0) return [];
+  if (products.length <= limit) return products;
+  
+  // If we only have one product from a direct lookup, it's likely the best match
+  if (products.length === 1) return products;
+  
+  // Score each product based on multiple factors
+  const scoredProducts = products.map(product => {
+    let score = 0;
+    
+    // In-stock items get priority
+    if (product.in_stock === true) score += 20;
+    
+    // Products with higher ratings score better
+    if (product.ratings?.average) {
+      score += Math.min(product.ratings.average * 5, 25); // Up to 25 points for a 5-star rating
+    }
+    
+    // Products with more reviews are more reliable
+    if (product.ratings?.count) {
+      score += Math.min(Math.log10(product.ratings.count) * 10, 25); // Up to 25 points for popular products
+    }
+    
+    // Calculate title relevance - simple version
+    if (product.title && query) {
+      const title = product.title.toLowerCase();
+      const searchTerms = query.toLowerCase().split(' ');
+      
+      // Add points for each search term found in title
+      searchTerms.forEach(term => {
+        if (title.includes(term)) {
+          score += 10;
+          // Bonus points for exact matches
+          if (title === term) score += 40;
+        }
+      });
+    }
+    
+    // UPC match would be almost a perfect match
+    if (product.upc && query && product.upc.includes(query)) {
+      score += 100;
+    }
+    
+    return { ...product, score };
+  });
+  
+  // Sort by score (highest first) and take top N
+  const sortedProducts = scoredProducts.sort((a, b) => b.score - a.score);
+  
+  // Remove the score property before returning
+  return sortedProducts.slice(0, limit).map(product => {
+    const { score, ...cleanProduct } = product;
+    return cleanProduct;
+  });
 }
 
 // Mount API router to /api path
