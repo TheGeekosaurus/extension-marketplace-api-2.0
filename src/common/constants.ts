@@ -36,7 +36,8 @@ export const DEFAULT_SETTINGS: Settings = {
   minimumProfitPercentage: DEFAULT_MIN_PROFIT_PERCENTAGE,
   includeFees: true,
   estimatedFees: DEFAULT_MARKETPLACE_FEES,
-  selectedMarketplace: null
+  selectedMarketplace: null,
+  additionalFees: 0
 };
 
 /**
