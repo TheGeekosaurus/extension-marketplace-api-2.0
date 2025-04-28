@@ -45,7 +45,7 @@ app.get('/', (req, res) => {
 // API Routes
 const apiRouter = express.Router();
 
-// Walmart product search using BlueCart API
+// Enhanced Walmart product search using BlueCart API
 apiRouter.post('/search/walmart', async (req, res) => {
   try {
     console.log('Walmart search called with:', req.body);
@@ -64,34 +64,52 @@ apiRouter.post('/search/walmart', async (req, res) => {
     // Log API key status (redacted for security)
     console.log('BlueCart API Key available:', !!process.env.BLUECART_API_KEY);
     
-    // Construct API request for BlueCart
-    const blueCartUrl = 'https://api.bluecartapi.com/request';
-    let params = {
-      api_key: process.env.BLUECART_API_KEY,
-      walmart_domain: 'walmart.com'
-    };
-    
-    // Use UPC or ASIN if available for more precise product lookup
+    let formattedResponse = [];
+
+    // If UPC is provided, try product lookup first, then search as fallback
     if (upc) {
-      params.type = 'product';
-      params.gtin = upc;
-    } else if (asin) {
-      // For walmart search with ASIN, it's better to use text search
-      params.type = 'search';
-      params.search_term = query;
+      try {
+        // First attempt: Try UPC-based product lookup
+        const productResult = await attemptWalmartProductLookup(upc);
+        if (productResult && productResult.length > 0) {
+          console.log('Successfully found Walmart product by UPC');
+          formattedResponse = productResult;
+        } else {
+          // Second attempt: Try UPC-based search
+          console.log('Product lookup by UPC failed, trying search with UPC...');
+          const searchResult = await attemptWalmartSearch(upc);
+          if (searchResult && searchResult.length > 0) {
+            console.log('Successfully found Walmart product by UPC search');
+            formattedResponse = searchResult;
+          } else {
+            // Third attempt: Try text search with UPC
+            console.log('UPC search failed, trying text search with brand and title...');
+            if (query) {
+              const textResult = await attemptWalmartSearch(query);
+              formattedResponse = textResult;
+            } else {
+              console.log('No query provided for text search fallback');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error in UPC-based lookup/search:', error.message);
+        
+        // Fallback to text search if UPC methods fail
+        if (query) {
+          console.log('Falling back to text search...');
+          const textResult = await attemptWalmartSearch(query);
+          formattedResponse = textResult;
+        }
+      }
+    } else if (query) {
+      // If no UPC, just do a text search
+      const searchResult = await attemptWalmartSearch(query);
+      formattedResponse = searchResult;
     } else {
-      // Regular text search
-      params.type = 'search';
-      params.search_term = query;
+      console.log('No UPC or query provided for Walmart search');
     }
     
-    console.log('Making BlueCart API request with params:', { ...params, api_key: '[REDACTED]' });
-    
-    const response = await axios.get(blueCartUrl, { params });
-    console.log('BlueCart API response status:', response.status);
-    
-    // Process and format the response
-    const formattedResponse = processWalmartResponse(response.data);
     console.log('Processed Walmart results:', formattedResponse.length);
     
     // Cache the result
@@ -110,6 +128,54 @@ apiRouter.post('/search/walmart', async (req, res) => {
     });
   }
 });
+
+// Helper function for UPC-based product lookup
+async function attemptWalmartProductLookup(upc) {
+  console.log('Attempting Walmart product lookup with UPC:', upc);
+  
+  const blueCartUrl = 'https://api.bluecartapi.com/request';
+  const params = {
+    api_key: process.env.BLUECART_API_KEY,
+    walmart_domain: 'walmart.com',
+    type: 'product',
+    gtin: upc
+  };
+  
+  console.log('Making BlueCart API product request with params:', { ...params, api_key: '[REDACTED]' });
+  
+  try {
+    const response = await axios.get(blueCartUrl, { params });
+    console.log('BlueCart API product response status:', response.status);
+    return processWalmartResponse(response.data);
+  } catch (error) {
+    console.error('BlueCart product lookup error:', error.message);
+    return [];
+  }
+}
+
+// Helper function for Walmart search
+async function attemptWalmartSearch(searchTerm) {
+  console.log('Attempting Walmart search with term:', searchTerm);
+  
+  const blueCartUrl = 'https://api.bluecartapi.com/request';
+  const params = {
+    api_key: process.env.BLUECART_API_KEY,
+    walmart_domain: 'walmart.com',
+    type: 'search',
+    search_term: searchTerm
+  };
+  
+  console.log('Making BlueCart API search request with params:', { ...params, api_key: '[REDACTED]' });
+  
+  try {
+    const response = await axios.get(blueCartUrl, { params });
+    console.log('BlueCart API search response status:', response.status);
+    return processWalmartResponse(response.data);
+  } catch (error) {
+    console.error('BlueCart search error:', error.message);
+    return [];
+  }
+}
 
 // Amazon product search using Rainforest API
 apiRouter.post('/search/amazon', async (req, res) => {
@@ -144,6 +210,9 @@ apiRouter.post('/search/amazon', async (req, res) => {
       params.type = 'product';
       params.asin = asin;
       delete params.search_term;
+    } else if (upc) {
+      // If we have a UPC but no ASIN, use the UPC as the search term
+      params.search_term = upc;
     }
     
     console.log('Making Rainforest API request with params:', { ...params, api_key: '[REDACTED]' });
@@ -278,9 +347,14 @@ apiRouter.post('/search/multi', async (req, res) => {
     await Promise.all(marketplaces.map(async (marketplace) => {
       try {
         console.log(`Searching ${marketplace} for product match`);
+        // Create a better search query that combines brand and title if both are available
+        const searchQuery = product_brand && product_title 
+          ? `${product_brand} ${product_title}`.trim()
+          : product_title || '';
+        
         // Construct the search request based on marketplace and available identifiers
         const searchParams = { 
-          query: `${product_brand || ''} ${product_title}`.trim()
+          query: searchQuery
         };
         
         // Add specific identifiers if available
@@ -351,7 +425,7 @@ function processWalmartResponse(data) {
       return data.search_results.map(item => ({
         title: item.product?.title || '',
         price: extractPrice(item),
-        image: item.product?.main_image || item.product?.images?.[0] || null,
+        image: extractImage(item),
         url: item.product?.link || '',
         marketplace: 'walmart',
         item_id: item.product?.item_id || null,
@@ -372,7 +446,7 @@ function processWalmartResponse(data) {
       return [{
         title: data.product.title || '',
         price: data.product.buybox_winner?.price || null,
-        image: data.product.main_image?.link || data.product.images?.[0]?.link || null,
+        image: extractProductImage(data.product),
         url: data.product.link || '',
         marketplace: 'walmart',
         item_id: data.product.item_id || null,
@@ -403,6 +477,32 @@ function extractPrice(item) {
   
   if (item.product?.price) {
     return parseFloat(item.product.price);
+  }
+  
+  return null;
+}
+
+// Helper function to extract image URL from different possible structures
+function extractImage(item) {
+  if (item.product?.main_image) {
+    return item.product.main_image;
+  }
+  
+  if (item.product?.images && item.product.images.length > 0) {
+    return item.product.images[0];
+  }
+  
+  return null;
+}
+
+// Helper function to extract product image from different possible structures
+function extractProductImage(product) {
+  if (product.main_image?.link) {
+    return product.main_image.link;
+  }
+  
+  if (product.images && product.images.length > 0 && product.images[0].link) {
+    return product.images[0].link;
   }
   
   return null;
