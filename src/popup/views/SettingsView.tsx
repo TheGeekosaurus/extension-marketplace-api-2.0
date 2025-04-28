@@ -173,6 +173,23 @@ const SettingsView: React.FC = () => {
         </div>
       </div>
       
+      <div className="settings-group">
+        <h4>Additional Fees</h4>
+        <div className="setting-item">
+          <label htmlFor="additionalFees">Additional Fees (shipping, packaging, etc.):</label>
+          <input
+            type="number"
+            id="additionalFees"
+            name="additionalFees"
+            min="0"
+            step="0.01"
+            value={settings.additionalFees || 0}
+            onChange={handleSettingChange}
+            placeholder="Enter additional fixed fees"
+          />
+        </div>
+      </div>
+      
       <button className="save-settings-button" onClick={saveSettings}>
         Save Settings
       </button>
