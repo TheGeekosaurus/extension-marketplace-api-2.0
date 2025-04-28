@@ -109,7 +109,8 @@ For production use, you can deploy the server to any Node.js hosting service:
 
 1. Open the extension
 2. Go to the Settings tab
-3. Set the "API Base URL" to your deployed server URL (e.g., `https://your-server.onrender.com/api`)
+3. Set the "API Base URL" to your deployed server URL (e.g., `https://your-server.onrender.com`)
+   - Note: Do not include `/api` in the URL as the extension now handles this automatically
 4. Click "Save Settings"
 
 ## API Credit Optimization
@@ -124,7 +125,11 @@ To minimize API costs:
    - The extension attempts to extract UPC or ASIN from product pages
    - These identifier-based searches are more efficient than text searches
 
-3. **Monitor API Usage**:
+3. **Use Marketplace Selection**:
+   - Select a specific marketplace to search instead of all marketplaces
+   - This reduces the number of API calls needed
+
+4. **Monitor API Usage**:
    - Check your usage in each API service's dashboard
 
 ## Troubleshooting

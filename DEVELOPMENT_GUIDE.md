@@ -115,6 +115,7 @@ Located in `server.js`, the Express server provides:
    - API endpoints
    - Cache duration
    - Minimum profit threshold
+   - Marketplace filtering
 
 ## Adding a New Marketplace
 
@@ -150,6 +151,37 @@ if (url.includes('shopmart.com')) {
   return extractShopmartProductData();
 }
 ```
+
+## API Integration
+
+### ApiClient (src/background/api/apiClient.ts)
+
+The ApiClient handles communication with the backend server:
+
+- Maintains consistent endpoint formatting 
+- Automatically prepends `/api/` to all endpoints
+- Handles error responses
+- Provides logging
+
+Example API request:
+
+```typescript
+// Making an API request
+const response = await ApiClient.makeRequest<ProductMatchResult[]>(
+  'search/multi', 
+  'POST', 
+  requestData
+);
+```
+
+### MarketplaceApi (src/background/api/marketplaceApi.ts)
+
+The MarketplaceApi provides higher-level marketplace-specific functionality:
+
+- Determines which marketplaces to search based on settings
+- Creates appropriately formatted API requests
+- Filters results based on selected marketplace
+- Handles errors gracefully
 
 ## Debugging Tips
 
