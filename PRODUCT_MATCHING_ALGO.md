@@ -4,38 +4,11 @@ This document explains how the E-commerce Arbitrage Extension matches products a
 
 ## Overview
 
-The product matching algorithm is designed to find identical products across Amazon, Walmart, and Target to calculate potential profit margins. The extension implements two modes:
-
-1. **Mock Data Mode** (Default): Simulates product matches without making API calls
-2. **API Mode**: Uses specialized APIs to find real matches across marketplaces
-
-## Mock Data Implementation
-
-In mock data mode, the algorithm generates realistic simulated matches based on the source product:
-
-- Creates price variations that reflect typical marketplace pricing patterns
-- Excludes matches for the source marketplace (no self-matches)
-- Adjusts prices based on detected product category
-- Generates realistic ratings and review counts
-
-### Price Variation Logic
-
-The algorithm applies different price multipliers based on product category and marketplace:
-
-| Category | Amazon | Walmart | Target |
-|----------|--------|---------|--------|
-| Pet Supplies | +25% | -15% | +5% |
-| Household | +15% | -20% | -5% |
-| Beauty | +20% | -10% | +15% |
-| Grocery | +30% | -25% | -15% |
-| Electronics | +5% | +0% | +10% |
-| General | +20% | -10% | +10% |
-
-This reflects real-world pricing patterns where Amazon often charges premium prices for convenience, while Walmart typically offers lower prices on household and grocery items.
+The product matching algorithm is designed to find identical products across Amazon, Walmart, and Target to calculate potential profit margins. The extension implements a real-time API approach using specialized marketplace API services.
 
 ## API-Based Matching
 
-When using real APIs, the algorithm follows this matching hierarchy (from most to least accurate):
+The algorithm follows this matching hierarchy (from most to least accurate):
 
 1. **UPC/EAN Matching**: Direct product identification using universal product codes
 2. **ASIN Direct Matching**: Amazon-specific product identification
@@ -70,9 +43,19 @@ When using real APIs, the algorithm follows this matching hierarchy (from most t
    - Filters results by relevance and similarity
    - Ranks by confidence score, price, and ratings
 
+## API Services
+
+The extension uses the following API services:
+
+1. **BlueCart API** - For Walmart product data
+2. **Rainforest API** - For Amazon product data
+3. **BigBox API** - For Target product data
+
+These services handle the complex task of searching within each marketplace and returning normalized product data.
+
 ## Profit Calculation
 
-Once matching products are found (either through mock data or real APIs), the extension calculates potential profit:
+Once matching products are found, the extension calculates potential profit:
 
 1. Takes the source product's price as the purchase cost
 2. Takes the matched product's price as the selling price
@@ -86,6 +69,16 @@ profitAmount = sellingPrice * (1 - marketplaceFee) - purchasePrice;
 profitPercentage = (profitAmount / purchasePrice) * 100;
 ```
 
+## Marketplace Selection
+
+The algorithm supports filtering searches to a specific marketplace:
+
+1. If a marketplace is selected in settings, only that marketplace is searched
+2. If the selected marketplace is the same as the source product, no search is performed
+3. If no marketplace is selected, all marketplaces except the source are searched
+
+This approach minimizes API usage and focuses results on the most relevant opportunities.
+
 ## Caching System
 
 To minimize API usage and improve performance, the extension implements a two-level caching system:
@@ -93,6 +86,7 @@ To minimize API usage and improve performance, the extension implements a two-le
 1. **Chrome Storage Cache**:
    - Persistently stores product comparison results
    - Configurable expiration time (default: 24 hours)
+   - Cache keys include marketplace selection for proper differentiation
 
 2. **Memory Cache**:
    - Temporarily stores active product data for faster access
@@ -100,20 +94,29 @@ To minimize API usage and improve performance, the extension implements a two-le
 
 ## Algorithm Accuracy
 
-When using real APIs, the expected accuracy rates are:
+The expected accuracy rates are:
 
 - **~95% accuracy** with UPC/EAN matching
 - **~90% accuracy** with ASIN direct matching
 - **~75-85% accuracy** with Brand + Title matching
 - **~60-70% accuracy** with Title-only matching
 
-In mock data mode, matches are always generated but represent simulated data rather than actual marketplace listings.
+The accuracy depends on the quality of data available on the product page and the capabilities of the underlying API services.
 
-## Future Improvements
+## Error Handling
 
-Planned enhancements to the matching algorithm:
+The algorithm includes robust error handling:
 
-1. **Image-based similarity** as an additional matching factor
-2. **Machine learning approach** for improved accuracy
-3. **Category-specific matching rules** for better results in specialized niches
-4. **User feedback loop** to improve matching quality over time
+1. **API Connection Errors**: Gracefully handles API timeouts and connection issues
+2. **Rate Limiting**: Properly handles rate limit responses from APIs
+3. **Malformed Data**: Validates and sanitizes API responses
+4. **Fallback Strategies**: Falls back to less precise matching methods when needed
+
+## Performance Considerations
+
+To optimize performance and API usage:
+
+1. **Caching**: Caches results to minimize redundant API calls
+2. **Selective Searching**: Only searches the selected marketplace when specified
+3. **Query Optimization**: Constructs efficient API queries based on available data
+4. **Parallel Processing**: Processes multiple marketplace searches in parallel
