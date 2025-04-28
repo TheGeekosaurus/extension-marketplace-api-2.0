@@ -36,6 +36,7 @@ The extension connects to specialized marketplace APIs for accurate product matc
 The Settings tab allows you to configure:
 
 - **API Base URL**: For connecting to your backend service
+- **Search Only In**: Filter searches to a specific marketplace (Amazon, Walmart, Target, or all)
 - **Cache Expiration**: Control how long product data is cached
 - **Minimum Profit Percentage**: Filter opportunities by profit threshold
 - **Marketplace Fees**: Customize fee percentages for each marketplace
@@ -74,15 +75,18 @@ The settings interface allows customization of:
 1. **API Settings**:
    - Configure backend API URL
 
-2. **Cache Settings**:
+2. **Search Settings**:
+   - Choose which marketplace to search (or all marketplaces)
+
+3. **Cache Settings**:
    - Control cache duration (in hours)
    - Option to clear cached data
 
-3. **Arbitrage Settings**:
+4. **Arbitrage Settings**:
    - Minimum profit percentage filter
    - Option to include estimated marketplace fees
 
-4. **Marketplace Fees**:
+5. **Marketplace Fees**:
    - Customize fee percentages for Amazon, Walmart, and Target
    - Affects profit calculations
 
@@ -120,15 +124,7 @@ The content scripts use multiple selector strategies:
 
 ### Category Detection
 
-The extension can detect product categories from titles:
-
-- Pet supplies
-- Household goods
-- Beauty products
-- Grocery items
-- Electronics
-
-This enables more accurate matching with the API.
+The extension detects product categories from titles to enable more accurate matching with the API.
 
 ## Efficiency Features
 
@@ -138,7 +134,7 @@ The extension optimizes API calls:
 
 - Prioritizes identifier-based searches (UPC, ASIN)
 - Uses caching to minimize redundant requests
-- Implements backoff strategies for rate limiting
+- Implements marketplace selection to reduce API calls
 - Handles API failures gracefully
 
 ### Cache Management
@@ -149,6 +145,7 @@ The caching system includes:
 - Manual cache clearing option
 - Status indicators for cache hits/misses
 - Separate cache keys for different product identifiers
+- Marketplace-specific cache keys
 
 ### Performance Optimization
 
@@ -176,32 +173,3 @@ The extension uses minimal permissions:
 - `storage`: For saving settings and cache
 - `scripting`: For content script injection
 - Host permissions only for supported marketplaces
-
-## Future Features
-
-Planned enhancements for upcoming versions:
-
-1. **Additional Marketplaces**:
-   - eBay integration
-   - Best Buy support
-   - International marketplace options
-
-2. **Enhanced Matching**:
-   - Image similarity analysis
-   - Machine learning-based matching
-   - User feedback integration
-
-3. **Advanced Analytics**:
-   - Historical price tracking
-   - Profit trend analysis
-   - Category performance insights
-
-4. **Export Capabilities**:
-   - CSV export of opportunities
-   - Batch processing of product lists
-   - Reporting features
-
-5. **Mobile Companion**:
-   - Barcode scanning in stores
-   - Real-time opportunity checking
-   - Sync with desktop extension
