@@ -12,6 +12,7 @@
     "https://*.amazon.com/*",
     "https://*.walmart.com/*",
     "https://*.target.com/*",
+    "https://*.homedepot.com/*",
     "https://extension-marketplace-api-2-0.onrender.com/*"
   ],
   "action": {
@@ -30,7 +31,8 @@
       "matches": [
         "https://*.amazon.com/*",
         "https://*.walmart.com/*",
-        "https://*.target.com/*"
+        "https://*.target.com/*",
+        "https://*.homedepot.com/*"
       ],
       "js": ["contentScript.js"],
       "run_at": "document_idle"
