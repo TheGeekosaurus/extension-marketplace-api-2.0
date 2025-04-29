@@ -1,6 +1,6 @@
 // server/services/productService.js - Common product handling logic
 const { scoreProducts, addFeeBreakdown } = require('../utils/scoring');
-const { extractModelNumber, rankResults } = require('../utils/productMatching');
+const { extractModelNumber, rankResults, getTruncatedTitle } = require('../utils/productMatching');
 const amazonService = require('./amazonService');
 const walmartService = require('./walmartService');
 const targetService = require('./targetService');
@@ -55,76 +55,110 @@ const searchMultipleMarketplaces = async (params) => {
       // Extract potential model number from title
       const modelNumber = extractModelNumber(product_title);
       
-      // Step 1: Try UPC search first (existing approach)
+      // Try multiple search strategies in sequence
       let matchedProducts = [];
       let searchSuccess = false;
       
-      // Create a better search query that combines brand and title if both are available
-      const searchQuery = product_brand && product_title 
-        ? `${product_brand} ${product_title}`.trim()
-        : product_title || '';
-      
-      // Construct the search request based on marketplace and available identifiers
-      const searchParams = { 
-        query: searchQuery
-      };
-      
-      // Add specific identifiers if available
-      if (product_id) {
-        if (marketplace === 'amazon' && source_marketplace === 'amazon') {
-          searchParams.asin = product_id;
-          console.log('Using ASIN for Amazon search:', product_id);
-        } else if ((['walmart', 'target'].includes(marketplace)) && 
-                  product_id.length >= 12 && /^\d+$/.test(product_id)) {
-          searchParams.upc = product_id;
-          console.log('Using UPC for search:', product_id);
-        } else {
-          console.log('Product ID not usable as UPC/ASIN, using text search');
-        }
-      }
-      
-      // Step 1: Call the appropriate service for this marketplace with UPC or full query
-      try {
-        switch (marketplace) {
-          case 'amazon':
-            matchedProducts = await amazonService.searchAmazonProducts(searchParams);
-            break;
-          case 'walmart':
-            matchedProducts = await walmartService.searchWalmartProducts(searchParams);
-            break;
-          case 'target':
-            matchedProducts = await targetService.searchTargetProducts(searchParams);
-            break;
-          default:
-            throw new Error(`Unknown marketplace: ${marketplace}`);
-        }
+      // STEP 1: Try UPC search first (if available)
+      if (product_id && product_id.length >= 12 && /^\d+$/.test(product_id)) {
+        console.log(`Using UPC for search: ${product_id}`);
         
-        // Check if we got any results
-        searchSuccess = matchedProducts && matchedProducts.length > 0;
-      } catch (error) {
-        console.error(`Primary search error for ${marketplace}:`, error.message);
-      }
-      
-      // Step 2: If no results and we have a model number, try searching by brand + model
-      if (!searchSuccess && modelNumber && product_brand) {
-        console.log(`No results from primary search. Trying Brand + Model search: ${product_brand} ${modelNumber}`);
-        
-        const modelSearchParams = {
-          query: `${product_brand} ${modelNumber}`.trim()
+        const searchParams = { 
+          query: product_brand && product_title 
+            ? `${product_brand} ${product_title}`.trim()
+            : product_title || '',
+          upc: product_id
         };
+        
+        try {
+          let upcResults;
+          switch (marketplace) {
+            case 'amazon':
+              upcResults = await amazonService.searchAmazonProducts(searchParams);
+              break;
+            case 'walmart':
+              upcResults = await walmartService.searchWalmartProducts(searchParams);
+              break;
+            case 'target':
+              upcResults = await targetService.searchTargetProducts(searchParams);
+              break;
+          }
+          
+          if (upcResults && upcResults.length > 0) {
+            console.log(`Found ${upcResults.length} results with UPC search`);
+            matchedProducts = upcResults;
+            searchSuccess = true;
+          }
+        } catch (error) {
+          console.error(`UPC search error for ${marketplace}:`, error.message);
+        }
+      } else if (marketplace === 'amazon' && source_marketplace === 'amazon' && product_id) {
+        // If searching Amazon from Amazon, try ASIN
+        console.log(`Using ASIN for Amazon search: ${product_id}`);
+        
+        try {
+          const asinResults = await amazonService.searchAmazonProducts({ asin: product_id });
+          
+          if (asinResults && asinResults.length > 0) {
+            console.log(`Found ${asinResults.length} results with ASIN search`);
+            matchedProducts = asinResults;
+            searchSuccess = true;
+          }
+        } catch (error) {
+          console.error(`ASIN search error:`, error.message);
+        }
+      }
+      
+      // STEP 2: If UPC/ASIN search failed, try brand + truncated title
+      if (!searchSuccess && product_brand) {
+        const truncatedTitle = getTruncatedTitle(product_title, 7); // Get first 7 significant words
+        const brandTitleQuery = `${product_brand} ${truncatedTitle}`.trim();
+        
+        console.log(`No results from primary search. Trying Brand + Truncated Title search: ${brandTitleQuery}`);
+        
+        try {
+          let brandTitleResults;
+          
+          switch (marketplace) {
+            case 'amazon':
+              brandTitleResults = await amazonService.searchAmazonProducts({ query: brandTitleQuery });
+              break;
+            case 'walmart':
+              brandTitleResults = await walmartService.searchWalmartProducts({ query: brandTitleQuery });
+              break;
+            case 'target':
+              brandTitleResults = await targetService.searchTargetProducts({ query: brandTitleQuery });
+              break;
+          }
+          
+          if (brandTitleResults && brandTitleResults.length > 0) {
+            console.log(`Found ${brandTitleResults.length} results with Brand + Truncated Title search`);
+            matchedProducts = brandTitleResults;
+            searchSuccess = true;
+          }
+        } catch (error) {
+          console.error(`Brand + Truncated Title search error for ${marketplace}:`, error.message);
+        }
+      }
+      
+      // STEP 3: If brand + truncated title failed and we have a model number, try brand + model
+      if (!searchSuccess && modelNumber && product_brand) {
+        const brandModelQuery = `${product_brand} ${modelNumber}`.trim();
+        
+        console.log(`No results from previous searches. Trying Brand + Model search: ${brandModelQuery}`);
         
         try {
           let modelBasedResults;
           
           switch (marketplace) {
             case 'amazon':
-              modelBasedResults = await amazonService.searchAmazonProducts(modelSearchParams);
+              modelBasedResults = await amazonService.searchAmazonProducts({ query: brandModelQuery });
               break;
             case 'walmart':
-              modelBasedResults = await walmartService.searchWalmartProducts(modelSearchParams);
+              modelBasedResults = await walmartService.searchWalmartProducts({ query: brandModelQuery });
               break;
             case 'target':
-              modelBasedResults = await targetService.searchTargetProducts(modelSearchParams);
+              modelBasedResults = await targetService.searchTargetProducts({ query: brandModelQuery });
               break;
           }
           
@@ -138,22 +172,19 @@ const searchMultipleMarketplaces = async (params) => {
         }
       }
       
-      // Step 3 (already available): If brand + title search returned no results,
-      // the marketplace services will fall back to simpler searches
-      
       console.log(`Got ${matchedProducts.length} results from ${marketplace}`);
       
-      // Rank and score results instead of filtering
+      // Rank and score results
       const rankedProducts = rankResults(
         matchedProducts,
         {
           title: product_title,
           brand: product_brand
         },
-        searchParams.upc ? 'upc' : (searchParams.asin ? 'asin' : 'brand-title')
+        searchSuccess ? 'brand-title' : 'upc'
       );
       
-      // Take top results (limited to 3 to avoid overwhelming the user)
+      // Take top 3 results only
       const topResults = rankedProducts.slice(0, 3);
       
       // Add fee breakdown to each result
