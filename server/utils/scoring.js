@@ -34,6 +34,8 @@ const scoreProducts = (products, query) => {
       
       // Add points for each search term found in title
       searchTerms.forEach(term => {
+        if (term.length <= 2) return; // Skip very short terms
+        
         if (title.includes(term)) {
           score += 10;
           // Bonus points for exact matches

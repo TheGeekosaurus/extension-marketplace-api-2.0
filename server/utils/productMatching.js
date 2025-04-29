@@ -38,7 +38,7 @@ const determineSearchStrategy = (sourceProduct, targetMarketplace) => {
 };
 
 /**
- * Score and rank results from search results instead of filtering
+ * Score and rank results instead of filtering
  * @param {Array} products - Search results
  * @param {Object} sourceProduct - Source product
  * @param {string} strategy - Search strategy used
@@ -124,6 +124,28 @@ const extractModelNumber = (title) => {
 };
 
 /**
+ * Generate a truncated title query with significant words
+ * @param {string} title - Full product title
+ * @param {number} wordCount - Number of significant words to include
+ * @returns {string} Truncated title
+ */
+const getTruncatedTitle = (title, wordCount = 7) => {
+  if (!title) return '';
+  
+  // Common stop words to skip
+  const stopWords = ['and', 'or', 'the', 'a', 'an', 'for', 'with', 'in', 'on', 'at', 'by', 'to', 'of'];
+  
+  // Split title into words
+  const words = title.split(/\s+/);
+  
+  // Filter out stop words and keep only significant words
+  const significantWords = words.filter(word => !stopWords.includes(word.toLowerCase()));
+  
+  // Take the first N significant words
+  return significantWords.slice(0, wordCount).join(' ');
+};
+
+/**
  * Check if a matched product is a reasonable price match
  * @param {Object} sourceProduct - Source product
  * @param {Object} matchedProduct - Potentially matching product
@@ -148,5 +170,6 @@ module.exports = {
   determineSearchStrategy,
   rankResults,
   extractModelNumber,
+  getTruncatedTitle,
   isPriceReasonable
 };
