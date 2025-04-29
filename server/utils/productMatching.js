@@ -38,41 +38,89 @@ const determineSearchStrategy = (sourceProduct, targetMarketplace) => {
 };
 
 /**
- * Filter out irrelevant results from search results
+ * Score and rank results from search results instead of filtering
  * @param {Array} products - Search results
  * @param {Object} sourceProduct - Source product
  * @param {string} strategy - Search strategy used
- * @returns {Array} Filtered products
+ * @returns {Array} Scored and ranked products
  */
-const filterResults = (products, sourceProduct, strategy) => {
+const rankResults = (products, sourceProduct, strategy) => {
   if (!products || products.length === 0) return [];
   
   const { title, brand } = sourceProduct;
+  const scoredProducts = [];
   
-  // No filtering needed for identity searches
+  // No scoring needed for identity searches, but still return all products
   if (strategy === 'asin' || strategy === 'upc') {
-    return products;
+    return products.map(product => ({
+      ...product,
+      matchScore: 1.0, // Perfect match score for direct ID matches
+      isBelowThreshold: false
+    }));
   }
   
-  return products.filter(product => {
-    // Basic text matching
-    if (!product.title) return false;
+  // Score each product based on similarity
+  for (const product of products) {
+    // Skip products without title
+    if (!product.title) continue;
     
     const titleSimilarity = calculateStringSimilarity(product.title, title);
     console.log(`Title similarity for "${product.title.substring(0, 30)}...": ${titleSimilarity}`);
     
-    // For brand+title searches, check brand match
+    let matchScore = titleSimilarity;
+    let isBelowThreshold = false;
+    
+    // For brand+title searches, include brand match in scoring
     if (strategy === 'brand-title' && brand && product.brand) {
       const brandSimilarity = calculateStringSimilarity(product.brand, brand);
       console.log(`Brand similarity: ${brandSimilarity}`);
       
-      // Require both title and brand to be reasonably similar
-      return titleSimilarity > 0.6 && brandSimilarity > 0.5;
+      // Weighted average of title and brand similarity
+      matchScore = titleSimilarity * 0.7 + brandSimilarity * 0.3;
+      
+      // Flag if it's below the original threshold, but still include
+      isBelowThreshold = titleSimilarity < 0.6 || brandSimilarity < 0.5;
+    } else {
+      // For title-only searches, use just title similarity
+      isBelowThreshold = titleSimilarity < 0.7;
     }
     
-    // For title-only searches, require higher title similarity
-    return titleSimilarity > 0.7;
-  });
+    scoredProducts.push({
+      ...product,
+      matchScore,
+      isBelowThreshold
+    });
+  }
+  
+  // Sort by match score (highest first) and return all
+  return scoredProducts.sort((a, b) => b.matchScore - a.matchScore);
+};
+
+/**
+ * Extract model number from product title
+ * @param {string} title - Product title
+ * @returns {string|null} Model number or null if not found
+ */
+const extractModelNumber = (title) => {
+  if (!title) return null;
+  
+  // Common model number patterns
+  // Examples: D810, PM230, X-T4, EOS R5, etc.
+  const modelPatterns = [
+    /\b([A-Z]\d{3,})\b/,  // D810, PM230
+    /\b([A-Z]+[-]\d+)\b/, // X-T4, EOS-R5
+    /\b([A-Z]+\d+[A-Z]*)\b/ // EOS80D, A7III
+  ];
+  
+  for (const pattern of modelPatterns) {
+    const match = title.match(pattern);
+    if (match && match[1]) {
+      console.log(`Found model number: ${match[1]}`);
+      return match[1];
+    }
+  }
+  
+  return null;
 };
 
 /**
@@ -98,6 +146,7 @@ const isPriceReasonable = (sourceProduct, matchedProduct) => {
 
 module.exports = {
   determineSearchStrategy,
-  filterResults,
+  rankResults,
+  extractModelNumber,
   isPriceReasonable
 };
