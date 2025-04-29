@@ -7,55 +7,58 @@ export const homedepotSelectors = {
   title: [
     'h1.sui-text-primary',
     'h2.sui-text-primary',
-    '.product-details__title',
-    '.product-name h1'
+    'h1[itemprop="name"]',
+    '.product-info-bar h1',
+    '.product-details__title'
   ],
   price: [
+    // Current price (sale price)
+    'span.sui-font-display.sui-text-9xl',
     'span.sui-font-display.sui-leading-none.sui-text-3xl',
-    'span.sui-font-display.sui-leading-none.sui-px-\\[2px\\].sui-text-9xl',
-    '[data-testid="price"]',
-    '[data-component="price:Price"] span'
+    '[data-testid="current-price"]',
+    '.price-format__large',
+    // Special buy section
+    '.special-buy span.sui-font-display'
   ],
   brand: [
-    'a[href*="/b/"] .sui-text-primary',
-    'h2.sui-text-primary + a',
-    '.product-details__brand',
-    // The brand often appears at the top of the page before the title
-    'div.col_12-12:first-of-type h2',
-    // First element in the breadcrumb 
-    '.breadcrumb__list > li:first-child a'
+    // First level method
+    'h1 + div',
+    '.primary-info div:first-child',
+    // Direct brand links
+    'a[href*="/b/"]',
+    '.product-details__brand'
   ],
   image: [
     '.mediagallery__mainimage img',
-    '[data-testid="small-image"]',
-    '.mediagallery__mainimageblock img',
-    'img[alt*="product"]'
+    'img[data-testid="small-image"]',
+    'img[data-zoom-image]',
+    'img.product-image',
+    '.product-details__image'
   ],
-  // Product info bar containing Internet #, Model #, and sometimes UPC
+  // Product info bar containing Internet #, Model #, and UPC
   productInfoBar: [
-    'div.product-info-bar',
-    '[data-testid="productInfo"]',
-    '.product-details__specs'
+    '.product-info-bar',
+    '[data-testid="productInfo"]'
   ],
   internetNumber: [
-    // Target the span containing the Internet # specifically
-    'h2:contains("Internet #") span.sui-font-normal',
-    'h2:contains("Internet #") + span',
-    // Find any element that has text "Internet #" followed by a number
-    'span.sui-font-normal:contains("Internet")',
-    'div:contains("Internet #") span'
+    // Specific elements for Internet #
+    'span.Internet-number',
+    'text()[contains(., "Internet #")]',
+    '.product-info-bar span:contains("Internet")',
+    'span.sui-font-normal'
   ],
   upc: [
-    // Target the span containing the UPC specifically
-    'p:contains("UPC Code #") span.sui-font-normal',
-    // Find any element that has text "UPC Code #" followed by a number
-    'span.sui-font-normal:contains("UPC")',
-    'div:contains("UPC Code #") span'
+    // Specific elements for UPC Code
+    'span.UPC-code',
+    'text()[contains(., "UPC Code")]',
+    '.product-info-bar span:contains("UPC")',
+    'span.sui-font-normal'
   ],
   model: [
-    'span:contains("Model #")',
-    '[data-testid="productInfo"] span:contains("Model")',
-    'div:contains("Model #") span'
+    'span.Model-number',
+    'text()[contains(., "Model #")]',
+    '.product-info-bar span:contains("Model")',
+    'span.sui-font-normal'
   ]
 };
 
@@ -68,23 +71,23 @@ export const homedepotRegexPatterns = {
     /\/p\/[^\/]+\/(\d+)$/,
     // Extract from Internet # text on page
     /Internet\s+#\s*(\d+)/i,
-    // Extract from script tags in page source
-    /"internetNumber"\s*:\s*"(\d+)"/i
+    // Extract from structured data
+    /"internetNumber"\s*:\s*"(\d+)"/
   ],
   upc: [
     // Extract from UPC text on page
     /UPC\s+Code\s+#\s*(\d+)/i,
-    // Extract from script tags in page source
-    /"upc"\s*:\s*"(\d+)"/i,
-    // Generic UPC pattern
+    // Extract from structured data
+    /"upc"\s*:\s*"(\d+)"/,
+    // Generic UPC pattern (12-13 digits)
     /UPC\s*:?\s*(\d{12,13})/i
   ],
   price: [
-    // Match price in standard format $X.XX
-    /\$\s*(\d+(?:\.\d{1,2})?)/,
-    // Match price split into dollars and cents
-    /\$\s*(\d+)\s*\.\s*(\d{2})/,
-    // Match price from script tags
-    /"price"\s*:\s*(\d+\.\d{2})/
+    // Current price format (e.g., $279.99)
+    /\$\s*(\d+)\.(\d{2})/,
+    // Price in JavaScript format (e.g., 279.99)
+    /"price"\s*:\s*(\d+\.\d{2})/,
+    // Special buy price 
+    /special-buy.*?\$\s*(\d+)\.(\d{2})/is
   ]
 };
