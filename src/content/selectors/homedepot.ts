@@ -8,47 +8,54 @@ export const homedepotSelectors = {
     'h1.sui-text-primary',
     'h2.sui-text-primary',
     '.product-details__title',
-    '.product-info-bar h2'
+    '.product-name h1'
   ],
   price: [
-    '#standard-price',
-    '.sui-font-display.sui-text-3xl',
-    '[data-component="price:Price"]',
-    '[data-testid="price"]'
+    'span.sui-font-display.sui-leading-none.sui-text-3xl',
+    'span.sui-font-display.sui-leading-none.sui-px-\\[2px\\].sui-text-9xl',
+    '[data-testid="price"]',
+    '[data-component="price:Price"] span'
   ],
   brand: [
     'a[href*="/b/"] .sui-text-primary',
     'h2.sui-text-primary + a',
-    '.product-details__brand'
+    '.product-details__brand',
+    // The brand often appears at the top of the page before the title
+    'div.col_12-12:first-of-type h2',
+    // First element in the breadcrumb 
+    '.breadcrumb__list > li:first-child a'
   ],
   image: [
     '.mediagallery__mainimage img',
     '[data-testid="small-image"]',
-    '.product-image img',
-    '.mediagallery__mainimageblock img'
+    '.mediagallery__mainimageblock img',
+    'img[alt*="product"]'
   ],
-  // Selectors for product details section where Internet # and UPC might be found
-  details: [
-    '.product-info-bar',
+  // Product info bar containing Internet #, Model #, and sometimes UPC
+  productInfoBar: [
+    'div.product-info-bar',
     '[data-testid="productInfo"]',
     '.product-details__specs'
   ],
   internetNumber: [
-    'h2:contains("Internet #") span',
-    'span:contains("Internet #")',
-    '[data-testid="productInfo"] span:contains("Internet")',
-    'div:contains("Internet #")'
+    // Target the span containing the Internet # specifically
+    'h2:contains("Internet #") span.sui-font-normal',
+    'h2:contains("Internet #") + span',
+    // Find any element that has text "Internet #" followed by a number
+    'span.sui-font-normal:contains("Internet")',
+    'div:contains("Internet #") span'
   ],
   upc: [
-    'p:contains("UPC Code #") span',
-    'span:contains("UPC Code")',
-    '[data-testid="productInfo"] span:contains("UPC")',
-    'div:contains("UPC Code #")'
+    // Target the span containing the UPC specifically
+    'p:contains("UPC Code #") span.sui-font-normal',
+    // Find any element that has text "UPC Code #" followed by a number
+    'span.sui-font-normal:contains("UPC")',
+    'div:contains("UPC Code #") span'
   ],
   model: [
     'span:contains("Model #")',
     '[data-testid="productInfo"] span:contains("Model")',
-    'div:contains("Model #")'
+    'div:contains("Model #") span'
   ]
 };
 
@@ -57,18 +64,27 @@ export const homedepotSelectors = {
  */
 export const homedepotRegexPatterns = {
   productId: [
+    // Extract from URL (common pattern in HomeDepot URLs)
     /\/p\/[^\/]+\/(\d+)$/,
+    // Extract from Internet # text on page
     /Internet\s+#\s*(\d+)/i,
-    /Internet\s+Number\s*:\s*(\d+)/i
+    // Extract from script tags in page source
+    /"internetNumber"\s*:\s*"(\d+)"/i
   ],
   upc: [
+    // Extract from UPC text on page
     /UPC\s+Code\s+#\s*(\d+)/i,
+    // Extract from script tags in page source
+    /"upc"\s*:\s*"(\d+)"/i,
+    // Generic UPC pattern
     /UPC\s*:?\s*(\d{12,13})/i
   ],
-  model: [
-    /Model\s+#\s*([A-Za-z0-9\-]+)/i
-  ],
   price: [
-    /\$\s*(\d+(?:\.\d{1,2})?)/
+    // Match price in standard format $X.XX
+    /\$\s*(\d+(?:\.\d{1,2})?)/,
+    // Match price split into dollars and cents
+    /\$\s*(\d+)\s*\.\s*(\d{2})/,
+    // Match price from script tags
+    /"price"\s*:\s*(\d+\.\d{2})/
   ]
 };
