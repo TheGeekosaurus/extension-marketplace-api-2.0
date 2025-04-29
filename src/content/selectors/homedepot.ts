@@ -43,21 +43,18 @@ export const homedepotSelectors = {
   internetNumber: [
     // Specific elements for Internet #
     'span.Internet-number',
-    'text()[contains(., "Internet #")]',
-    '.product-info-bar span:contains("Internet")',
+    '.product-info-bar span',
     'span.sui-font-normal'
   ],
   upc: [
     // Specific elements for UPC Code
     'span.UPC-code',
-    'text()[contains(., "UPC Code")]',
-    '.product-info-bar span:contains("UPC")',
+    '.product-info-bar span',
     'span.sui-font-normal'
   ],
   model: [
     'span.Model-number',
-    'text()[contains(., "Model #")]',
-    '.product-info-bar span:contains("Model")',
+    '.product-info-bar span',
     'span.sui-font-normal'
   ]
 };
@@ -88,6 +85,6 @@ export const homedepotRegexPatterns = {
     // Price in JavaScript format (e.g., 279.99)
     /"price"\s*:\s*(\d+\.\d{2})/,
     // Special buy price 
-    /special-buy.*?\$\s*(\d+)\.(\d{2})/is
+    /special-buy.*?\$\s*(\d+)\.(\d{2})/
   ]
 };
