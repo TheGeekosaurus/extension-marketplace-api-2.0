@@ -65,6 +65,7 @@ export function formatNumber(num: number | null | undefined): string {
  * @returns Formatted marketplace name
  */
 export function formatMarketplace(marketplace: string): string {
+  if (marketplace === 'homedepot') return 'Home Depot';
   return marketplace.charAt(0).toUpperCase() + marketplace.slice(1);
 }
 
