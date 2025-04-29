@@ -21,37 +21,41 @@ export function extractHomeDepotProductData(): ProductData | null {
   try {
     logExtraction('homedepot', 'Starting extraction');
     
-    // Extract Internet # (product ID) from URL or page content
-    const url = window.location.href;
-    let productId = extractWithRegex(homedepotRegexPatterns.productId, url);
+    // Method 1: Look for Internet # directly in the product info bar
+    const internetNumberElement = findElement(homedepotSelectors.internetNumber);
+    let productId = null;
     
-    // If not found in URL, try to find in the page content
-    if (!productId) {
-      const internetElement = findElement(homedepotSelectors.internetNumber);
-      if (internetElement) {
-        const internetText = extractText(internetElement);
-        if (internetText) {
-          const match = internetText.match(/\d+/);
-          if (match) {
-            productId = match[0];
-          }
+    if (internetNumberElement) {
+      const internetText = extractText(internetNumberElement);
+      if (internetText) {
+        // Extract only the number part
+        const match = internetText.match(/\d+/);
+        if (match) {
+          productId = match[0];
         }
       }
     }
     
-    // If still not found, try with regex on page content
+    // Method 2: Try extracting from URL if method 1 failed
     if (!productId) {
+      const url = window.location.href;
+      productId = extractWithRegex(homedepotRegexPatterns.productId, url);
+    }
+    
+    // Method 3: Look for Internet # in page content
+    if (!productId) {
+      // Try to find text that contains "Internet #" followed by digits
       const pageText = document.body.innerText;
-      const match = pageText.match(/Internet\s+#\s*(\d+)/i);
-      if (match && match[1]) {
-        productId = match[1];
+      const internetMatch = pageText.match(/Internet\s+#\s*(\d+)/i);
+      if (internetMatch && internetMatch[1]) {
+        productId = internetMatch[1];
       }
     }
     
-    logExtraction('homedepot', 'Extracted product ID', productId);
+    logExtraction('homedepot', 'Extracted Internet # (product ID)', productId);
     
     if (!productId) {
-      logExtraction('homedepot', 'No product ID found in HomeDepot URL or page');
+      logExtraction('homedepot', 'No product ID found in HomeDepot page');
       return null;
     }
     
@@ -61,24 +65,31 @@ export function extractHomeDepotProductData(): ProductData | null {
     logExtraction('homedepot', 'Extracted title', title);
     
     // Extract product price
-    const priceElement = findElement(homedepotSelectors.price);
     let price: number | null = null;
     
+    // First attempt: Find the main price element
+    const priceElement = findElement(homedepotSelectors.price);
     if (priceElement) {
       const priceText = extractText(priceElement);
       price = parsePrice(priceText);
+      logExtraction('homedepot', 'Extracted price from price element', price);
     }
     
-    // If price not found with selectors, try regex on page content
+    // Second attempt: Try to find the price in the entire page
     if (price === null) {
-      const pageText = document.body.innerText;
-      const match = pageText.match(/\$\s*(\d+(?:\.\d{1,2})?)/);
-      if (match && match[1]) {
-        price = parseFloat(match[1]);
+      // Look for price pattern anywhere in the page
+      const pageSource = document.body.innerHTML;
+      const priceMatches = [...pageSource.matchAll(/\$\s*(\d+(?:\.\d{2})?)/g)];
+      
+      if (priceMatches.length > 0) {
+        // Use the first match that looks like a price
+        const priceMatch = priceMatches[0];
+        if (priceMatch && priceMatch[1]) {
+          price = parseFloat(priceMatch[1]);
+          logExtraction('homedepot', 'Extracted price from page', price);
+        }
       }
     }
-    
-    logExtraction('homedepot', 'Extracted price', price);
     
     // Extract brand
     const brandElement = findElement(homedepotSelectors.brand);
@@ -88,7 +99,7 @@ export function extractHomeDepotProductData(): ProductData | null {
     if (!brand && title) {
       // Often the first word in the title is the brand
       const possibleBrand = title.split(' ')[0];
-      if (possibleBrand && possibleBrand.length > 2) {
+      if (possibleBrand && possibleBrand.length > 2 && !/^\d/.test(possibleBrand)) {
         brand = possibleBrand;
       }
     }
@@ -98,31 +109,50 @@ export function extractHomeDepotProductData(): ProductData | null {
     // Try to find UPC in product details
     let upc: string | null = null;
     
-    // Look for UPC with dedicated selectors
+    // Method 1: Look for UPC element with dedicated selectors
     const upcElement = findElement(homedepotSelectors.upc);
     if (upcElement) {
       const upcText = extractText(upcElement);
       if (upcText) {
+        // Extract only the number part
         const match = upcText.match(/\d+/);
         if (match) {
           upc = match[0];
+          logExtraction('homedepot', 'Extracted UPC from element', upc);
         }
       }
     }
     
-    // If not found, try with regex on page source
+    // Method 2: Try to extract from page content if method 1 failed
+    if (!upc) {
+      // Try to find text that looks like "UPC Code #" followed by digits
+      const pageText = document.body.innerText;
+      const upcMatch = pageText.match(/UPC\s+Code\s+#\s*(\d+)/i);
+      if (upcMatch && upcMatch[1]) {
+        upc = upcMatch[1];
+        logExtraction('homedepot', 'Extracted UPC from page text', upc);
+      }
+    }
+    
+    // Method 3: Look anywhere in page source
     if (!upc) {
       const pageSource = document.documentElement.innerHTML;
-      for (const pattern of homedepotRegexPatterns.upc) {
-        const match = pageSource.match(pattern);
-        if (match && match[1]) {
+      // Find any sequence of 12-13 digits that might be a UPC
+      const match = pageSource.match(/(\d{12,13})/);
+      if (match && match[1]) {
+        // Validate that it looks like a UPC (not just any number)
+        // UPCs are typically 12-13 digits and often appear near text like "UPC" or "Code"
+        const nearbyText = pageSource.substring(
+          Math.max(0, pageSource.indexOf(match[1]) - 50),
+          pageSource.indexOf(match[1]) + match[1].length + 50
+        );
+        
+        if (nearbyText.toLowerCase().includes('upc') || nearbyText.toLowerCase().includes('code')) {
           upc = match[1];
-          break;
+          logExtraction('homedepot', 'Extracted UPC from page source', upc);
         }
       }
     }
-    
-    logExtraction('homedepot', 'Extracted UPC', upc);
     
     // Get main product image
     const imageElement = findElement(homedepotSelectors.image);
