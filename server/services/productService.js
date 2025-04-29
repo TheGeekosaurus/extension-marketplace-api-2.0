@@ -1,5 +1,6 @@
 // server/services/productService.js - Common product handling logic
 const { scoreProducts, addFeeBreakdown } = require('../utils/scoring');
+const { extractModelNumber, rankResults } = require('../utils/productMatching');
 const amazonService = require('./amazonService');
 const walmartService = require('./walmartService');
 const targetService = require('./targetService');
@@ -50,6 +51,14 @@ const searchMultipleMarketplaces = async (params) => {
   await Promise.all(marketplaces.map(async (marketplace) => {
     try {
       console.log(`Searching ${marketplace} for product match`);
+      
+      // Extract potential model number from title
+      const modelNumber = extractModelNumber(product_title);
+      
+      // Step 1: Try UPC search first (existing approach)
+      let matchedProducts = [];
+      let searchSuccess = false;
+      
       // Create a better search query that combines brand and title if both are available
       const searchQuery = product_brand && product_title 
         ? `${product_brand} ${product_title}`.trim()
@@ -74,27 +83,82 @@ const searchMultipleMarketplaces = async (params) => {
         }
       }
       
-      // Call the appropriate service for this marketplace
-      let matchedProducts;
-      switch (marketplace) {
-        case 'amazon':
-          matchedProducts = await amazonService.searchAmazonProducts(searchParams);
-          break;
-        case 'walmart':
-          matchedProducts = await walmartService.searchWalmartProducts(searchParams);
-          break;
-        case 'target':
-          matchedProducts = await targetService.searchTargetProducts(searchParams);
-          break;
-        default:
-          throw new Error(`Unknown marketplace: ${marketplace}`);
+      // Step 1: Call the appropriate service for this marketplace with UPC or full query
+      try {
+        switch (marketplace) {
+          case 'amazon':
+            matchedProducts = await amazonService.searchAmazonProducts(searchParams);
+            break;
+          case 'walmart':
+            matchedProducts = await walmartService.searchWalmartProducts(searchParams);
+            break;
+          case 'target':
+            matchedProducts = await targetService.searchTargetProducts(searchParams);
+            break;
+          default:
+            throw new Error(`Unknown marketplace: ${marketplace}`);
+        }
+        
+        // Check if we got any results
+        searchSuccess = matchedProducts && matchedProducts.length > 0;
+      } catch (error) {
+        console.error(`Primary search error for ${marketplace}:`, error.message);
       }
+      
+      // Step 2: If no results and we have a model number, try searching by brand + model
+      if (!searchSuccess && modelNumber && product_brand) {
+        console.log(`No results from primary search. Trying Brand + Model search: ${product_brand} ${modelNumber}`);
+        
+        const modelSearchParams = {
+          query: `${product_brand} ${modelNumber}`.trim()
+        };
+        
+        try {
+          let modelBasedResults;
+          
+          switch (marketplace) {
+            case 'amazon':
+              modelBasedResults = await amazonService.searchAmazonProducts(modelSearchParams);
+              break;
+            case 'walmart':
+              modelBasedResults = await walmartService.searchWalmartProducts(modelSearchParams);
+              break;
+            case 'target':
+              modelBasedResults = await targetService.searchTargetProducts(modelSearchParams);
+              break;
+          }
+          
+          if (modelBasedResults && modelBasedResults.length > 0) {
+            console.log(`Found ${modelBasedResults.length} results with Brand + Model search`);
+            matchedProducts = modelBasedResults;
+            searchSuccess = true;
+          }
+        } catch (error) {
+          console.error(`Model-based search error for ${marketplace}:`, error.message);
+        }
+      }
+      
+      // Step 3 (already available): If brand + title search returned no results,
+      // the marketplace services will fall back to simpler searches
       
       console.log(`Got ${matchedProducts.length} results from ${marketplace}`);
       
+      // Rank and score results instead of filtering
+      const rankedProducts = rankResults(
+        matchedProducts,
+        {
+          title: product_title,
+          brand: product_brand
+        },
+        searchParams.upc ? 'upc' : (searchParams.asin ? 'asin' : 'brand-title')
+      );
+      
+      // Take top results (limited to 3 to avoid overwhelming the user)
+      const topResults = rankedProducts.slice(0, 3);
+      
       // Add fee breakdown to each result
       const resultsWithFees = addFeeBreakdown(
-        matchedProducts,
+        topResults,
         marketplace,
         additional_fees
       );
