@@ -53,7 +53,8 @@ export const DEFAULT_SETTINGS: Settings = {
   estimatedFees: {
     amazon: 0.15,
     walmart: 0.12,
-    target: 0.10
+    target: 0.10,
+    homedepot: 0.10
   },
   selectedMarketplace: null,
   additionalFees: 0
