@@ -4,6 +4,7 @@ import { ProductData } from '../types';
 import { extractAmazonProductData } from './extractors/amazon';
 import { extractWalmartProductData } from './extractors/walmart';
 import { extractTargetProductData } from './extractors/target';
+import { extractHomeDepotProductData } from './extractors/homedepot';
 
 /**
  * Main function to extract product data based on current page
@@ -25,6 +26,9 @@ function extractProductData(): ProductData | null {
     } else if (url.includes('target.com')) {
       console.log('[E-commerce Arbitrage] Detected Target page');
       return extractTargetProductData();
+    } else if (url.includes('homedepot.com')) {
+      console.log('[E-commerce Arbitrage] Detected HomeDepot page');
+      return extractHomeDepotProductData();
     }
     
     console.log('[E-commerce Arbitrage] No supported marketplace detected');
