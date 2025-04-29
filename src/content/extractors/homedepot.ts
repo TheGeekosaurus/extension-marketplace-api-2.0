@@ -24,7 +24,7 @@ export function extractHomeDepotProductData(): ProductData | null {
     logExtraction('homedepot', 'Starting extraction');
     
     // Method 1: Look for Internet # directly in the page (blue box at top)
-    let productId = null;
+    let productId: string | null = null;
     
     // First, try to match Internet # from text nodes that contain the exact format
     const internetElements = document.evaluate(
@@ -53,9 +53,12 @@ export function extractHomeDepotProductData(): ProductData | null {
       for (const span of Array.from(internetSpans)) {
         const parentText = span.parentElement?.textContent || '';
         if (parentText.includes('Internet #')) {
-          productId = span.textContent?.trim();
-          logExtraction('homedepot', 'Found Internet # in span with class', productId);
-          break;
+          const spanText = span.textContent?.trim() || null;
+          if (spanText) {
+            productId = spanText;
+            logExtraction('homedepot', 'Found Internet # in span with class', productId);
+            break;
+          }
         }
       }
     }
@@ -119,8 +122,8 @@ export function extractHomeDepotProductData(): ProductData | null {
       const centsElement = document.querySelector('.sui-text-3xl:not(.sui-text-9xl)');
       
       if (dollarElement && centsElement) {
-        const dollars = dollarElement.textContent?.replace(/[^0-9]/g, '');
-        const cents = centsElement.textContent?.replace(/[^0-9]/g, '');
+        const dollars = dollarElement.textContent?.replace(/[^0-9]/g, '') || '';
+        const cents = centsElement.textContent?.replace(/[^0-9]/g, '') || '';
         
         if (dollars && cents) {
           price = parseFloat(`${dollars}.${cents}`);
@@ -166,7 +169,7 @@ export function extractHomeDepotProductData(): ProductData | null {
       // Look for the first bold or prominent text that might be a brand
       const possibleBrandElements = document.querySelectorAll('h1 + div, .product-title + div');
       for (const el of Array.from(possibleBrandElements)) {
-        const text = el.textContent?.trim();
+        const text = el.textContent?.trim() || null;
         if (text && text.length > 1 && text.length < 20) {  // Brand names are usually short
           brand = text;
           break;
@@ -214,9 +217,12 @@ export function extractHomeDepotProductData(): ProductData | null {
       for (const span of Array.from(upcSpans)) {
         const parentText = span.parentElement?.textContent || '';
         if (parentText.includes('UPC Code')) {
-          upc = span.textContent?.trim();
-          logExtraction('homedepot', 'Found UPC in span', upc);
-          break;
+          const spanText = span.textContent?.trim() || null;
+          if (spanText) {
+            upc = spanText;
+            logExtraction('homedepot', 'Found UPC in span', upc);
+            break;
+          }
         }
       }
     }
