@@ -62,6 +62,20 @@ export class MockService {
       }];
     }
     
+    if (productData.marketplace !== 'homedepot') {
+      result.homedepot = [{
+        title: `${productData.title} - Home Depot Version`,
+        price: productData.price ? productData.price * 1.05 : 18.99, // 5% higher price
+        image: productData.imageUrl,
+        url: `https://homedepot.com/p/12345`,
+        marketplace: 'homedepot',
+        ratings: {
+          average: 4.1,
+          count: 75
+        }
+      }];
+    }
+    
     console.log('[E-commerce Arbitrage Mock] Generated mock matches:', result);
     return result;
   }
@@ -126,32 +140,38 @@ export class MockService {
       'pet-supplies': {
         amazon: 1.25,  // Amazon charges premium for pet supplies
         walmart: 0.85, // Walmart often cheaper
-        target: 1.05   // Target slightly higher
+        target: 1.05,  // Target slightly higher
+        homedepot: 1.10 // Home Depot slightly higher
       },
       'household': {
         amazon: 1.15,
         walmart: 0.80, // Walmart very competitive in household
-        target: 0.95
+        target: 0.95,
+        homedepot: 0.90 // Home Depot competitive in household
       },
       'beauty': {
         amazon: 1.20,
         walmart: 0.90,
-        target: 1.15  // Target often premium in beauty
+        target: 1.15,  // Target often premium in beauty
+        homedepot: 1.10 // Home Depot medium in beauty
       },
       'grocery': {
         amazon: 1.30, // Amazon grocery often expensive
         walmart: 0.75, // Walmart very cheap for grocery
-        target: 0.85
+        target: 0.85,
+        homedepot: 1.20 // Home Depot expensive for grocery
       },
       'electronics': {
         amazon: 1.05, // Amazon competitive in electronics
         walmart: 1.00, // Walmart less competitive
-        target: 1.10
+        target: 1.10,
+        homedepot: 1.15 // Home Depot more expensive
       },
       'general': {
         amazon: 1.20,
         walmart: 0.90,
-        target: 1.10
+        target: 1.10,
+        homedepot: 1.05
       }
     };
     

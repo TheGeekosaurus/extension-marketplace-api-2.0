@@ -24,7 +24,8 @@ export const DEFAULT_MIN_PROFIT_PERCENTAGE = 10;
 export const DEFAULT_MARKETPLACE_FEES: MarketplaceFees = {
   amazon: 0.15,  // 15%
   walmart: 0.12, // 12%
-  target: 0.10   // 10%
+  target: 0.10,  // 10%
+  homedepot: 0.10 // 10% (default for HomeDepot)
 };
 
 /**
@@ -46,7 +47,8 @@ export const DEFAULT_SETTINGS: Settings = {
 export const MARKETPLACE_URL_PATTERNS = {
   amazon: ['amazon.com'],
   walmart: ['walmart.com'],
-  target: ['target.com']
+  target: ['target.com'],
+  homedepot: ['homedepot.com']
 };
 
 /**
