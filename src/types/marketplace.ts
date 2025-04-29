@@ -3,7 +3,7 @@
 /**
  * Supported marketplace types
  */
-export type MarketplaceType = 'amazon' | 'walmart' | 'target';
+export type MarketplaceType = 'amazon' | 'walmart' | 'target' | 'homedepot';
 
 /**
  * Marketplace fee structure
@@ -12,6 +12,7 @@ export interface MarketplaceFees {
   amazon: number;
   walmart: number;
   target: number;
+  homedepot: number;
 }
 
 /**
@@ -22,10 +23,11 @@ export type ApiServiceType = 'bluecart' | 'rainforest' | 'bigbox';
 /**
  * Mapping between marketplace and API service
  */
-export const marketplaceToApiService: Record<MarketplaceType, ApiServiceType> = {
+export const marketplaceToApiService: Record<MarketplaceType, ApiServiceType | null> = {
   walmart: 'bluecart',
   amazon: 'rainforest',
-  target: 'bigbox'
+  target: 'bigbox',
+  homedepot: null  // No API service for HomeDepot yet
 };
 
 /**
