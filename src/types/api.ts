@@ -14,9 +14,10 @@ export interface ApiBaseRequest {
  */
 export interface MultiSearchRequest {
   source_marketplace: string;
-  product_id: string;
+  product_id?: string;
   product_title: string;
-  product_brand: string | null;
+  product_brand?: string | null;
+  selected_marketplace?: string | null;
 }
 
 /**
@@ -28,6 +29,8 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
   errorDetails?: string;
+  insufficientCredits?: boolean; // Added for credit handling
+  balance?: number; // Added for credit balance
 }
 
 /**
@@ -42,3 +45,25 @@ export interface CacheData<T> {
  * Available cache operations
  */
 export type CacheOperation = 'get' | 'set' | 'remove' | 'clear';
+
+/**
+ * Credit check response
+ */
+export interface CreditCheckResponse {
+  sufficient: boolean;
+  balance: number;
+  error?: string;
+}
+
+/**
+ * API key validation response
+ */
+export interface ApiKeyValidationResponse {
+  valid: boolean;
+  user?: {
+    id: string;
+    email: string;
+    credits: number;
+  };
+  error?: string;
+}
