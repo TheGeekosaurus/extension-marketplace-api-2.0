@@ -12,6 +12,11 @@ import { BlueCartApi } from './bluecart';
 import { RainforestApi } from './rainforest';
 import { BigBoxApi } from './bigbox';
 import { getSettings } from '../services/settingsService';
+import { AuthService } from '../services/authService';
+import { createLogger } from '../utils/logger';
+
+// Initialize logger
+const logger = createLogger('MarketplaceApi');
 
 /**
  * Combined marketplace API for multi-marketplace searches
@@ -36,9 +41,9 @@ export class MarketplaceApi {
         // If a specific marketplace is selected and it's not the source, use only that
         if (settings.selectedMarketplace !== productData.marketplace) {
           marketplaces = [settings.selectedMarketplace];
-          console.log('[E-commerce Arbitrage API] Searching only in selected marketplace:', marketplaces);
+          logger.info('Searching only in selected marketplace:', marketplaces);
         } else {
-          console.log('[E-commerce Arbitrage API] Selected marketplace is the same as source, no marketplaces to search');
+          logger.info('Selected marketplace is the same as source, no marketplaces to search');
           // Return empty result when the selected marketplace is the same as the source
           return {
             success: true,
@@ -50,10 +55,10 @@ export class MarketplaceApi {
         marketplaces = ['amazon', 'walmart', 'target'].filter(
           marketplace => marketplace !== productData.marketplace
         ) as MarketplaceType[];
-        console.log('[E-commerce Arbitrage API] No marketplace selected, searching all other marketplaces:', marketplaces);
+        logger.info('No marketplace selected, searching all other marketplaces:', marketplaces);
       }
       
-      console.log('[E-commerce Arbitrage API] Searching marketplaces:', marketplaces);
+      logger.info('Searching marketplaces:', marketplaces);
       
       // If no marketplaces to search, return empty result
       if (marketplaces.length === 0) {
@@ -71,7 +76,27 @@ export class MarketplaceApi {
         product_brand: productData.brand
       };
       
-      console.log('[E-commerce Arbitrage API] Multi-marketplace search for:', requestData);
+      logger.info('Multi-marketplace search for:', requestData);
+      
+      // Verify user is authenticated
+      const isAuthenticated = await AuthService.isAuthenticated();
+      if (!isAuthenticated) {
+        return {
+          success: false,
+          error: 'Authentication required. Please enter your API key in the settings.'
+        };
+      }
+      
+      // Check if user has enough credits
+      const creditCheck = await AuthService.checkCredits(5);
+      if (!creditCheck.sufficient) {
+        return {
+          success: false,
+          error: 'Insufficient credits to perform this operation',
+          insufficientCredits: true,
+          balance: creditCheck.balance
+        };
+      }
       
       // Make the API request to the correct path
       // Use 'search/multi' which will be prefixed with /api/ by the ApiClient
@@ -99,7 +124,7 @@ export class MarketplaceApi {
       
       return response;
     } catch (error) {
-      console.error('[E-commerce Arbitrage API] Error in multi-marketplace search:', error);
+      logger.error('Error in multi-marketplace search:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error)
