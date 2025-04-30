@@ -3,7 +3,7 @@
 import { createLogger } from '../utils/logger';
 
 // Configure the API base URL
-const API_BASE_URL = 'https://ext.nanotomlogistics.com';
+const API_BASE_URL = 'https://ftliettyjscrejxhdnuj.functions.supabase.co/auth-verify-key';
 
 // Initialize logger
 const logger = createLogger('AuthService');
