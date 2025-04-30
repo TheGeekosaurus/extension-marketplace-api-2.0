@@ -6,7 +6,7 @@ import { MarketplaceFees, Settings } from '../types';
  * Default API base URL
  * Changed to point to the new backend
  */
-export const DEFAULT_API_BASE_URL = 'https://ext.nanotomlogistics.com';
+export const DEFAULT_API_BASE_URL = 'https://ftliettyjscrejxhdnuj.functions.supabase.co';
 
 /**
  * Default cache expiration time in hours
@@ -75,8 +75,8 @@ export const STORAGE_PREFIX = 'ecommerce_arbitrage_';
  * Credit costs for different operations
  */
 export const CREDIT_COSTS = {
-  PRICE_COMPARISON: 5,
-  SINGLE_MARKETPLACE_SEARCH: 2
+  MARKETPLACE_CREDIT_COST: 1,  // 1 credit per marketplace search
+  SINGLE_MARKETPLACE_SEARCH: 1  // 1 credit for single marketplace search
 };
 
 /**

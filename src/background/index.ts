@@ -170,6 +170,27 @@ async function handleExtractedProductData(productData: ProductData): Promise<voi
 }
 
 /**
+ * Calculate required credits based on marketplaces to search
+ * 
+ * @param productData - Product data
+ * @param settings - User settings
+ * @returns Number of credits required
+ */
+function calculateRequiredCredits(productData: ProductData, settings: any): number {
+  if (settings.selectedMarketplace) {
+    // If a specific marketplace is selected, it's just 1 credit
+    return 1;
+  } else {
+    // If searching all marketplaces, count how many we'll search (excluding source marketplace)
+    const allMarketplaces = ['amazon', 'walmart', 'target'];
+    const searchableMarketplaces = allMarketplaces.filter(
+      marketplace => marketplace !== productData.marketplace
+    );
+    return searchableMarketplaces.length;
+  }
+}
+
+/**
  * Get price comparison data for a product
  * 
  * @param productData - Product to compare
@@ -189,8 +210,16 @@ async function getPriceComparison(productData: ProductData): Promise<ProductComp
       throw new Error('Authentication required. Please enter your API key in the settings.');
     }
     
-    // Check if the user has enough credits for this operation (5 credits)
-    const creditCheck = await AuthService.checkCredits(5);
+    // Load current settings (ensures we have the latest)
+    const settings = await loadSettings();
+    logger.info('Using settings:', settings);
+    
+    // Calculate required credits based on marketplaces to search
+    const requiredCredits = calculateRequiredCredits(productData, settings);
+    logger.info(`Required credits for this search: ${requiredCredits}`);
+    
+    // Check if the user has enough credits for this operation
+    const creditCheck = await AuthService.checkCredits(requiredCredits);
     if (!creditCheck.sufficient) {
       throw {
         message: 'Insufficient credits to perform this operation',
@@ -198,10 +227,6 @@ async function getPriceComparison(productData: ProductData): Promise<ProductComp
         balance: creditCheck.balance
       };
     }
-    
-    // Load current settings (ensures we have the latest)
-    const settings = await loadSettings();
-    logger.info('Using settings:', settings);
     
     // Check if the current product is from the selected marketplace
     if (settings.selectedMarketplace && productData.marketplace === settings.selectedMarketplace) {
@@ -256,9 +281,11 @@ async function getPriceComparison(productData: ProductData): Promise<ProductComp
     await CacheService.set(cacheKey, comparisonResult);
     
     // Record usage of credits for this operation
-    await AuthService.useCredits(5, `Price comparison for ${productData.title}`, {
+    await AuthService.useCredits(requiredCredits, `Price comparison for ${productData.title}`, {
       product_id: productData.productId,
       marketplace: productData.marketplace,
+      selected_marketplace: settings.selectedMarketplace || 'all',
+      credits_used: requiredCredits,
       operation: 'price_comparison'
     });
     
