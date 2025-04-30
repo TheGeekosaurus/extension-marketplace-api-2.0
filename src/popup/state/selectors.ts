@@ -39,6 +39,11 @@ export const useStatus = () => usePopupStore(state => state.status);
 export const useActiveTab = () => usePopupStore(state => state.activeTab);
 
 /**
+ * Get auth state
+ */
+export const useAuth = () => usePopupStore(state => state.authState);
+
+/**
  * Use all products without filtering
  * 
  * @param products - Products to return
@@ -46,7 +51,19 @@ export const useActiveTab = () => usePopupStore(state => state.activeTab);
  */
 export const useFilteredProducts = (products: ProductMatchResult[] | undefined): ProductMatchResult[] => {
   if (!products) return [];
-  return products;
+  
+  // Get minimum profit percentage from settings
+  const settings = usePopupStore(state => state.settings);
+  const minProfitPercentage = settings.minimumProfitPercentage;
+  
+  // If no minimum profit set, return all products
+  if (!minProfitPercentage) return products;
+  
+  // Filter products by profit percentage
+  return products.filter(product => {
+    if (!product.profit) return false;
+    return product.profit.percentage >= minProfitPercentage;
+  });
 };
 
 /**

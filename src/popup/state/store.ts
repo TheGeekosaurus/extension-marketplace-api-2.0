@@ -6,6 +6,18 @@ import { sendMessage } from '../../common/messaging';
 import { DEFAULT_SETTINGS } from '../../common/constants';
 
 /**
+ * Auth state interface for the popup
+ */
+interface AuthState {
+  isAuthenticated: boolean;
+  user: {
+    id: string;
+    email: string;
+    credits: number;
+  } | null;
+}
+
+/**
  * Popup state interface
  */
 interface PopupState {
@@ -14,11 +26,14 @@ interface PopupState {
   comparison: ProductComparison | null;
   settings: Settings;
   
+  // Auth state
+  authState: AuthState;
+  
   // UI state
   loading: boolean;
   error: string | null;
   status: string | null;
-  activeTab: 'comparison' | 'settings';
+  activeTab: 'comparison' | 'settings' | 'account';
   
   // Actions
   setCurrentProduct: (product: ProductData | null) => void;
@@ -26,14 +41,20 @@ interface PopupState {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setStatus: (status: string | null) => void;
-  setActiveTab: (tab: 'comparison' | 'settings') => void;
+  setActiveTab: (tab: 'comparison' | 'settings' | 'account') => void;
   updateSettings: (settings: Partial<Settings>) => void;
+  setAuthState: (state: Partial<AuthState>) => void;
   
   // API actions
   loadProductData: () => Promise<void>;
   fetchPriceComparison: () => Promise<void>;
   clearCache: () => Promise<void>;
   saveSettings: () => Promise<void>;
+  
+  // Auth actions
+  validateApiKey: (apiKey: string) => Promise<boolean>;
+  getCreditsBalance: () => Promise<number>;
+  logout: () => Promise<void>;
 }
 
 /**
@@ -44,6 +65,10 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   currentProduct: null,
   comparison: null,
   settings: DEFAULT_SETTINGS,
+  authState: {
+    isAuthenticated: false,
+    user: null
+  },
   loading: false,
   error: null,
   status: null,
@@ -58,6 +83,9 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   setActiveTab: (tab) => set({ activeTab: tab }),
   updateSettings: (partialSettings) => set((state) => ({
     settings: { ...state.settings, ...partialSettings }
+  })),
+  setAuthState: (partialState) => set((state) => ({
+    authState: { ...state.authState, ...partialState }
   })),
   
   // API actions
@@ -115,11 +143,19 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       setError, 
       setStatus, 
       setComparison,
-      settings 
+      settings,
+      authState
     } = get();
     
     if (!currentProduct) {
       setError('No product detected. Try visiting a product page first.');
+      return;
+    }
+    
+    // Check if the user is authenticated
+    if (!authState.isAuthenticated) {
+      setError('Please enter your API key in the Account tab to use this feature.');
+      set({ activeTab: 'account' });
       return;
     }
     
@@ -134,9 +170,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     }
     
     try {
-      // Ensure we have the latest settings before making the API request
-      await loadSettings();
-      
+      // Send message to background script to get price comparison
       const response = await sendMessage({ 
         action: 'GET_PRICE_COMPARISON', 
         productData: currentProduct 
@@ -144,18 +178,35 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       
       if (response && response.success) {
         setComparison(response.data);
+        // Update credits in the auth state after operation
+        await get().getCreditsBalance();
         if (settings.selectedMarketplace) {
           setStatus(`Price comparison data from ${settings.selectedMarketplace} loaded successfully`);
         } else {
           setStatus('Price comparison data loaded successfully');
         }
       } else {
-        setError(response?.error || 'Failed to get price comparison');
-        setStatus(response?.errorDetails || 'An unknown error occurred');
+        const error = response?.error || 'Failed to get price comparison';
+        
+        // Check if this is an insufficient credits error
+        if (error.includes('Insufficient credits')) {
+          setError('You do not have enough credits for this operation');
+          set({ activeTab: 'account' });
+        } else {
+          setError(error);
+          setStatus(response?.errorDetails || 'An unknown error occurred');
+        }
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      setError(`Error: ${errorMessage}`);
+      
+      // Check if this is an insufficient credits error
+      if (typeof error === 'object' && error && 'insufficientCredits' in error) {
+        setError('You do not have enough credits for this operation');
+        set({ activeTab: 'account' });
+      } else {
+        setError(`Error: ${errorMessage}`);
+      }
       console.error('Error fetching price comparison:', error);
     } finally {
       setLoading(false);
@@ -198,6 +249,96 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       setError(`Error saving settings: ${errorMessage}`);
       console.error('Error saving settings:', error);
     }
+  },
+  
+  // Auth actions
+  validateApiKey: async (apiKey: string) => {
+    const { setLoading, setError, setAuthState, getCreditsBalance } = get();
+    
+    if (!apiKey || apiKey.trim() === '') {
+      setError('Please enter a valid API key');
+      return false;
+    }
+    
+    setLoading(true);
+    
+    try {
+      const response = await sendMessage({
+        action: 'VALIDATE_API_KEY',
+        apiKey: apiKey.trim()
+      });
+      
+      if (response && response.success) {
+        setAuthState({
+          isAuthenticated: true,
+          user: response.user
+        });
+        
+        // Get latest credit balance
+        await getCreditsBalance();
+        
+        return true;
+      } else {
+        setError('Invalid API key. Please check and try again.');
+        return false;
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setError(`Error validating API key: ${errorMessage}`);
+      console.error('Error validating API key:', error);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  },
+  
+  getCreditsBalance: async () => {
+    const { setAuthState } = get();
+    
+    try {
+      const response = await sendMessage({
+        action: 'GET_CREDITS_BALANCE'
+      });
+      
+      if (response && response.success) {
+        // Update the credits in the auth state
+        setAuthState({
+          user: {
+            ...get().authState.user!,
+            credits: response.balance
+          }
+        });
+        return response.balance;
+      }
+      
+      return 0;
+    } catch (error) {
+      console.error('Error getting credits balance:', error);
+      return 0;
+    }
+  },
+  
+  logout: async () => {
+    const { setLoading, setError, setAuthState } = get();
+    
+    setLoading(true);
+    
+    try {
+      await sendMessage({ action: 'LOGOUT' });
+      
+      setAuthState({
+        isAuthenticated: false,
+        user: null
+      });
+      
+      return;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setError(`Error logging out: ${errorMessage}`);
+      console.error('Error logging out:', error);
+    } finally {
+      setLoading(false);
+    }
   }
 }));
 
@@ -210,6 +351,42 @@ export async function loadSettings(): Promise<Settings> {
     chrome.storage.local.get(['settings'], (result) => {
       const settings = result.settings || DEFAULT_SETTINGS;
       resolve(settings);
+    });
+  });
+}
+
+/**
+ * Check authentication status on startup
+ */
+export async function checkAuthStatus(): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    chrome.storage.local.get(['apiKey'], async (result) => {
+      if (result.apiKey) {
+        // Verify the API key
+        try {
+          const response = await sendMessage({
+            action: 'VALIDATE_API_KEY',
+            apiKey: result.apiKey
+          });
+          
+          if (response && response.success) {
+            usePopupStore.getState().setAuthState({
+              isAuthenticated: true,
+              user: response.user
+            });
+            
+            // Get latest credit balance
+            await usePopupStore.getState().getCreditsBalance();
+            
+            resolve(true);
+            return;
+          }
+        } catch (error) {
+          console.error('Error verifying API key:', error);
+        }
+      }
+      
+      resolve(false);
     });
   });
 }

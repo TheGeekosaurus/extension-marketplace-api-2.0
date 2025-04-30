@@ -2,6 +2,10 @@
 
 import { ApiBaseRequest, ApiResponse } from '../../types';
 import { getSettings } from '../services/settingsService';
+import { AuthService } from '../services/authService';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('ApiClient');
 
 /**
  * Base API client with common functionality for all API services
@@ -24,6 +28,9 @@ export class ApiClient {
       const settings = getSettings();
       const apiBaseUrl = settings.apiBaseUrl;
       
+      // Get API key if available
+      const apiKey = await AuthService.getApiKey();
+      
       // Make sure endpoint has the right format
       // Ensure that the endpoint has the /api prefix
       let formattedEndpoint = endpoint;
@@ -32,7 +39,9 @@ export class ApiClient {
       }
       
       // Always prepend /api to the endpoint if it's not already there
-      if (!formattedEndpoint.startsWith('/api/')) {
+      if (!formattedEndpoint.startsWith('/api/') && !formattedEndpoint.includes('auth-verify-key') && 
+          !formattedEndpoint.includes('credits-balance') && !formattedEndpoint.includes('credits-check') && 
+          !formattedEndpoint.includes('credits-use')) {
         formattedEndpoint = `/api${formattedEndpoint}`;
       }
       
@@ -42,37 +51,47 @@ export class ApiClient {
       // Construct the full URL
       const url = `${formattedBaseUrl}${formattedEndpoint}`;
       
-      console.log(`[E-commerce Arbitrage API] Requesting ${method} ${url}`, data);
+      logger.info(`Requesting ${method} ${url}`);
+      logger.debug('Request data:', data);
+      
+      // Set up headers
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      // Add API key to headers if available
+      if (apiKey && !endpoint.includes('auth-verify-key')) {
+        headers['x-api-key'] = apiKey;
+      }
       
       const requestOptions: RequestInit = {
         method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: method === 'POST' ? JSON.stringify(data) : undefined
       };
       
-      console.log('[E-commerce Arbitrage API] Request options:', requestOptions);
+      logger.debug('Request options:', requestOptions);
       
+      // Make the request
       const response = await fetch(url, requestOptions);
       
-      console.log(`[E-commerce Arbitrage API] Response status:`, response.status, response.statusText);
+      logger.info(`Response status: ${response.status} ${response.statusText}`);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[E-commerce Arbitrage API] Error response:`, errorText);
+        logger.error(`Error response: ${errorText}`);
         throw new Error(`API error: ${response.status} - ${errorText}`);
       }
       
       const result = await response.json();
-      console.log(`[E-commerce Arbitrage API] Response from ${endpoint}:`, result);
+      logger.debug(`Response from ${endpoint}:`, result);
       
       return {
         success: true,
         ...result
       };
     } catch (error) {
-      console.error(`[E-commerce Arbitrage API] Error making API request to ${endpoint}:`, error);
+      logger.error(`Error making API request to ${endpoint}:`, error);
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error)
@@ -86,7 +105,7 @@ export class ApiClient {
    * @returns Information about API services
    */
   static async getApiInfo(): Promise<ApiResponse<any>> {
-    console.log('[E-commerce Arbitrage API] Getting API info');
+    logger.info('Getting API info');
     return this.makeRequest('/test', 'GET');
   }
   
@@ -96,7 +115,7 @@ export class ApiClient {
    * @returns API health status
    */
   static async checkHealth(): Promise<ApiResponse<any>> {
-    console.log('[E-commerce Arbitrage API] Checking API health');
+    logger.info('Checking API health');
     return this.makeRequest('/health', 'GET');
   }
 }

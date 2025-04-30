@@ -6,13 +6,16 @@ import {
   useComparison, 
   useLoading, 
   useTotalPotentialProfit,
-  useSettings
+  useSettings,
+  useAuth
 } from '../state/selectors';
 import { usePopupStore } from '../state/store';
 import { formatDate, formatMarketplace } from '../../common/formatting';
 import { SourceProductCard } from '../components/ProductCard';
 import MarketplaceSection from '../components/MarketplaceSection';
 import StatusMessage from '../components/StatusMessage';
+import { CreditCard, ExternalLink } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 /**
  * Comparison view for showing product data and arbitrage opportunities
@@ -24,10 +27,12 @@ const ComparisonView: React.FC = () => {
   const loading = useLoading();
   const totalProfit = useTotalPotentialProfit();
   const settings = useSettings();
+  const { isAuthenticated } = useAuth();
   
   // Get actions from store
   const loadProductData = usePopupStore(state => state.loadProductData);
   const fetchPriceComparison = usePopupStore(state => state.fetchPriceComparison);
+  const setActiveTab = usePopupStore(state => state.setActiveTab);
 
   // Determine if current product is from the selected marketplace
   const isCurrentProductFromSelectedMarketplace = 
@@ -61,14 +66,32 @@ const ComparisonView: React.FC = () => {
           <button 
             className="compare-button"
             onClick={fetchPriceComparison}
-            disabled={loading || !currentProduct || isCurrentProductFromSelectedMarketplace}
-            title={isCurrentProductFromSelectedMarketplace && settings.selectedMarketplace ? 
-              `Cannot search for arbitrage when the current product is from the selected marketplace (${settings.selectedMarketplace})` : 
-              'Find matching products on other marketplaces'}
+            disabled={loading || !currentProduct || isCurrentProductFromSelectedMarketplace || !isAuthenticated}
+            title={
+              !isAuthenticated 
+                ? 'Please log in first to use this feature' 
+                : isCurrentProductFromSelectedMarketplace && settings.selectedMarketplace 
+                  ? `Cannot search for arbitrage when the current product is from the selected marketplace (${settings.selectedMarketplace})` 
+                  : 'Find matching products on other marketplaces'
+            }
           >
             {loading ? 'Loading...' : 'Find Matching Products'}
           </button>
         </div>
+        
+        {!isAuthenticated && (
+          <div className="auth-required">
+            <p className="text-sm text-amber-600 p-2 bg-amber-50 rounded-md mt-2">
+              You need to log in to find arbitrage opportunities. 
+              <button 
+                className="ml-1 underline text-blue-600"
+                onClick={() => setActiveTab('account')}
+              >
+                Enter your API key
+              </button>
+            </p>
+          </div>
+        )}
         
         {isCurrentProductFromSelectedMarketplace && settings.selectedMarketplace && (
           <div className="error-message">
@@ -132,6 +155,31 @@ const ComparisonView: React.FC = () => {
             <p className="timestamp">
               Last updated: {formatDate(comparison.timestamp)}
             </p>
+          </div>
+        </div>
+      )}
+      
+      {/* Show credit purchase CTA if authenticated but not showing comparison */}
+      {isAuthenticated && !comparison && !loading && (
+        <div className="bg-muted p-4 rounded-md mt-4">
+          <h3 className="text-lg font-medium mb-2">Need Credits?</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Purchase credits to find profitable arbitrage opportunities across marketplaces.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button
+              className="flex-1"
+              onClick={() => window.open('https://ext.nanotomlogistics.com/purchase', '_blank')}
+            >
+              <CreditCard className="mr-2 h-4 w-4" /> Purchase Credits
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => window.open('https://ext.nanotomlogistics.com/dashboard', '_blank')}
+            >
+              <ExternalLink className="mr-2 h-4 w-4" /> Account Dashboard
+            </Button>
           </div>
         </div>
       )}
