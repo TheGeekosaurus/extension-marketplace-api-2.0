@@ -1,10 +1,11 @@
 // src/popup/Popup.tsx - Main popup component
 
 import React, { useEffect } from 'react';
-import { usePopupStore } from './state/store';
+import { usePopupStore, checkAuthStatus } from './state/store';
 import { useActiveTab } from './state/selectors';
 import ComparisonView from './views/ComparisonView';
 import SettingsView from './views/SettingsView';
+import AccountView from './views/AccountView';
 import { VERSION } from '../common/constants';
 import './Popup.css';
 
@@ -15,6 +16,7 @@ const Popup: React.FC = () => {
   // Get active tab and tab switching function from store
   const activeTab = useActiveTab();
   const setActiveTab = usePopupStore(state => state.setActiveTab);
+  const authState = usePopupStore(state => state.authState);
   
   // Other actions from store
   const setCurrentProduct = usePopupStore(state => state.setCurrentProduct);
@@ -24,6 +26,9 @@ const Popup: React.FC = () => {
   // Load current product and settings on mount
   useEffect(() => {
     console.log('Popup component mounted');
+    
+    // Check auth status on mount
+    checkAuthStatus();
     
     // Check if we're on a supported website
     checkCurrentTab();
@@ -66,7 +71,15 @@ const Popup: React.FC = () => {
   return (
     <div className="popup-container">
       <header className="popup-header">
-        <h1>E-commerce Arbitrage Assistant</h1>
+        <h1 className="text-xl font-bold">E-commerce Arbitrage Assistant</h1>
+        
+        {/* Show credit balance if authenticated */}
+        {authState.isAuthenticated && (
+          <div className="text-sm text-right text-white/90 mb-2">
+            Credits: <span className="font-semibold">{authState.user?.credits || 0}</span>
+          </div>
+        )}
+        
         <div className="tab-navigation">
           <button
             className={`tab-button ${activeTab === 'comparison' ? 'active' : ''}`}
@@ -80,11 +93,23 @@ const Popup: React.FC = () => {
           >
             Settings
           </button>
+          <button
+            className={`tab-button ${activeTab === 'account' ? 'active' : ''}`}
+            onClick={() => setActiveTab('account')}
+          >
+            Account
+          </button>
         </div>
       </header>
       
       <main className="popup-content">
-        {activeTab === 'comparison' ? <ComparisonView /> : <SettingsView />}
+        {activeTab === 'comparison' ? (
+          <ComparisonView />
+        ) : activeTab === 'settings' ? (
+          <SettingsView />
+        ) : (
+          <AccountView />
+        )}
       </main>
       
       <footer className="popup-footer">
