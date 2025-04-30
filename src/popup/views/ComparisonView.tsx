@@ -14,8 +14,6 @@ import { formatDate, formatMarketplace } from '../../common/formatting';
 import { SourceProductCard } from '../components/ProductCard';
 import MarketplaceSection from '../components/MarketplaceSection';
 import StatusMessage from '../components/StatusMessage';
-import { CreditCard, ExternalLink } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 /**
  * Comparison view for showing product data and arbitrage opportunities
@@ -167,19 +165,18 @@ const ComparisonView: React.FC = () => {
             Purchase credits to find profitable arbitrage opportunities across marketplaces.
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
-            <Button
-              className="flex-1"
+            <button
+              className="button"
               onClick={() => window.open('https://ext.nanotomlogistics.com/purchase', '_blank')}
             >
-              <CreditCard className="mr-2 h-4 w-4" /> Purchase Credits
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1"
+              Purchase Credits
+            </button>
+            <button
+              className="button outline"
               onClick={() => window.open('https://ext.nanotomlogistics.com/dashboard', '_blank')}
             >
-              <ExternalLink className="mr-2 h-4 w-4" /> Account Dashboard
-            </Button>
+              Account Dashboard
+            </button>
           </div>
         </div>
       )}

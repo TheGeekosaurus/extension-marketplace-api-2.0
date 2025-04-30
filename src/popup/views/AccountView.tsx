@@ -3,10 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { usePopupStore } from '../state/store';
 import StatusMessage from '../components/StatusMessage';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { LogOut, Key, CreditCard, ExternalLink } from 'lucide-react';
 
 const AccountView: React.FC = () => {
   // Get state and actions from store
@@ -50,15 +46,15 @@ const AccountView: React.FC = () => {
       
       {authState.isAuthenticated ? (
         // Authenticated view
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Account</CardTitle>
-            <CardDescription>
+        <div className="card">
+          <div className="card-header">
+            <h3 className="card-title">Your Account</h3>
+            <div className="card-description">
               Logged in as {authState.user?.email}
-            </CardDescription>
-          </CardHeader>
+            </div>
+          </div>
           
-          <CardContent className="space-y-6">
+          <div className="card-content space-y-6">
             <div className="bg-muted rounded-lg p-6 text-center">
               <h3 className="text-xl font-medium mb-1">Credits Balance</h3>
               <div className="text-3xl font-bold text-primary">
@@ -72,23 +68,23 @@ const AccountView: React.FC = () => {
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Credit Usage</h3>
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-secondary/40 p-4 rounded-md">
+                <div className="bg-secondary p-4 rounded-md">
                   <div className="text-sm font-medium">Search Operation</div>
                   <div className="text-2xl font-bold">5 credits</div>
                 </div>
-                <div className="bg-secondary/40 p-4 rounded-md">
+                <div className="bg-secondary p-4 rounded-md">
                   <div className="text-sm font-medium">Price Check</div>
                   <div className="text-2xl font-bold">2 credits</div>
                 </div>
               </div>
             </div>
             
-            <Button 
-              className="w-full"
+            <button 
+              className="button w-full"
               onClick={() => window.open('https://ext.nanotomlogistics.com/purchase', '_blank')}
             >
-              <CreditCard className="mr-2 h-4 w-4" /> Purchase More Credits
-            </Button>
+              Purchase More Credits
+            </button>
             
             <a
               href="https://ext.nanotomlogistics.com/dashboard"
@@ -96,41 +92,40 @@ const AccountView: React.FC = () => {
               rel="noopener noreferrer"
               className="flex items-center justify-center text-sm text-primary hover:underline"
             >
-              <ExternalLink className="mr-1 h-3 w-3" /> View Account Dashboard
+              View Account Dashboard
             </a>
-          </CardContent>
+          </div>
           
-          <CardFooter>
-            <Button 
-              variant="outline" 
-              className="w-full"
+          <div className="card-footer">
+            <button 
+              className="button outline w-full"
               onClick={handleLogout}
               disabled={loading}
             >
-              <LogOut className="mr-2 h-4 w-4" /> 
               {loading ? 'Logging out...' : 'Log Out'}
-            </Button>
-          </CardFooter>
-        </Card>
+            </button>
+          </div>
+        </div>
       ) : (
         // Non-authenticated view
-        <Card>
-          <CardHeader>
-            <CardTitle>Connect Your Account</CardTitle>
-            <CardDescription>
+        <div className="card">
+          <div className="card-header">
+            <h3 className="card-title">Connect Your Account</h3>
+            <div className="card-description">
               Enter your API key to connect to your account
-            </CardDescription>
-          </CardHeader>
+            </div>
+          </div>
           
-          <CardContent>
+          <div className="card-content">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="apiKey" className="text-sm font-medium">
                   API Key
                 </label>
-                <Input
+                <input
                   id="apiKey"
                   type="text"
+                  className="input"
                   placeholder="eaa_your_api_key_here"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
@@ -141,43 +136,41 @@ const AccountView: React.FC = () => {
                 </p>
               </div>
               
-              <Button 
+              <button 
                 type="submit" 
-                className="w-full"
+                className="button w-full"
                 disabled={loading || !apiKey.trim()}
               >
-                <Key className="mr-2 h-4 w-4" />
                 {loading ? 'Validating...' : 'Connect Account'}
-              </Button>
+              </button>
             </form>
-          </CardContent>
+          </div>
           
-          <CardFooter className="flex flex-col space-y-4">
+          <div className="card-footer flex flex-col space-y-4">
             <div className="w-full border-t pt-4 text-center">
               <p className="text-sm text-muted-foreground mb-2">
                 Don't have an account yet?
               </p>
-              <Button
-                variant="outline"
-                className="w-full"
+              <button
+                className="button outline w-full"
                 onClick={() => window.open('https://ext.nanotomlogistics.com/signup', '_blank')}
               >
-                <ExternalLink className="mr-2 h-4 w-4" /> Create Account
-              </Button>
+                Create Account
+              </button>
             </div>
-          </CardFooter>
-        </Card>
+          </div>
+        </div>
       )}
       
-      <Card>
-        <CardHeader>
-          <CardTitle>E-commerce Arbitrage Assistant</CardTitle>
-          <CardDescription>
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">E-commerce Arbitrage Assistant</h3>
+          <div className="card-description">
             Find profitable arbitrage opportunities across marketplaces
-          </CardDescription>
-        </CardHeader>
+          </div>
+        </div>
         
-        <CardContent>
+        <div className="card-content">
           <div className="space-y-4">
             <div className="bg-muted p-4 rounded-md">
               <h3 className="font-medium mb-1">How Credits Work</h3>
@@ -198,8 +191,8 @@ const AccountView: React.FC = () => {
               </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };
