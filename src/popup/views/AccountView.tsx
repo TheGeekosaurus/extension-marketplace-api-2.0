@@ -69,13 +69,17 @@ const AccountView: React.FC = () => {
               <h3 className="text-lg font-medium">Credit Usage</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-secondary p-4 rounded-md">
-                  <div className="text-sm font-medium">Search Operation</div>
-                  <div className="text-2xl font-bold">5 credits</div>
+                  <div className="text-sm font-medium">Amazon Search</div>
+                  <div className="text-2xl font-bold">1 credit</div>
                 </div>
                 <div className="bg-secondary p-4 rounded-md">
-                  <div className="text-sm font-medium">Price Check</div>
-                  <div className="text-2xl font-bold">2 credits</div>
+                  <div className="text-sm font-medium">Walmart Search</div>
+                  <div className="text-2xl font-bold">1 credit</div>
                 </div>
+              </div>
+              <div className="bg-secondary p-4 rounded-md">
+                <div className="text-sm font-medium">Credit Cost Formula</div>
+                <div className="text-md mt-1">1 credit per marketplace searched</div>
               </div>
             </div>
             
@@ -175,7 +179,7 @@ const AccountView: React.FC = () => {
             <div className="bg-muted p-4 rounded-md">
               <h3 className="font-medium mb-1">How Credits Work</h3>
               <p className="text-sm text-muted-foreground">
-                Credits are consumed when you perform operations like searching for price comparisons across marketplaces. You can purchase more credits from your account dashboard.
+                Credits are consumed when you perform operations like searching for price comparisons across marketplaces. Each marketplace search costs 1 credit. You can purchase more credits from your account dashboard.
               </p>
             </div>
             
