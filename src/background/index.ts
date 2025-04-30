@@ -5,6 +5,7 @@ import { MarketplaceApi } from './api/marketplaceApi';
 import { CacheService } from './services/cacheService';
 import { ProfitService } from './services/profitService';
 import { initializeSettings, getSettings, loadSettings, saveSettings } from './services/settingsService';
+import { AuthService } from './services/authService';
 import { createLogger } from './utils/logger';
 import { handleError } from './utils/errorHandler';
 
@@ -22,6 +23,20 @@ chrome.runtime.onInstalled.addListener(async () => {
   chrome.storage.local.set({ currentProduct: null }, () => {
     logger.info('Initialized currentProduct as null');
   });
+
+  // Initialize AuthService
+  await AuthService.initialize();
+});
+
+// Also initialize when the extension starts
+chrome.runtime.onStartup.addListener(async () => {
+  logger.info('Extension started');
+  
+  // Initialize settings
+  await loadSettings();
+  
+  // Initialize AuthService
+  await AuthService.initialize();
 });
 
 // Handle messages from content scripts and popup
@@ -84,6 +99,48 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     return true; // Indicates async response
   }
+
+  // Handle API key validation
+  else if (message.action === 'VALIDATE_API_KEY') {
+    AuthService.verifyAndSaveApiKey(message.apiKey)
+      .then((result) => {
+        logger.info('API key validation result:', result);
+        sendResponse({ success: result.valid, user: result.user });
+      })
+      .catch(error => {
+        sendResponse(handleError(error, 'validating API key'));
+      });
+    
+    return true; // Indicates async response
+  }
+  
+  // Handle get credits balance
+  else if (message.action === 'GET_CREDITS_BALANCE') {
+    AuthService.getCreditsBalance()
+      .then((balance) => {
+        logger.info('Credits balance:', balance);
+        sendResponse({ success: true, balance });
+      })
+      .catch(error => {
+        sendResponse(handleError(error, 'getting credits balance'));
+      });
+    
+    return true; // Indicates async response
+  }
+  
+  // Handle logout
+  else if (message.action === 'LOGOUT') {
+    AuthService.logout()
+      .then(() => {
+        logger.info('User logged out');
+        sendResponse({ success: true });
+      })
+      .catch(error => {
+        sendResponse(handleError(error, 'logging out'));
+      });
+    
+    return true; // Indicates async response
+  }
   
   // If no handler matched, log a warning
   logger.warn('No handler for message action:', message.action);
@@ -124,6 +181,22 @@ async function getPriceComparison(productData: ProductData): Promise<ProductComp
     
     if (!productData) {
       throw new Error('No product data provided');
+    }
+    
+    // Check if the user is authenticated
+    const isAuthenticated = await AuthService.isAuthenticated();
+    if (!isAuthenticated) {
+      throw new Error('Authentication required. Please enter your API key in the settings.');
+    }
+    
+    // Check if the user has enough credits for this operation (5 credits)
+    const creditCheck = await AuthService.checkCredits(5);
+    if (!creditCheck.sufficient) {
+      throw {
+        message: 'Insufficient credits to perform this operation',
+        insufficientCredits: true,
+        balance: creditCheck.balance
+      };
     }
     
     // Load current settings (ensures we have the latest)
@@ -181,6 +254,13 @@ async function getPriceComparison(productData: ProductData): Promise<ProductComp
     
     // Cache the result
     await CacheService.set(cacheKey, comparisonResult);
+    
+    // Record usage of credits for this operation
+    await AuthService.useCredits(5, `Price comparison for ${productData.title}`, {
+      product_id: productData.productId,
+      marketplace: productData.marketplace,
+      operation: 'price_comparison'
+    });
     
     logger.info('Returning comparison result');
     logger.debug('Comparison result details:', comparisonResult);
