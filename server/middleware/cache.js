@@ -53,6 +53,11 @@ const cacheMiddleware = (getCacheKey) => {
  * @returns {string} Cache key
  */
 const generateCacheKey = (marketplace, params) => {
+  // Only generate cache keys for supported marketplaces (amazon, walmart)
+  if (marketplace !== 'amazon' && marketplace !== 'walmart') {
+    console.warn(`Cache key requested for unsupported marketplace: ${marketplace}`);
+  }
+  
   // Generate a unique key based on search parameters
   let key = `${marketplace}-`;
   
@@ -85,11 +90,16 @@ const generateMultiCacheKey = (params) => {
     additional_fees = 0
   } = params;
   
+  // Validate selected marketplace if provided
+  const validSelectedMarketplace = selected_marketplace === 'amazon' || selected_marketplace === 'walmart' 
+    ? selected_marketplace 
+    : null;
+  
   // Generate unique components for the key
   const idPart = product_id ? `id:${product_id}` : '';
   const titlePart = product_title ? 
     `title:${product_title.substring(0, 20).toLowerCase().replace(/\s+/g, '-')}` : '';
-  const marketplaceSuffix = selected_marketplace ? `-${selected_marketplace}` : '';
+  const marketplaceSuffix = validSelectedMarketplace ? `-${validSelectedMarketplace}` : '';
   const feesSuffix = additional_fees > 0 ? `-fees${additional_fees}` : '';
   
   return `multi-${source_marketplace}-${idPart}-${titlePart}${marketplaceSuffix}${feesSuffix}`;
