@@ -14,6 +14,7 @@ import { formatDate, formatMarketplace } from '../../common/formatting';
 import { SourceProductCard } from '../components/ProductCard';
 import MarketplaceSection from '../components/MarketplaceSection';
 import StatusMessage from '../components/StatusMessage';
+import { RESELLABLE_MARKETPLACES } from '../../types';
 
 /**
  * Comparison view for showing product data and arbitrage opportunities
@@ -37,6 +38,11 @@ const ComparisonView: React.FC = () => {
     Boolean(settings.selectedMarketplace) && 
     Boolean(currentProduct) && 
     currentProduct?.marketplace === settings.selectedMarketplace;
+  
+  // Check if the current product is from a marketplace that isn't resellable on other platforms
+  const isProductFromNonResellableMarketplace = 
+    Boolean(currentProduct) && 
+    (currentProduct?.marketplace !== 'amazon' && currentProduct?.marketplace !== 'walmart' && currentProduct?.marketplace !== 'target');
   
   return (
     <div className="comparison-container">
@@ -136,16 +142,10 @@ const ComparisonView: React.FC = () => {
             />
           )}
           
-          {/* Target matches - only show if there's no selected marketplace or if target is selected */}
-          {(!settings.selectedMarketplace || settings.selectedMarketplace === 'target') && (
-            <MarketplaceSection 
-              marketplace="target" 
-              products={comparison.matchedProducts.target} 
-            />
-          )}
-          
           {/* No matches found */}
-          {Object.keys(comparison.matchedProducts).length === 0 && (
+          {Object.keys(comparison.matchedProducts).length === 0 || 
+           (comparison.matchedProducts.amazon?.length === 0 && 
+            comparison.matchedProducts.walmart?.length === 0) && (
             <p>No matching products found on other marketplaces.</p>
           )}
           
