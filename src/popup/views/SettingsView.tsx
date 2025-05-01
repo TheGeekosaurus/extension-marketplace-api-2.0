@@ -95,6 +95,34 @@ const SettingsView: React.FC = () => {
       </div>
       
       <div className="settings-group">
+        <h4>Location Settings</h4>
+        <div className="setting-item">
+          <label htmlFor="locationZipCode">Your ZIP Code (for location-specific pricing):</label>
+          <input
+            type="text"
+            id="locationZipCode"
+            name="locationZipCode"
+            value={settings.locationZipCode || ''}
+            onChange={handleSettingChange}
+            placeholder="e.g. 90210"
+          />
+          <small>Used for Home Depot store-specific inventory and pricing</small>
+        </div>
+        <div className="setting-item">
+          <label htmlFor="homeDepotStoreId">Home Depot Store ID (optional):</label>
+          <input
+            type="text"
+            id="homeDepotStoreId"
+            name="homeDepotStoreId"
+            value={settings.homeDepotStoreId || ''}
+            onChange={handleSettingChange}
+            placeholder="e.g. 1234"
+          />
+          <small>Find your store ID at the end of a Home Depot store page URL</small>
+        </div>
+      </div>
+      
+      <div className="settings-group">
         <h4>Cache Settings</h4>
         <div className="setting-item">
           <label htmlFor="cacheExpiration">Cache Expiration (hours):</label>
@@ -167,6 +195,19 @@ const SettingsView: React.FC = () => {
             max="100"
             step="0.1"
             value={settings.estimatedFees.target * 100}
+            onChange={handleFeeChange}
+          />
+        </div>
+        <div className="setting-item">
+          <label htmlFor="estimatedFees.homedepot">Home Depot Fee (%):</label>
+          <input
+            type="number"
+            id="estimatedFees.homedepot"
+            name="estimatedFees.homedepot"
+            min="0"
+            max="100"
+            step="0.1"
+            value={settings.estimatedFees.homedepot * 100}
             onChange={handleFeeChange}
           />
         </div>
