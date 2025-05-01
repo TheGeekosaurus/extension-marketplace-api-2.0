@@ -3,7 +3,6 @@ const { scoreProducts, addFeeBreakdown } = require('../utils/scoring');
 const { extractModelNumber, rankResults, getTruncatedTitle } = require('../utils/productMatching');
 const amazonService = require('./amazonService');
 const walmartService = require('./walmartService');
-const targetService = require('./targetService');
 
 /**
  * Search for products across multiple marketplaces
