@@ -20,8 +20,9 @@ app.use('/api/health', routes.health);
 app.use('/api/test', routes.health); // Re-use health routes for /test endpoint
 app.use('/api/search/amazon', routes.amazon);
 app.use('/api/search/walmart', routes.walmart);
-app.use('/api/search/target', routes.target);
 app.use('/api/search/multi', routes.multi);
+
+// Target route removed - no longer used
 
 // Error handling middleware (should be last)
 app.use(errorHandler);
