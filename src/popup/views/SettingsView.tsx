@@ -4,7 +4,7 @@ import React from 'react';
 import { useSettings } from '../state/selectors';
 import { usePopupStore } from '../state/store';
 import StatusMessage from '../components/StatusMessage';
-import { MarketplaceType } from '../../types';
+import { ResellableMarketplaceType } from '../../types';
 
 /**
  * Settings view component
@@ -35,7 +35,7 @@ const SettingsView: React.FC = () => {
       if (name === 'selectedMarketplace') {
         // Handle the marketplace selection dropdown
         updateSettings({ 
-          [name]: value === 'null' ? null : value as MarketplaceType 
+          [name]: value === 'null' ? null : value as ResellableMarketplaceType 
         });
       } else {
         updateSettings({ [name]: inputValue });
@@ -90,7 +90,6 @@ const SettingsView: React.FC = () => {
             <option value="null">All Marketplaces</option>
             <option value="amazon">Amazon Only</option>
             <option value="walmart">Walmart Only</option>
-            <option value="target">Target Only</option>
           </select>
         </div>
       </div>
