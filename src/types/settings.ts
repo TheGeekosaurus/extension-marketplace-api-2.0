@@ -40,6 +40,16 @@ export interface Settings {
    * Additional fees (shipping, packaging, etc.)
    */
   additionalFees: number;
+
+  /**
+   * Home Depot store ID for store-specific inventory checking
+   */
+  homeDepotStoreId?: string | null;
+  
+  /**
+   * ZIP code for location-specific pricing and inventory
+   */
+  locationZipCode?: string | null;
 }
 
 /**
@@ -57,5 +67,7 @@ export const DEFAULT_SETTINGS: Settings = {
     homedepot: 0.10
   },
   selectedMarketplace: null,
-  additionalFees: 0
+  additionalFees: 0,
+  homeDepotStoreId: null,
+  locationZipCode: null
 };
