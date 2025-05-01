@@ -20,7 +20,8 @@ router.post('/', multiCacheMiddleware, async (req, res, next) => {
     const { 
       source_marketplace, 
       product_id, 
-      product_title
+      product_title,
+      selected_marketplace
     } = req.body;
     
     // Validate required parameters
@@ -37,6 +38,15 @@ router.post('/', multiCacheMiddleware, async (req, res, next) => {
         success: false,
         error: 'Missing product identification',
         message: 'Please provide either product_id or product_title'
+      });
+    }
+    
+    // Validate selected marketplace if provided (only allow amazon and walmart)
+    if (selected_marketplace && selected_marketplace !== 'amazon' && selected_marketplace !== 'walmart') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid selected_marketplace parameter',
+        message: 'Selected marketplace must be either "amazon" or "walmart"'
       });
     }
     
