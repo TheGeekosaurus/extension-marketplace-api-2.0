@@ -32,6 +32,11 @@ body {
   line-height: 1.6;
   color: var(--dark-color);
   background-color: var(--light-color);
+  /* Position the popup on the top left */
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999; /* Ensure it appears above other elements */
 }
 
 #root {
@@ -46,6 +51,9 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* Add shadow and border for better visibility against webpage background */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-color);
 }
 
 .popup-header {
@@ -91,6 +99,7 @@ body {
   overflow-y: auto;
   height: auto;
   min-height: 350px;
+  background-color: var(--light-color);
 }
 
 .popup-footer {
