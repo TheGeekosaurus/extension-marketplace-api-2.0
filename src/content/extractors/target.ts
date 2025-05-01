@@ -15,7 +15,7 @@ import {
  * 
  * @returns Extracted product data or null if extraction fails
  */
-export function extractTargetProductData(): ProductData | null {
+export function extractTargetProductData(): Promise<ProductData | null> {
   try {
     logExtraction('target', 'Starting extraction');
     
@@ -35,7 +35,7 @@ export function extractTargetProductData(): ProductData | null {
     
     if (!productId) {
       logExtraction('target', 'No product ID found in Target URL or page');
-      return null;
+      return Promise.resolve(null);
     }
     
     // Extract product title
@@ -88,9 +88,9 @@ export function extractTargetProductData(): ProductData | null {
     };
     
     logExtraction('target', 'Extracted Target product data', productData);
-    return productData;
+    return Promise.resolve(productData);
   } catch (error) {
     console.error('Error extracting Target product data:', error);
-    return null;
+    return Promise.resolve(null);
   }
 }

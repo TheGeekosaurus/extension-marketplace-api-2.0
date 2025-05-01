@@ -17,7 +17,7 @@ import {
  * 
  * @returns Extracted product data or null if extraction fails
  */
-export function extractAmazonProductData(): ProductData | null {
+export function extractAmazonProductData(): Promise<ProductData | null> {
   try {
     logExtraction('amazon', 'Starting extraction');
     
@@ -29,7 +29,7 @@ export function extractAmazonProductData(): ProductData | null {
     
     if (!asin) {
       logExtraction('amazon', 'No ASIN found in URL');
-      return null;
+      return Promise.resolve(null);
     }
     
     // Extract product title
@@ -98,9 +98,9 @@ export function extractAmazonProductData(): ProductData | null {
     };
     
     logExtraction('amazon', 'Extracted product data', productData);
-    return productData;
+    return Promise.resolve(productData);
   } catch (error) {
     console.error('Error extracting Amazon product data:', error);
-    return null;
+    return Promise.resolve(null);
   }
 }

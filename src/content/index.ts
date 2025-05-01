@@ -11,7 +11,7 @@ import { extractHomeDepotProductData } from './extractors/homedepot';
  * 
  * @returns Extracted product data or null if extraction fails
  */
-function extractProductData(): ProductData | null {
+async function extractProductData(): Promise<ProductData | null> {
   const url = window.location.href;
   console.log('[E-commerce Arbitrage] Attempting to extract data from URL:', url);
   
@@ -28,7 +28,8 @@ function extractProductData(): ProductData | null {
       return extractTargetProductData();
     } else if (url.includes('homedepot.com')) {
       console.log('[E-commerce Arbitrage] Detected HomeDepot page');
-      return extractHomeDepotProductData();
+      // Handle the Promise returned by extractHomeDepotProductData
+      return await extractHomeDepotProductData();
     }
     
     console.log('[E-commerce Arbitrage] No supported marketplace detected');
@@ -44,29 +45,30 @@ function extractProductData(): ProductData | null {
  */
 function main() {
   console.log('[E-commerce Arbitrage] Content script executed - attempting to extract product data');
-  try {
-    const productData = extractProductData();
-    
-    if (productData) {
-      // Send product data to background script
-      chrome.runtime.sendMessage({
-        action: 'PRODUCT_DATA_EXTRACTED',
-        data: productData
-      }, response => {
-        if (chrome.runtime.lastError) {
-          console.error('[E-commerce Arbitrage] Error sending product data:', chrome.runtime.lastError);
-        } else {
-          console.log('[E-commerce Arbitrage] Product data sent to background script with response:', response);
-        }
-      });
-      
-      console.log('[E-commerce Arbitrage] Product data extracted and sent:', productData);
-    } else {
-      console.warn('[E-commerce Arbitrage] No product data could be extracted from this page.');
-    }
-  } catch (error) {
-    console.error('[E-commerce Arbitrage] Error in main function:', error);
-  }
+  
+  extractProductData()
+    .then(productData => {
+      if (productData) {
+        // Send product data to background script
+        chrome.runtime.sendMessage({
+          action: 'PRODUCT_DATA_EXTRACTED',
+          data: productData
+        }, response => {
+          if (chrome.runtime.lastError) {
+            console.error('[E-commerce Arbitrage] Error sending product data:', chrome.runtime.lastError);
+          } else {
+            console.log('[E-commerce Arbitrage] Product data sent to background script with response:', response);
+          }
+        });
+        
+        console.log('[E-commerce Arbitrage] Product data extracted and sent:', productData);
+      } else {
+        console.warn('[E-commerce Arbitrage] No product data could be extracted from this page.');
+      }
+    })
+    .catch(error => {
+      console.error('[E-commerce Arbitrage] Error in extractProductData:', error);
+    });
 }
 
 // Wait for page to fully load before extracting data
@@ -96,15 +98,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   if (message.action === 'GET_PRODUCT_DATA') {
     console.log('[E-commerce Arbitrage] Retrieving fresh product data');
-    try {
-      const productData = extractProductData();
-      console.log('[E-commerce Arbitrage] Sending product data response:', productData);
-      sendResponse({ productData });
-    } catch (error: unknown) {
-      console.error('[E-commerce Arbitrage] Error retrieving product data:', error);
-      sendResponse({ error: error instanceof Error ? error.toString() : String(error) });
-    }
+    
+    extractProductData()
+      .then(productData => {
+        console.log('[E-commerce Arbitrage] Sending product data response:', productData);
+        sendResponse({ productData });
+      })
+      .catch(error => {
+        console.error('[E-commerce Arbitrage] Error retrieving product data:', error);
+        sendResponse({ error: error instanceof Error ? error.toString() : String(error) });
+      });
+    
+    return true; // Keep the message channel open for async response
   }
+  
   return true; // Keep the message channel open for async response
 });
 
