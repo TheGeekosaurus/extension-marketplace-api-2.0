@@ -28,18 +28,19 @@ const searchMultipleMarketplaces = async (params) => {
     selected: selected_marketplace
   });
   
-  // Determine which marketplaces to search (all except source)
-  let marketplaces = ['amazon', 'walmart', 'target'].filter(
+  // Determine which marketplaces to search (only amazon and walmart)
+  let marketplaces = ['amazon', 'walmart'].filter(
     marketplace => marketplace !== source_marketplace
   );
   
   // If a specific marketplace is selected, only search that one
   if (selected_marketplace) {
     // Make sure the selected marketplace is not the source marketplace
-    if (selected_marketplace !== source_marketplace) {
+    if (selected_marketplace !== source_marketplace && 
+        (selected_marketplace === 'amazon' || selected_marketplace === 'walmart')) {
       marketplaces = [selected_marketplace];
     } else {
-      marketplaces = []; // No marketplaces to search when selected is the same as source
+      marketplaces = []; // No marketplaces to search when selected is the same as source or it's not amazon/walmart
     }
   }
   
@@ -78,9 +79,6 @@ const searchMultipleMarketplaces = async (params) => {
               break;
             case 'walmart':
               upcResults = await walmartService.searchWalmartProducts(searchParams);
-              break;
-            case 'target':
-              upcResults = await targetService.searchTargetProducts(searchParams);
               break;
           }
           
@@ -126,9 +124,6 @@ const searchMultipleMarketplaces = async (params) => {
             case 'walmart':
               brandTitleResults = await walmartService.searchWalmartProducts({ query: brandTitleQuery });
               break;
-            case 'target':
-              brandTitleResults = await targetService.searchTargetProducts({ query: brandTitleQuery });
-              break;
           }
           
           if (brandTitleResults && brandTitleResults.length > 0) {
@@ -156,9 +151,6 @@ const searchMultipleMarketplaces = async (params) => {
               break;
             case 'walmart':
               modelBasedResults = await walmartService.searchWalmartProducts({ query: brandModelQuery });
-              break;
-            case 'target':
-              modelBasedResults = await targetService.searchTargetProducts({ query: brandModelQuery });
               break;
           }
           
@@ -212,6 +204,11 @@ const searchMultipleMarketplaces = async (params) => {
  */
 const getBestMatch = async (params, marketplace) => {
   try {
+    // Only allow search in Amazon and Walmart
+    if (marketplace !== 'amazon' && marketplace !== 'walmart') {
+      throw new Error(`Marketplace ${marketplace} is not supported for reselling`);
+    }
+    
     let results;
     switch (marketplace) {
       case 'amazon':
@@ -219,9 +216,6 @@ const getBestMatch = async (params, marketplace) => {
         break;
       case 'walmart':
         results = await walmartService.searchWalmartProducts(params);
-        break;
-      case 'target':
-        results = await targetService.searchTargetProducts(params);
         break;
       default:
         throw new Error(`Unknown marketplace: ${marketplace}`);

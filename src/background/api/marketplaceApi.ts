@@ -5,7 +5,9 @@ import {
   ProductData, 
   ProductMatchResult,
   MultiSearchRequest,
-  MarketplaceType 
+  MarketplaceType,
+  ResellableMarketplaceType,
+  RESELLABLE_MARKETPLACES
 } from '../../types';
 import { ApiClient } from './apiClient';
 import { BlueCartApi } from './bluecart';
@@ -35,15 +37,16 @@ export class MarketplaceApi {
     
     try {
       // Determine which marketplaces to search
-      let marketplaces: MarketplaceType[] = [];
+      let marketplaces: ResellableMarketplaceType[] = [];
       
       if (settings.selectedMarketplace) {
         // If a specific marketplace is selected and it's not the source, use only that
-        if (settings.selectedMarketplace !== productData.marketplace) {
-          marketplaces = [settings.selectedMarketplace];
+        if (settings.selectedMarketplace !== productData.marketplace &&
+            RESELLABLE_MARKETPLACES.includes(settings.selectedMarketplace as ResellableMarketplaceType)) {
+          marketplaces = [settings.selectedMarketplace as ResellableMarketplaceType];
           logger.info('Searching only in selected marketplace:', marketplaces);
         } else {
-          logger.info('Selected marketplace is the same as source, no marketplaces to search');
+          logger.info('Selected marketplace is the same as source or not resellable, no marketplaces to search');
           // Return empty result when the selected marketplace is the same as the source
           return {
             success: true,
@@ -51,11 +54,11 @@ export class MarketplaceApi {
           };
         }
       } else {
-        // Otherwise, search all except the source
-        marketplaces = ['amazon', 'walmart', 'target'].filter(
+        // Otherwise, search all resellable marketplaces except the source
+        marketplaces = RESELLABLE_MARKETPLACES.filter(
           marketplace => marketplace !== productData.marketplace
-        ) as MarketplaceType[];
-        logger.info('No marketplace selected, searching all other marketplaces:', marketplaces);
+        ) as ResellableMarketplaceType[];
+        logger.info('No marketplace selected, searching all other resellable marketplaces:', marketplaces);
       }
       
       logger.info('Searching marketplaces:', marketplaces);

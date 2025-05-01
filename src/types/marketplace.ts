@@ -6,6 +6,11 @@
 export type MarketplaceType = 'amazon' | 'walmart' | 'target' | 'homedepot';
 
 /**
+ * Resellable marketplace types (Target removed)
+ */
+export type ResellableMarketplaceType = 'amazon' | 'walmart';
+
+/**
  * Marketplace fee structure
  */
 export interface MarketplaceFees {
@@ -38,3 +43,8 @@ export const apiServiceToMarketplace: Record<ApiServiceType, MarketplaceType> = 
   rainforest: 'amazon',
   bigbox: 'target'
 };
+
+/**
+ * List of marketplaces available for reselling (Target removed)
+ */
+export const RESELLABLE_MARKETPLACES: ResellableMarketplaceType[] = ['amazon', 'walmart'];

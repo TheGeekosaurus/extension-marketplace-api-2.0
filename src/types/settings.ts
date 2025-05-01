@@ -1,6 +1,6 @@
 // src/types/settings.ts - Settings type definitions
 
-import { MarketplaceType, MarketplaceFees } from './marketplace';
+import { MarketplaceType, MarketplaceFees, ResellableMarketplaceType } from './marketplace';
 
 /**
  * User settings for the extension
@@ -32,9 +32,9 @@ export interface Settings {
   estimatedFees: MarketplaceFees;
   
   /**
-   * Selected marketplace to search (if null, search all marketplaces)
+   * Selected marketplace to search (only Amazon and Walmart as resellable marketplaces)
    */
-  selectedMarketplace?: MarketplaceType | null;
+  selectedMarketplace?: ResellableMarketplaceType | null;
   
   /**
    * Additional fees (shipping, packaging, etc.)
