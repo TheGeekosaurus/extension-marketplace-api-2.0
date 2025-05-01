@@ -52,6 +52,14 @@ export const MARKETPLACE_URL_PATTERNS = {
 };
 
 /**
+ * Resellable marketplace URL patterns
+ */
+export const RESELLABLE_MARKETPLACE_URL_PATTERNS = {
+  amazon: ['amazon.com'],
+  walmart: ['walmart.com']
+};
+
+/**
  * Extension version
  */
 export const VERSION = '1.1.0';
