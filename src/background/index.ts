@@ -141,6 +141,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     return true; // Indicates async response
   }
+
+  // NEW: Handle Home Depot product GraphQL API request
+  else if (message.action === 'HD_FETCH_PRODUCT_API') {
+    fetchHomeDepotProductData(message)
+      .then(data => {
+        sendResponse({ success: true, data });
+      })
+      .catch(error => {
+        sendResponse(handleError(error, 'fetching Home Depot product data'));
+      });
+    
+    return true; // Indicates async response
+  }
   
   // If no handler matched, log a warning
   logger.warn('No handler for message action:', message.action);
@@ -296,6 +309,115 @@ async function getPriceComparison(productData: ProductData): Promise<ProductComp
     return comparisonResult;
   } catch (error) {
     logger.error('Error getting price comparison:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch product data from Home Depot's GraphQL API
+ * 
+ * @param message - GraphQL request parameters
+ * @returns Product data from GraphQL API
+ */
+async function fetchHomeDepotProductData(message: any): Promise<any> {
+  try {
+    logger.info('Fetching Home Depot product data from GraphQL API');
+    
+    const { itemId, storeId, zipCode } = message;
+    
+    if (!itemId) {
+      throw new Error('Item ID is required for Home Depot product data request');
+    }
+    
+    // Construct GraphQL query
+    const query = `
+      query productClientOnlyProduct($itemId: String!, $storeId: String, $zipCode: String) {
+        productClientOnlyProduct(itemId: $itemId) {
+          name
+          brandName
+          identifiers { 
+            itemId 
+            internetNumber
+            modelNumber 
+            storeSkuNumber 
+            upc 
+          }
+          pricing(storeId: $storeId) {
+            value
+            currency
+            original
+          }
+          inventory(storeId: $storeId, zipCode: $zipCode) {
+            quantity
+            isInStock
+            isLimitedQuantity
+          }
+          media {
+            images {
+              url
+              sizes {
+                size
+                url
+              }
+            }
+          }
+        }
+      }
+    `;
+    
+    // Construct variables object
+    const variables: any = { itemId: String(itemId) };
+    if (storeId) variables.storeId = String(storeId);
+    if (zipCode) variables.zipCode = String(zipCode);
+    
+    // Make the GraphQL request
+    const response = await fetch("https://www.homedepot.com/federation-gateway/graphql?opname=productClientOnlyProduct", {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({ query, variables })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      logger.error(`Home Depot GraphQL API error: ${response.status} - ${errorText}`);
+      throw new Error(`API error: ${response.status} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    logger.debug('Home Depot GraphQL API response:', result);
+    
+    // Extract the product data from the response
+    const product = result.data?.productClientOnlyProduct;
+    
+    if (!product) {
+      logger.warn('No product data returned from Home Depot GraphQL API');
+      return null;
+    }
+    
+    // Extract and transform the data into a simplified format
+    const transformedData = {
+      name: product.name,
+      brandName: product.brandName,
+      price: product.pricing?.value,
+      originalPrice: product.pricing?.original,
+      upc: product.identifiers?.upc,
+      internetNumber: product.identifiers?.internetNumber,
+      modelNumber: product.identifiers?.modelNumber,
+      inventory: {
+        quantity: product.inventory?.quantity,
+        inStock: product.inventory?.isInStock,
+        limitedStock: product.inventory?.isLimitedQuantity
+      },
+      imageUrl: product.media?.images?.[0]?.url || null
+    };
+    
+    logger.info('Successfully fetched and transformed Home Depot product data');
+    return transformedData;
+  } catch (error) {
+    logger.error('Error fetching Home Depot product data:', error);
     throw error;
   }
 }
