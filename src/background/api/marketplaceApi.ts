@@ -12,7 +12,6 @@ import {
 import { ApiClient } from './apiClient';
 import { BlueCartApi } from './bluecart';
 import { RainforestApi } from './rainforest';
-import { BigBoxApi } from './bigbox';
 import { getSettings } from '../services/settingsService';
 import { AuthService } from '../services/authService';
 import { createLogger } from '../utils/logger';
@@ -148,7 +147,8 @@ export class MarketplaceApi {
       case 'amazon':
         return RainforestApi;
       case 'target':
-        return BigBoxApi;
+        // No longer using BigBox API for Target
+        throw new Error('Target marketplace is not supported for reselling');
       default:
         throw new Error(`Unknown marketplace: ${marketplace}`);
     }

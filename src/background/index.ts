@@ -182,7 +182,8 @@ function calculateRequiredCredits(productData: ProductData, settings: any): numb
     return 1;
   } else {
     // If searching all marketplaces, count how many we'll search (excluding source marketplace)
-    const allMarketplaces = ['amazon', 'walmart', 'target'];
+    // Only include Amazon and Walmart as resellable marketplaces
+    const allMarketplaces = ['amazon', 'walmart'];
     const searchableMarketplaces = allMarketplaces.filter(
       marketplace => marketplace !== productData.marketplace
     );
