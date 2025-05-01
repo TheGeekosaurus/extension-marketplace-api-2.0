@@ -1,12 +1,11 @@
-// src/popup/components/SourceProductCard.tsx - Enhanced source product card with editable price
+// src/popup/components/ProductCard.tsx - Product card component
 
-import React, { useState, useEffect } from 'react';
-import { ProductData } from '../../types';
-import { formatPrice, formatMarketplace } from '../../common/formatting';
-import { usePopupStore } from '../state/store';
+import React from 'react';
+import { ProductData, ProductMatchResult } from '../../types';
+import { formatPrice, formatProfit, formatMarketplace } from '../../common/formatting';
 
-interface SourceProductCardProps {
-  product: ProductData;
+interface MatchedProductCardProps {
+  product: ProductMatchResult;
 }
 
 /**
