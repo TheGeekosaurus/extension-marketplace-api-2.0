@@ -11,7 +11,7 @@ import {
 } from '../state/selectors';
 import { usePopupStore } from '../state/store';
 import { formatDate, formatMarketplace } from '../../common/formatting';
-import { SourceProductCard } from '../components/ProductCard';
+import { default as SourceProductCard } from '../components/SourceProductCard';
 import MarketplaceSection from '../components/MarketplaceSection';
 import StatusMessage from '../components/StatusMessage';
 import { RESELLABLE_MARKETPLACES } from '../../types';
