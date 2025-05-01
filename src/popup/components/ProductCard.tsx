@@ -1,7 +1,7 @@
 // src/popup/components/ProductCard.tsx - Product card component
 
 import React from 'react';
-import { ProductData, ProductMatchResult } from '../../types';
+import { ProductMatchResult } from '../../types';
 import { formatPrice, formatProfit, formatMarketplace } from '../../common/formatting';
 
 interface MatchedProductCardProps {
@@ -9,116 +9,56 @@ interface MatchedProductCardProps {
 }
 
 /**
- * Enhanced source product card component with editable price
+ * Card displaying matched product information with profit calculations
  */
-export const SourceProductCard: React.FC<SourceProductCardProps> = ({ product }) => {
-  // State for editing the price
-  const [isEditingPrice, setIsEditingPrice] = useState(false);
-  const [editablePrice, setEditablePrice] = useState<string>(
-    product.price !== null ? product.price.toString() : ''
-  );
-  
-  // Update the current product in the store
-  const setCurrentProduct = usePopupStore(state => state.setCurrentProduct);
-  
-  // Update the editable price when the product changes
-  useEffect(() => {
-    setEditablePrice(product.price !== null ? product.price.toString() : '');
-  }, [product]);
-  
-  // Handle price editing
-  const handlePriceClick = () => {
-    setIsEditingPrice(true);
-  };
-  
-  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Allow only numbers and decimal point
-    const value = e.target.value.replace(/[^0-9.]/g, '');
-    setEditablePrice(value);
-  };
-  
-  const handlePriceBlur = () => {
-    setIsEditingPrice(false);
-    
-    // Parse the price and update the product data if valid
-    const newPrice = parseFloat(editablePrice);
-    if (!isNaN(newPrice) && newPrice !== product.price) {
-      const updatedProduct = {
-        ...product,
-        price: newPrice
-      };
-      
-      // Update the current product in the store
-      setCurrentProduct(updatedProduct);
-      
-      // Also update in local storage
-      chrome.storage.local.set({ currentProduct: updatedProduct });
-    } else {
-      // Reset to original price if invalid
-      setEditablePrice(product.price !== null ? product.price.toString() : '');
-    }
-  };
-  
-  const handlePriceKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.currentTarget.blur(); // Trigger the onBlur event
-    }
-  };
+export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({ product }) => {
+  const isProfitable = product.profit && product.profit.amount > 0;
   
   return (
-    <div className="product-card">
-      {product.imageUrl && (
+    <div className="product-card matched">
+      {product.image && (
         <img 
-          src={product.imageUrl} 
+          src={product.image} 
           alt={product.title} 
           className="product-image" 
         />
       )}
       <div className="product-info">
-        <h4>{product.title}</h4>
+        <h5>{product.title}</h5>
+        <p>Price: {formatPrice(product.price)}</p>
         
-        {/* Editable price */}
-        <p>
-          Price: {
-            isEditingPrice ? (
-              <input
-                type="text"
-                value={editablePrice}
-                onChange={handlePriceChange}
-                onBlur={handlePriceBlur}
-                onKeyDown={handlePriceKeyDown}
-                autoFocus
-                className="price-edit-input"
-                style={{
-                  width: '60px',
-                  padding: '2px 4px',
-                  border: '1px solid #ccc',
-                  borderRadius: '3px',
-                  fontSize: '14px'
-                }}
-                data-testid="price-edit-input"
-              />
-            ) : (
-              <span 
-                onClick={handlePriceClick} 
-                style={{ cursor: 'pointer', textDecoration: 'underline dotted' }}
-                title="Click to edit price"
-                data-testid="price-display"
-              >
-                {formatPrice(product.price)}
-              </span>
-            )
-          }
-        </p>
+        {product.fee_breakdown && (
+          <>
+            <p className="fee-item negative">
+              Marketplace fees ({(product.fee_breakdown.marketplace_fee_percentage * 100).toFixed(1)}%): 
+              {formatPrice(product.fee_breakdown.marketplace_fee_amount)}
+            </p>
+            <p className="fee-item negative">
+              Additional fees: {formatPrice(product.fee_breakdown.additional_fees)}
+            </p>
+          </>
+        )}
         
-        <p>Platform: {formatMarketplace(product.marketplace)}</p>
-        {product.brand && <p>Brand: {product.brand}</p>}
-        {product.upc && <p>UPC: {product.upc}</p>}
-        {product.asin && <p>ASIN: {product.asin}</p>}
-        {product.productId && <p>Product ID: {product.productId}</p>}
+        {product.profit && (
+          <p className={isProfitable ? 'profit positive' : 'profit negative'}>
+            Profit: {formatProfit(product.profit)}
+          </p>
+        )}
+        
+        {product.ratings && (
+          <p>Rating: {product.ratings.average} ({product.ratings.count} reviews)</p>
+        )}
+        <a 
+          href={product.url} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="view-button"
+        >
+          View Product
+        </a>
       </div>
     </div>
   );
 };
 
-export default SourceProductCard;
+export default MatchedProductCard;
