@@ -62,13 +62,13 @@ export interface FeeBreakdown {
 
 /**
  * Represents a product comparison between marketplaces
+ * Only includes Amazon and Walmart as resellable marketplaces
  */
 export interface ProductComparison {
   sourceProduct: ProductData;
   matchedProducts: {
     amazon?: ProductMatchResult[];
     walmart?: ProductMatchResult[];
-    target?: ProductMatchResult[];
   };
   timestamp: number;
 }
