@@ -12,7 +12,7 @@ interface SourceProductCardProps {
 /**
  * Enhanced source product card component with editable price
  */
-export const SourceProductCard: React.FC<SourceProductCardProps> = ({ product }) => {
+const SourceProductCard: React.FC<SourceProductCardProps> = ({ product }) => {
   // State for editing the price
   const [isEditingPrice, setIsEditingPrice] = useState(false);
   const [editablePrice, setEditablePrice] = useState<string>(
