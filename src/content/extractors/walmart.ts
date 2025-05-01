@@ -17,7 +17,7 @@ import {
  * 
  * @returns Extracted product data or null if extraction fails
  */
-export function extractWalmartProductData(): ProductData | null {
+export function extractWalmartProductData(): Promise<ProductData | null> {
   try {
     logExtraction('walmart', 'Starting extraction');
     
@@ -29,7 +29,7 @@ export function extractWalmartProductData(): ProductData | null {
     
     if (!productId) {
       logExtraction('walmart', 'No product ID found in Walmart URL');
-      return null;
+      return Promise.resolve(null);
     }
     
     // Extract product title
@@ -143,9 +143,9 @@ export function extractWalmartProductData(): ProductData | null {
     };
     
     logExtraction('walmart', 'Extracted Walmart product data', productData);
-    return productData;
+    return Promise.resolve(productData);
   } catch (error) {
     console.error('Error extracting Walmart product data:', error);
-    return null;
+    return Promise.resolve(null);
   }
 }
