@@ -32,11 +32,6 @@ body {
   line-height: 1.6;
   color: var(--dark-color);
   background-color: var(--light-color);
-  /* Position the popup on the top left */
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 9999; /* Ensure it appears above other elements */
 }
 
 #root {
