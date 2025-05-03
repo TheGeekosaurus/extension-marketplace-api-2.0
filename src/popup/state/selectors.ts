@@ -44,6 +44,11 @@ export const useActiveTab = () => usePopupStore(state => state.activeTab);
 export const useAuth = () => usePopupStore(state => state.authState);
 
 /**
+ * Get manual match state
+ */
+export const useManualMatch = () => usePopupStore(state => state.manualMatch);
+
+/**
  * Use all products without filtering
  * 
  * @param products - Products to return
