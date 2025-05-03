@@ -1,7 +1,7 @@
 // src/popup/state/store.ts - Central state store for popup
 
 import { create } from 'zustand';
-import { ProductData, ProductComparison, Settings } from '../../types';
+import { ProductData, ProductComparison, Settings, MarketplaceType } from '../../types';
 import { sendMessage } from '../../common/messaging';
 import { DEFAULT_SETTINGS } from '../../common/constants';
 
@@ -316,23 +316,30 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       
       if (matchFound) {
         // Calculate profit with fees if enabled
-        let profit = currentProduct.price !== null ? 
-          matchFound.price - currentProduct.price : 0;
-        let profitPercentage = currentProduct.price !== null ? 
-          ((matchFound.price - currentProduct.price) / currentProduct.price) * 100 : 0;
+        let profit = 0;
+        let profitPercentage = 0;
+        
+        if (currentProduct.price !== null) {
+          profit = matchFound.price - currentProduct.price;
+          profitPercentage = ((matchFound.price - currentProduct.price) / currentProduct.price) * 100;
+        }
         
         // Create fee breakdown if settings include fees
         let feeBreakdown = null;
         
         if (settings.includeFees) {
-          const feePercentage = settings.estimatedFees[matchFound.marketplace] || 0;
+          // Type guard - ensure marketplace is valid
+          const marketplace = matchFound.marketplace as keyof typeof settings.estimatedFees;
+          const feePercentage = settings.estimatedFees[marketplace] || 0;
           const marketplaceFeeAmount = matchFound.price * feePercentage;
           const additionalFees = settings.additionalFees || 0;
           const totalFees = marketplaceFeeAmount + additionalFees;
           
-          // Recalculate profit with fees
-          profit = matchFound.price - currentProduct.price - totalFees;
-          profitPercentage = (profit / currentProduct.price) * 100;
+          // Recalculate profit with fees if price is available
+          if (currentProduct.price !== null) {
+            profit = matchFound.price - currentProduct.price - totalFees;
+            profitPercentage = (profit / currentProduct.price) * 100;
+          }
           
           feeBreakdown = {
             marketplace_fee_percentage: feePercentage,
