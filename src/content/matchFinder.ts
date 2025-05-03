@@ -217,12 +217,12 @@ function highlightMatchedProduct(
   `;
   
   // Calculate profit
-  const profit = matchedProduct.price && sourceProduct.price 
-    ? matchedProduct.price - sourceProduct.price 
-    : 0;
+  const sourcePrice = sourceProduct.price !== null ? sourceProduct.price : 0;
+  const matchedPrice = matchedProduct.price !== null ? matchedProduct.price : 0;
+  const profit = matchedPrice - sourcePrice;
   
-  const profitPercent = sourceProduct.price 
-    ? (profit / sourceProduct.price) * 100 
+  const profitPercent = sourcePrice !== 0 
+    ? (profit / sourcePrice) * 100 
     : 0;
   
   // Add content to highlight box
@@ -234,18 +234,18 @@ function highlightMatchedProduct(
     <div style="margin-bottom: 12px;">
       <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">Source Product:</div>
       <div style="font-size: 13px; color: #555;">${sourceProduct.title}</div>
-      <div style="font-size: 13px; margin-top: 4px;">Price: ${sourceProduct.price?.toFixed(2) || 'N/A'}</div>
+      <div style="font-size: 13px; margin-top: 4px;">Price: $${sourcePrice.toFixed(2)}</div>
     </div>
     <div style="margin-bottom: 12px;">
       <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">Matched Product:</div>
       <div style="font-size: 13px; color: #555;">${matchedProduct.title}</div>
-      <div style="font-size: 13px; margin-top: 4px;">Price: ${matchedProduct.price?.toFixed(2) || 'N/A'}</div>
+      <div style="font-size: 13px; margin-top: 4px;">Price: $${matchedPrice.toFixed(2)}</div>
       <div style="font-size: 13px; margin-top: 4px;">Similarity: ${(matchedProduct.similarityScore * 100).toFixed(1)}%</div>
     </div>
     <div style="margin-bottom: 16px;">
       <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">Potential Profit:</div>
       <div style="font-size: 15px; color: ${profit > 0 ? '#27ae60' : '#e74c3c'}; font-weight: bold;">
-        ${profit.toFixed(2)} (${profitPercent.toFixed(1)}%)
+        $${profit.toFixed(2)} (${profitPercent.toFixed(1)}%)
       </div>
     </div>
     <button id="extension-select-match" style="
@@ -277,17 +277,19 @@ function highlightMatchedProduct(
   // Highlight the matched product
   element.scrollIntoView({ behavior: 'smooth', block: 'center' });
   
-  const originalBorder = element.style.border;
-  const originalBoxShadow = element.style.boxShadow;
+  // Style the matched element - but handle potential type issues
+  const htmlElement = element as HTMLElement;
+  const originalBorder = htmlElement.style.border;
+  const originalBoxShadow = htmlElement.style.boxShadow;
   
-  element.style.border = '3px solid #4a6bd8';
-  element.style.boxShadow = '0 0 10px rgba(74, 107, 216, 0.5)';
+  htmlElement.style.border = '3px solid #4a6bd8';
+  htmlElement.style.boxShadow = '0 0 10px rgba(74, 107, 216, 0.5)';
   
   // Add event listeners
   document.getElementById('extension-close-highlight')?.addEventListener('click', () => {
     highlightContainer.remove();
-    element.style.border = originalBorder;
-    element.style.boxShadow = originalBoxShadow;
+    htmlElement.style.border = originalBorder;
+    htmlElement.style.boxShadow = originalBoxShadow;
   });
   
   document.getElementById('extension-select-match')?.addEventListener('click', () => {
@@ -311,15 +313,15 @@ function highlightMatchedProduct(
     
     document.getElementById('extension-close-after-save')?.addEventListener('click', () => {
       highlightContainer.remove();
-      element.style.border = originalBorder;
-      element.style.boxShadow = originalBoxShadow;
+      htmlElement.style.border = originalBorder;
+      htmlElement.style.boxShadow = originalBoxShadow;
     });
   });
   
   document.getElementById('extension-find-manually')?.addEventListener('click', () => {
     highlightContainer.remove();
-    element.style.border = originalBorder;
-    element.style.boxShadow = originalBoxShadow;
+    htmlElement.style.border = originalBorder;
+    htmlElement.style.boxShadow = originalBoxShadow;
   });
 }
 
@@ -329,6 +331,10 @@ function highlightMatchedProduct(
  * @param matchedProduct - The matched product
  */
 function saveMatchToStorage(sourceProduct: ProductData, matchedProduct: any) {
+  // Ensure sourceProduct.price is not null before calculations
+  const sourcePrice = sourceProduct.price !== null ? sourceProduct.price : 0;
+  const matchedPrice = matchedProduct.price !== null ? matchedProduct.price : 0;
+  
   // Create a comparison object
   const comparison = {
     sourceProduct,
@@ -341,8 +347,8 @@ function saveMatchToStorage(sourceProduct: ProductData, matchedProduct: any) {
           url: matchedProduct.url,
           marketplace: matchedProduct.marketplace,
           profit: {
-            amount: parseFloat((matchedProduct.price - sourceProduct.price).toFixed(2)),
-            percentage: parseFloat((((matchedProduct.price - sourceProduct.price) / sourceProduct.price) * 100).toFixed(2))
+            amount: parseFloat((matchedPrice - sourcePrice).toFixed(2)),
+            percentage: parseFloat((((matchedPrice - sourcePrice) / (sourcePrice || 1)) * 100).toFixed(2))
           }
         }
       ]
