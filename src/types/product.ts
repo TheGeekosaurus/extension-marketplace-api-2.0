@@ -32,6 +32,7 @@ export interface ProductMatchResult {
   profit?: ProfitInfo;
   ratings?: RatingsInfo;
   fee_breakdown?: FeeBreakdown;
+  similarity?: number; // Added similarity score for manual matches
 }
 
 /**
@@ -71,4 +72,7 @@ export interface ProductComparison {
     walmart?: ProductMatchResult[];
   };
   timestamp: number;
+  manualMatch?: boolean; // Indicates if this was a manual match
+  similarity?: number; // Similarity score for manual matches
+  searchUrl?: string; // URL used for searching, for viewing results
 }
