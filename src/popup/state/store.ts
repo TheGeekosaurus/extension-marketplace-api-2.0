@@ -94,12 +94,28 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   activeTab: 'comparison',
   
   // State setters
-  setCurrentProduct: (product) => set({ currentProduct: product }),
-  setComparison: (comparison) => set({ comparison }),
+  setCurrentProduct: (product) => {
+    set({ currentProduct: product });
+    // FIX 3: Persist the current product state
+    if (product) {
+      chrome.storage.local.set({ currentProduct: product });
+    }
+  },
+  setComparison: (comparison) => {
+    set({ comparison });
+    // FIX 3: Persist the comparison state
+    if (comparison) {
+      chrome.storage.local.set({ comparison });
+    }
+  },
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
   setStatus: (status) => set({ status }),
-  setActiveTab: (tab) => set({ activeTab: tab }),
+  setActiveTab: (tab) => {
+    set({ activeTab: tab });
+    // FIX 3: Persist the active tab
+    chrome.storage.local.set({ activeTab: tab });
+  },
   updateSettings: (partialSettings) => set((state) => ({
     settings: { ...state.settings, ...partialSettings }
   })),
@@ -142,8 +158,12 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       
       if (response && response.productData) {
         setCurrentProduct(response.productData);
-        chrome.storage.local.set({ currentProduct: response.productData });
+        // FIX 3: Already persisted in setCurrentProduct
         setStatus('Product data successfully retrieved from page');
+        
+        // FIX 3: Clear comparison when explicitly refreshing product data
+        set({ comparison: null });
+        chrome.storage.local.remove(['comparison']);
       } else {
         setError('No product data could be extracted from this page');
         setStatus('Make sure you are on a product page (not a search results page)');
@@ -200,6 +220,8 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       
       if (response && response.success) {
         setComparison(response.data);
+        // FIX 3: Already persisted in setComparison
+        
         // Update credits in the auth state after operation
         await get().getCreditsBalance();
         if (settings.selectedMarketplace) {
@@ -377,7 +399,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         
         // Set the comparison in store and save to storage
         setComparison(comparison);
-        chrome.storage.local.set({ comparison });
+        // FIX 3: Already persisted in setComparison
         
         setStatus(`Found match with ${Math.round(matchFound.similarityScore * 100)}% similarity on ${matchFound.marketplace}`);
       } else {

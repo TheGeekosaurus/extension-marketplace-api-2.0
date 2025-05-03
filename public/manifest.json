@@ -24,7 +24,8 @@
     }
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "persistence": true
   },
   "content_scripts": [
     {
@@ -53,5 +54,6 @@
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
-  }
+  },
+  "persistent": true
 }
