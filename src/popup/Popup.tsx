@@ -20,6 +20,7 @@ const Popup: React.FC = () => {
   
   // Other actions from store
   const setCurrentProduct = usePopupStore(state => state.setCurrentProduct);
+  const setComparison = usePopupStore(state => state.setComparison);
   const updateSettings = usePopupStore(state => state.updateSettings);
   const setStatus = usePopupStore(state => state.setStatus);
   
@@ -30,43 +31,46 @@ const Popup: React.FC = () => {
     // Check auth status on mount
     checkAuthStatus();
     
-    // Check if we're on a supported website
-    checkCurrentTab();
-    
-    // Load stored data
-    chrome.storage.local.get(['currentProduct', 'settings'], (result) => {
+    // FIX 3: Load all stored state on mount
+    chrome.storage.local.get(['currentProduct', 'comparison', 'settings', 'activeTab'], (result) => {
       console.log('Loaded from storage:', result);
       
+      // Load current product if available
       if (result.currentProduct) {
         setCurrentProduct(result.currentProduct);
         setStatus('Product data loaded from storage');
-      } else {
-        setStatus('No product data in storage. Try visiting a product page first.');
       }
       
+      // Load comparison if available
+      if (result.comparison) {
+        setComparison(result.comparison);
+      }
+      
+      // Load settings if available
       if (result.settings) {
         updateSettings(result.settings);
       }
-    });
-  }, []);
-
-  // Check if the current tab is a supported website
-  const checkCurrentTab = () => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const currentTab = tabs[0];
-      if (!currentTab?.url) return;
       
-      const isProductPage = (
-        currentTab.url.includes('amazon.com') || 
-        currentTab.url.includes('walmart.com') || 
-        currentTab.url.includes('target.com')
-      );
-      
-      if (!isProductPage) {
-        setStatus('Please navigate to a product page on Amazon, Walmart, or Target.');
+      // Load active tab if available
+      if (result.activeTab) {
+        setActiveTab(result.activeTab);
       }
     });
-  };
+    
+    // FIX 3: Add listener for the beforeunload event to persist state
+    const beforeUnloadListener = () => {
+      // No need to do anything here as the state is already persisted
+      // on each update in the store.ts file
+      console.log("Extension popup closing");
+    };
+    
+    window.addEventListener('beforeunload', beforeUnloadListener);
+    
+    // Clean up event listener
+    return () => {
+      window.removeEventListener('beforeunload', beforeUnloadListener);
+    };
+  }, []);
 
   return (
     <div className="popup-container">
