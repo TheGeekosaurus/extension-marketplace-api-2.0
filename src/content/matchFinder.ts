@@ -8,18 +8,29 @@ import { ProductData } from '../types';
 function initMatchFinder() {
   console.log('[E-commerce Arbitrage] Match finder script loaded on search results page');
   
-  // Wait for page to fully load
-  if (document.readyState === 'complete') {
-    loadSourceProductAndFindMatch();
-  } else {
-    window.addEventListener('load', loadSourceProductAndFindMatch);
-  }
+  // Check if this is part of a manual match search
+  chrome.storage.local.get(['manualMatchInProgress', 'manualMatchSourceProduct'], (result) => {
+    if (result.manualMatchInProgress && result.manualMatchSourceProduct) {
+      console.log('[E-commerce Arbitrage] Manual match search is in progress, finding best match...');
+      loadSourceProductAndFindMatch(true);
+    } else {
+      console.log('[E-commerce Arbitrage] Regular match finder initialized');
+      
+      // Wait for page to fully load
+      if (document.readyState === 'complete') {
+        loadSourceProductAndFindMatch(false);
+      } else {
+        window.addEventListener('load', () => loadSourceProductAndFindMatch(false));
+      }
+    }
+  });
 }
 
 /**
  * Load the source product from storage and find its match on the current page
+ * @param isBackgroundSearch Whether this is a background search that should send results back
  */
-async function loadSourceProductAndFindMatch() {
+async function loadSourceProductAndFindMatch(isBackgroundSearch: boolean = false) {
   // Delay a bit to allow all dynamic content to load
   await new Promise(resolve => setTimeout(resolve, 2000));
   
@@ -41,13 +52,36 @@ async function loadSourceProductAndFindMatch() {
       if (bestMatch) {
         console.log('[E-commerce Arbitrage] Best match found:', bestMatch);
         
-        // Highlight the matched product
-        highlightMatchedProduct(bestMatch.element, sourceProduct, bestMatch);
+        if (isBackgroundSearch) {
+          // If this is a background search, send the result back to the original tab
+          chrome.runtime.sendMessage({
+            action: 'MANUAL_MATCH_FOUND',
+            match: bestMatch
+          });
+        } else {
+          // Regular workflow - highlight the matched product
+          highlightMatchedProduct(bestMatch.element, sourceProduct, bestMatch);
+        }
       } else {
         console.warn('[E-commerce Arbitrage] No good matches found on this page');
+        
+        if (isBackgroundSearch) {
+          // Send message that no match was found
+          chrome.runtime.sendMessage({
+            action: 'MANUAL_MATCH_NOT_FOUND'
+          });
+        }
       }
     } catch (error) {
       console.error('[E-commerce Arbitrage] Error finding match:', error);
+      
+      if (isBackgroundSearch) {
+        // Send error message back
+        chrome.runtime.sendMessage({
+          action: 'MANUAL_MATCH_ERROR',
+          error: String(error)
+        });
+      }
     }
   });
 }
