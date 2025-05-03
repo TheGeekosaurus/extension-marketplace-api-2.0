@@ -1,6 +1,6 @@
 // src/popup/views/ComparisonView.tsx - Comparison tab content
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { 
   useCurrentProduct, 
   useComparison, 
@@ -35,31 +35,6 @@ const ComparisonView: React.FC = () => {
   const findMatchManually = usePopupStore(state => state.findMatchManually);
   const setActiveTab = usePopupStore(state => state.setActiveTab);
 
-  // Load cached comparison when component mounts
-  useEffect(() => {
-    const loadCachedComparison = async () => {
-      try {
-        if (!comparison) {
-          // Only load from cache if no comparison is already in state
-          const storage = await new Promise<any>(resolve => {
-            chrome.storage.local.get(['comparison'], (result) => {
-              resolve(result);
-            });
-          });
-          
-          if (storage.comparison) {
-            console.log('Loading cached comparison from storage:', storage.comparison);
-            usePopupStore.getState().setComparison(storage.comparison);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading cached comparison:', error);
-      }
-    };
-    
-    loadCachedComparison();
-  }, []);
-
   // Determine if current product is from the selected marketplace
   const isCurrentProductFromSelectedMarketplace = 
     Boolean(settings.selectedMarketplace) && 
@@ -70,12 +45,6 @@ const ComparisonView: React.FC = () => {
   const isProductFromNonResellableMarketplace = 
     Boolean(currentProduct) && 
     (currentProduct?.marketplace !== 'amazon' && currentProduct?.marketplace !== 'walmart' && currentProduct?.marketplace !== 'target');
-  
-  // Handle clearing results
-  const handleClearResults = () => {
-    usePopupStore.getState().setComparison(null);
-    chrome.storage.local.remove(['comparison']);
-  };
   
   return (
     <div className="comparison-container">
@@ -124,16 +93,6 @@ const ComparisonView: React.FC = () => {
             Find Match In Background
           </button>
         </div>
-        
-        {comparison && (
-          <button 
-            className="clear-cache-button"
-            onClick={handleClearResults}
-            style={{ marginTop: '10px', width: '100%' }}
-          >
-            Clear Results
-          </button>
-        )}
         
         {!isAuthenticated && (
           <div className="auth-required">
@@ -217,8 +176,8 @@ const ComparisonView: React.FC = () => {
           
           {/* No matches found */}
           {Object.keys(comparison.matchedProducts).length === 0 || 
-           ((!comparison.matchedProducts.amazon || comparison.matchedProducts.amazon.length === 0) && 
-            (!comparison.matchedProducts.walmart || comparison.matchedProducts.walmart.length === 0)) && (
+           (comparison.matchedProducts.amazon?.length === 0 && 
+            comparison.matchedProducts.walmart?.length === 0) && (
             <p>No matching products found on other marketplaces.</p>
           )}
           
