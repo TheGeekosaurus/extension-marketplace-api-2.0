@@ -61,7 +61,7 @@ export function extractWalmartSearchResult(element: Element): Partial<ProductMat
     }
     
     // Extract product ID
-    let productId: string | null = null;
+    let productId: string | undefined = undefined;
     if (url) {
       // Try multiple patterns that appear in Walmart URLs
       const idPatterns = [
@@ -81,13 +81,13 @@ export function extractWalmartSearchResult(element: Element): Partial<ProductMat
       // Also check data attributes
       if (!productId) {
         productId = element.getAttribute('data-item-id') || 
-                   element.getAttribute('data-product-id') || null;
+                   element.getAttribute('data-product-id') || undefined;
       }
     }
     
     // Get image
     const imgElement = element.querySelector('img[data-automation-id="product-image"], img.absolute, img.w_iUF');
-    const imageUrl = imgElement ? imgElement.getAttribute('src') || null : null;
+    const imageUrl = imgElement ? imgElement.getAttribute('src') || undefined : undefined;
     
     // Get ratings
     const ratingElement = element.querySelector('.stars-container, [data-automation-id="product-stars"]');

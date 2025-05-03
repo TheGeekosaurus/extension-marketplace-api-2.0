@@ -60,7 +60,7 @@ export function extractAmazonSearchResult(element: Element): Partial<ProductMatc
     }
     
     // Extract ASIN
-    let asin: string | null = null;
+    let asin: string | undefined = undefined;
     if (url) {
       const asinMatch = url.match(/\/dp\/([A-Z0-9]{10})(?:\/|$)/i);
       if (asinMatch && asinMatch[1]) {
@@ -70,7 +70,7 @@ export function extractAmazonSearchResult(element: Element): Partial<ProductMatc
     
     // Get image
     const imgElement = element.querySelector('img.s-image');
-    const imageUrl = imgElement ? imgElement.getAttribute('src') || null : null;
+    const imageUrl = imgElement ? imgElement.getAttribute('src') || undefined : undefined;
     
     // Get ratings
     const ratingElement = element.querySelector('.a-icon-star-small, .a-icon-star');
