@@ -129,24 +129,7 @@ const ComparisonView: React.FC = () => {
             </div>
           )}
           
-          {/* If this is a manual match, display info about it */}
-          {comparison.manualMatch && (
-            <div className="manual-match-info p-4 mb-4">
-              <p className="font-medium">This is a manually selected match.</p>
-              {comparison.searchUrl && (
-                <a 
-                  href={comparison.searchUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline text-sm"
-                >
-                  View original search results
-                </a>
-              )}
-            </div>
-          )}
-          
-          {/* Summary of opportunities with positive profit */}
+          {/* Display profit summary */}
           {totalProfit.amount > 0 && (
             <div className="profit-summary">
               <p>Total potential profit: <span className="profit positive">${totalProfit.amount.toFixed(2)}</span></p>
