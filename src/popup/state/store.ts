@@ -306,6 +306,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
           matchedProducts[destinationMarketplace] = [response.match];
           
           // Set the comparison
+          const { setComparison } = get();
           setComparison({
             sourceProduct: currentProduct,
             matchedProducts: matchedProducts,
