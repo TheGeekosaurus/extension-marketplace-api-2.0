@@ -50,6 +50,7 @@ interface PopupState {
   fetchPriceComparison: () => Promise<void>;
   clearCache: () => Promise<void>;
   saveSettings: () => Promise<void>;
+  findMatchManually: () => Promise<void>;
   
   // Auth actions
   validateApiKey: (apiKey: string) => Promise<boolean>;
@@ -208,6 +209,54 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         setError(`Error: ${errorMessage}`);
       }
       console.error('Error fetching price comparison:', error);
+    } finally {
+      setLoading(false);
+    }
+  },
+  
+  findMatchManually: async () => {
+    const { currentProduct, settings, setStatus, setError, setLoading } = get();
+    
+    if (!currentProduct) {
+      setError('No product detected. Try visiting a product page first.');
+      return;
+    }
+    
+    // Determine destination marketplace
+    const destinationMarketplace = settings.selectedMarketplace || 
+      (currentProduct.marketplace === 'amazon' ? 'walmart' : 'amazon');
+    
+    // Create search term from product data
+    const brandPrefix = currentProduct.brand ? `${currentProduct.brand} ` : '';
+    const searchTerm = `${brandPrefix}${currentProduct.title}`.substring(0, 100);
+    const encodedSearchTerm = encodeURIComponent(searchTerm);
+    
+    // Create destination URL
+    let destinationUrl;
+    if (destinationMarketplace === 'amazon') {
+      destinationUrl = `https://www.amazon.com/s?k=${encodedSearchTerm}`;
+    } else if (destinationMarketplace === 'walmart') {
+      destinationUrl = `https://www.walmart.com/search?q=${encodedSearchTerm}`;
+    } else {
+      setError(`Unsupported destination marketplace: ${destinationMarketplace}`);
+      return;
+    }
+    
+    setLoading(true);
+    setStatus(`Opening ${destinationMarketplace.charAt(0).toUpperCase() + destinationMarketplace.slice(1)} search results...`);
+    
+    try {
+      // Open the search results in a new tab
+      const newTab = await chrome.tabs.create({ url: destinationUrl, active: true });
+      
+      // Store the source product in local storage for the match finder to use
+      chrome.storage.local.set({ manualMatchSourceProduct: currentProduct }, () => {
+        console.log('Stored source product for manual matching');
+      });
+      
+      setStatus(`Search results opened. The extension will try to find the best match on the page.`);
+    } catch (error) {
+      setError(`Error opening search results: ${error instanceof Error ? error.message : error}`);
     } finally {
       setLoading(false);
     }
