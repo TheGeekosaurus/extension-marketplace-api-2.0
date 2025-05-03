@@ -23,6 +23,7 @@ export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({
   
   // Get the manualMatch searchUrl from store
   const manualMatchSearchUrl = usePopupStore(state => state.manualMatch.searchUrl);
+  const settings = usePopupStore(state => state.settings);
   
   // Use provided searchUrl or fetch from store
   const finalSearchUrl = searchUrl || manualMatchSearchUrl;
@@ -47,7 +48,7 @@ export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({
       )}
       <div className="product-info">
         <div className="product-title-row">
-          <h5>{product.title}</h5>
+          <h5 className="product-title-small">{product.title}</h5>
           {showSimilarity && product.similarity !== undefined && (
             <span className="similarity-badge-small">
               {(product.similarity * 100).toFixed(1)}% match
@@ -55,29 +56,49 @@ export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({
           )}
         </div>
         
-        <p>Price: {formatPrice(product.price)}</p>
-        
-        {product.fee_breakdown && (
-          <>
-            <p className="fee-item negative">
-              Marketplace fees ({(product.fee_breakdown.marketplace_fee_percentage * 100).toFixed(1)}%): 
-              {formatPrice(product.fee_breakdown.marketplace_fee_amount)}
+        {/* Two-column layout for product details */}
+        <div className="product-details-grid">
+          <div className="details-column">
+            <p className="detail-item">
+              <span className="detail-label">Price:</span> {formatPrice(product.price)}
             </p>
-            <p className="fee-item negative">
-              Additional fees: {formatPrice(product.fee_breakdown.additional_fees)}
-            </p>
-          </>
-        )}
-        
-        {product.profit && (
-          <p className={isProfitable ? 'profit positive' : 'profit negative'}>
-            Profit: {formatProfit(product.profit)}
-          </p>
-        )}
-        
-        {product.ratings && (
-          <p>Rating: {product.ratings.average} ({product.ratings.count} reviews)</p>
-        )}
+            
+            {product.fee_breakdown && (
+              <>
+                <p className="detail-item negative">
+                  <span className="detail-label">Fees:</span>
+                  {formatPrice(product.fee_breakdown.total_fees)}
+                </p>
+              </>
+            )}
+            
+            {product.profit && (
+              <p className={isProfitable ? 'profit positive detail-item' : 'profit negative detail-item'}>
+                <span className="detail-label">Profit:</span> {formatProfit(product.profit)}
+              </p>
+            )}
+          </div>
+          
+          <div className="details-column">
+            {product.ratings && (
+              <p className="detail-item">
+                <span className="detail-label">Rating:</span> {product.ratings.average} ({product.ratings.count} reviews)
+              </p>
+            )}
+            
+            {product.asin && (
+              <p className="detail-item">
+                <span className="detail-label">ASIN:</span> {product.asin}
+              </p>
+            )}
+            
+            {product.item_id && (
+              <p className="detail-item">
+                <span className="detail-label">Item ID:</span> {product.item_id}
+              </p>
+            )}
+          </div>
+        </div>
         
         <div className="product-actions">
           <a 

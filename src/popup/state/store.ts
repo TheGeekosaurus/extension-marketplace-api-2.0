@@ -315,6 +315,33 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       }
       
       if (matchFound) {
+        // Calculate profit with fees if enabled
+        let profit = currentProduct.price !== null ? 
+          matchFound.price - currentProduct.price : 0;
+        let profitPercentage = currentProduct.price !== null ? 
+          ((matchFound.price - currentProduct.price) / currentProduct.price) * 100 : 0;
+        
+        // Create fee breakdown if settings include fees
+        let feeBreakdown = null;
+        
+        if (settings.includeFees) {
+          const feePercentage = settings.estimatedFees[matchFound.marketplace] || 0;
+          const marketplaceFeeAmount = matchFound.price * feePercentage;
+          const additionalFees = settings.additionalFees || 0;
+          const totalFees = marketplaceFeeAmount + additionalFees;
+          
+          // Recalculate profit with fees
+          profit = matchFound.price - currentProduct.price - totalFees;
+          profitPercentage = (profit / currentProduct.price) * 100;
+          
+          feeBreakdown = {
+            marketplace_fee_percentage: feePercentage,
+            marketplace_fee_amount: parseFloat(marketplaceFeeAmount.toFixed(2)),
+            additional_fees: parseFloat(additionalFees.toFixed(2)),
+            total_fees: parseFloat(totalFees.toFixed(2))
+          };
+        }
+        
         // Save the match to comparison
         const comparison = {
           sourceProduct: currentProduct,
@@ -328,11 +355,10 @@ export const usePopupStore = create<PopupState>((set, get) => ({
                 marketplace: matchFound.marketplace,
                 similarity: matchFound.similarityScore,
                 profit: {
-                  amount: currentProduct.price !== null ? 
-                    parseFloat((matchFound.price - currentProduct.price).toFixed(2)) : 0,
-                  percentage: currentProduct.price !== null ? 
-                    parseFloat((((matchFound.price - currentProduct.price) / currentProduct.price) * 100).toFixed(2)) : 0
-                }
+                  amount: parseFloat(profit.toFixed(2)),
+                  percentage: parseFloat(profitPercentage.toFixed(2))
+                },
+                fee_breakdown: feeBreakdown
               }
             ]
           },

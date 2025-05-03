@@ -151,31 +151,66 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const sourceProduct = result.manualMatchSourceProduct;
       
       if (sourceProduct) {
-        // Create comparison object
-        const comparison = {
-          sourceProduct: sourceProduct,
-          matchedProducts: {
-            [message.match.marketplace]: [
-              {
-                title: message.match.title,
-                price: message.match.price,
-                image: message.match.imageUrl,
-                url: message.match.url,
-                marketplace: message.match.marketplace,
-                // Calculate profit
-                profit: {
-                  amount: parseFloat((message.match.price - sourceProduct.price).toFixed(2)),
-                  percentage: parseFloat((((message.match.price - sourceProduct.price) / sourceProduct.price) * 100).toFixed(2))
+        // Get settings for fee calculations
+        chrome.storage.local.get(['settings'], (settingsResult) => {
+          const settings = settingsResult.settings;
+          
+          // Calculate profit with fees
+          let profit = message.match.price - sourceProduct.price;
+          let profitPercentage = ((message.match.price - sourceProduct.price) / sourceProduct.price) * 100;
+          
+          // Create fee breakdown if settings include fees
+          let feeBreakdown = null;
+          
+          if (settings && settings.includeFees) {
+            const feePercentage = settings.estimatedFees[message.match.marketplace] || 0;
+            const marketplaceFeeAmount = message.match.price * feePercentage;
+            const additionalFees = settings.additionalFees || 0;
+            const totalFees = marketplaceFeeAmount + additionalFees;
+            
+            // Recalculate profit with fees
+            profit = message.match.price - sourceProduct.price - totalFees;
+            profitPercentage = (profit / sourceProduct.price) * 100;
+            
+            feeBreakdown = {
+              marketplace_fee_percentage: feePercentage,
+              marketplace_fee_amount: parseFloat(marketplaceFeeAmount.toFixed(2)),
+              additional_fees: parseFloat(additionalFees.toFixed(2)),
+              total_fees: parseFloat(totalFees.toFixed(2))
+            };
+          }
+          
+          // Create comparison object
+          const comparison = {
+            sourceProduct: sourceProduct,
+            matchedProducts: {
+              [message.match.marketplace]: [
+                {
+                  title: message.match.title,
+                  price: message.match.price,
+                  image: message.match.imageUrl,
+                  url: message.match.url,
+                  marketplace: message.match.marketplace,
+                  similarity: message.match.similarityScore,
+                  // Add calculated profit
+                  profit: {
+                    amount: parseFloat(profit.toFixed(2)),
+                    percentage: parseFloat(profitPercentage.toFixed(2))
+                  },
+                  // Add fee breakdown if available
+                  fee_breakdown: feeBreakdown
                 }
-              }
-            ]
-          },
-          timestamp: Date.now()
-        };
-        
-        // Store the comparison result
-        chrome.storage.local.set({ comparison }, () => {
-          logger.info('Stored manual comparison result');
+              ]
+            },
+            timestamp: Date.now(),
+            manualMatch: true,
+            searchUrl: message.match.searchUrl
+          };
+          
+          // Store the comparison result
+          chrome.storage.local.set({ comparison }, () => {
+            logger.info('Stored manual comparison result with fee calculations');
+          });
         });
       }
     });
@@ -463,7 +498,6 @@ async function fetchHomeDepotProductData(message: any): Promise<any> {
     throw error;
   }
 }
-// Add this at the end of your src/background/index.ts file
 
 // Handle manual match found message from search tab
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
