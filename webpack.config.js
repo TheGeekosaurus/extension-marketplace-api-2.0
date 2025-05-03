@@ -9,7 +9,8 @@ module.exports = {
   entry: {
     popup: './src/popup/index.tsx',
     background: './src/background/index.ts',
-    contentScript: './src/content/index.ts'
+    contentScript: './src/content/index.ts',
+    matchFinder: './src/content/matchFinder.ts'  // Add the new entry point
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
