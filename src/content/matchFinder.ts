@@ -1,6 +1,8 @@
 // src/content/matchFinder.ts - Find best matching product on search results pages
 
 import { ProductData } from '../types';
+import { findAmazonSearchResultElements, extractAmazonSearchResult } from './matchFinder/amazonSearch';
+import { findWalmartSearchResultElements, extractWalmartSearchResult } from './matchFinder/walmartSearch';
 
 /**
  * Main function to initialize the match finder on search results pages
@@ -54,9 +56,11 @@ async function loadSourceProductAndFindMatch(isBackgroundSearch: boolean = false
         
         if (isBackgroundSearch) {
           // If this is a background search, send the result back to the original tab
+          // This will display it directly in the popup instead of showing a dialog
           chrome.runtime.sendMessage({
             action: 'MANUAL_MATCH_FOUND',
-            match: bestMatch
+            match: bestMatch,
+            searchUrl: window.location.href
           });
         } else {
           // Regular workflow - highlight the matched product
@@ -68,7 +72,8 @@ async function loadSourceProductAndFindMatch(isBackgroundSearch: boolean = false
         if (isBackgroundSearch) {
           // Send message that no match was found
           chrome.runtime.sendMessage({
-            action: 'MANUAL_MATCH_NOT_FOUND'
+            action: 'MANUAL_MATCH_NOT_FOUND',
+            searchUrl: window.location.href
           });
         }
       }
@@ -79,7 +84,8 @@ async function loadSourceProductAndFindMatch(isBackgroundSearch: boolean = false
         // Send error message back
         chrome.runtime.sendMessage({
           action: 'MANUAL_MATCH_ERROR',
-          error: String(error)
+          error: String(error),
+          searchUrl: window.location.href
         });
       }
     }
@@ -96,15 +102,16 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
   const isAmazon = window.location.hostname.includes('amazon.com');
   const isWalmart = window.location.hostname.includes('walmart.com');
   
-  let productElements: Element[] = [];
-  
   // Wait a bit more for dynamic content to fully load
   await new Promise(resolve => setTimeout(resolve, 1000));
   
+  // Get all product elements using the appropriate marketplace-specific function
+  let productElements: Element[] = [];
+  
   if (isAmazon) {
-    productElements = Array.from(document.querySelectorAll('.s-result-item[data-asin]:not(.AdHolder)'));
+    productElements = findAmazonSearchResultElements();
   } else if (isWalmart) {
-    productElements = Array.from(document.querySelectorAll('[data-item-id], [data-product-id], .search-result-gridview-item'));
+    productElements = findWalmartSearchResultElements();
   }
   
   if (productElements.length === 0) {
@@ -114,59 +121,31 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
   
   console.log(`[E-commerce Arbitrage] Found ${productElements.length} products on search results page`);
   
-  // Calculate similarity scores for each product
+  // Extract products from elements using the appropriate marketplace-specific function
   const productsWithScores = productElements.map(element => {
-    // Extract product title
-    let title = '';
+    let product;
+    
     if (isAmazon) {
-      title = element.querySelector('h2')?.textContent || '';
+      product = extractAmazonSearchResult(element);
     } else if (isWalmart) {
-      title = element.querySelector('[data-automation-id="product-title"], .sans-serif.mid-gray')?.textContent || '';
+      product = extractWalmartSearchResult(element);
+    } else {
+      return null;
     }
     
-    // Extract price
-    let price = null;
-    if (isAmazon) {
-      const priceElement = element.querySelector('.a-price .a-offscreen');
-      price = priceElement ? parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0') : null;
-    } else if (isWalmart) {
-      const priceElement = element.querySelector('[data-automation-id="product-price"], .b.black.f1.mr1');
-      price = priceElement ? parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0') : null;
+    if (!product || !product.title || !product.price) {
+      return null;
     }
     
     // Calculate title similarity score
-    const similarityScore = calculateTitleSimilarity(title, sourceProduct.title);
-    
-    // Get URL
-    let url = '';
-    if (isAmazon) {
-      const linkElement = element.querySelector('a.a-link-normal[href*="/dp/"]');
-      url = linkElement ? new URL(linkElement.getAttribute('href') || '', window.location.origin).href : '';
-    } else if (isWalmart) {
-      const linkElement = element.querySelector('a[link-identifier="linkTest"], a.absolute.w-100.h-100');
-      url = linkElement ? new URL(linkElement.getAttribute('href') || '', window.location.origin).href : '';
-    }
-    
-    // Get image
-    let imageUrl = '';
-    if (isAmazon) {
-      const imgElement = element.querySelector('img.s-image');
-      imageUrl = imgElement ? imgElement.getAttribute('src') || '' : '';
-    } else if (isWalmart) {
-      const imgElement = element.querySelector('img[data-automation-id="product-image"], img.absolute');
-      imageUrl = imgElement ? imgElement.getAttribute('src') || '' : '';
-    }
+    const similarityScore = calculateTitleSimilarity(product.title, sourceProduct.title);
     
     return {
       element,
-      title,
-      price,
-      similarityScore,
-      url,
-      imageUrl,
-      marketplace: isAmazon ? 'amazon' : 'walmart'
+      ...product,
+      similarityScore
     };
-  });
+  }).filter(Boolean) as Array<any>;
   
   // Filter out products with missing title or price
   const validProducts = productsWithScores.filter(p => p.title && p.price !== null);
@@ -237,8 +216,8 @@ function highlightMatchedProduct(
   const containerStyle = highlightContainer.style;
   containerStyle.cssText = `
     position: fixed;
-    top: 0;
-    right: 0;
+    top: 20px;
+    right: 20px;
     width: 300px;
     background-color: #fff;
     border: 2px solid #4a6bd8;
@@ -293,17 +272,6 @@ function highlightMatchedProduct(
       cursor: pointer;
       width: 100%;
     ">Select This Match</button>
-    <button id="extension-find-manually" style="
-      background-color: transparent;
-      color: #4a6bd8;
-      border: 1px solid #4a6bd8;
-      border-radius: 4px;
-      padding: 8px 16px;
-      font-size: 14px;
-      cursor: pointer;
-      width: 100%;
-      margin-top: 8px;
-    ">Find Another Match</button>
   `;
   
   // Add highlight to page
@@ -353,12 +321,6 @@ function highlightMatchedProduct(
       htmlElement.style.boxShadow = originalBoxShadow;
     });
   });
-  
-  document.getElementById('extension-find-manually')?.addEventListener('click', () => {
-    highlightContainer.remove();
-    htmlElement.style.border = originalBorder;
-    htmlElement.style.boxShadow = originalBoxShadow;
-  });
 }
 
 /**
@@ -375,9 +337,10 @@ function saveMatchToStorage(sourceProduct: ProductData, matchedProduct: any) {
         {
           title: matchedProduct.title,
           price: matchedProduct.price,
-          image: matchedProduct.imageUrl,
+          image: matchedProduct.image,
           url: matchedProduct.url,
           marketplace: matchedProduct.marketplace,
+          similarity: matchedProduct.similarityScore,
           profit: {
             amount: sourceProduct.price !== null ? parseFloat((matchedProduct.price - sourceProduct.price).toFixed(2)) : 0,
             percentage: sourceProduct.price !== null ? parseFloat((((matchedProduct.price - sourceProduct.price) / sourceProduct.price) * 100).toFixed(2)) : 0
@@ -385,12 +348,22 @@ function saveMatchToStorage(sourceProduct: ProductData, matchedProduct: any) {
         }
       ]
     },
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    manualMatch: true,
+    similarity: matchedProduct.similarityScore,
+    searchUrl: window.location.href
   };
   
   // Save to storage
   chrome.storage.local.set({ comparison }, () => {
     console.log('[E-commerce Arbitrage] Saved manual match comparison');
+    
+    // Send message to notify the extension popup
+    chrome.runtime.sendMessage({
+      action: 'MANUAL_MATCH_FOUND',
+      match: matchedProduct,
+      searchUrl: window.location.href
+    });
   });
 }
 

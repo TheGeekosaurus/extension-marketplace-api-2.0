@@ -94,18 +94,40 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   activeTab: 'comparison',
   
   // State setters
-  setCurrentProduct: (product) => set({ currentProduct: product }),
-  setComparison: (comparison) => set({ comparison }),
+  setCurrentProduct: (product) => {
+    set({ currentProduct: product });
+    // Also save to chrome storage for persistence
+    if (product) {
+      chrome.storage.local.set({ currentProduct: product });
+    }
+  },
+  
+  setComparison: (comparison) => {
+    set({ comparison });
+    // Save to storage for persistence
+    if (comparison) {
+      chrome.storage.local.set({ comparison });
+    }
+  },
+  
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
   setStatus: (status) => set({ status }),
-  setActiveTab: (tab) => set({ activeTab: tab }),
+  
+  setActiveTab: (tab) => {
+    set({ activeTab: tab });
+    // Clear error when switching tabs
+    set({ error: null });
+  },
+  
   updateSettings: (partialSettings) => set((state) => ({
     settings: { ...state.settings, ...partialSettings }
   })),
+  
   setAuthState: (partialState) => set((state) => ({
     authState: { ...state.authState, ...partialState }
   })),
+  
   setManualMatch: (partialState) => set((state) => ({
     manualMatch: { ...state.manualMatch, ...partialState }
   })),
@@ -142,7 +164,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       
       if (response && response.productData) {
         setCurrentProduct(response.productData);
-        chrome.storage.local.set({ currentProduct: response.productData });
+        // Storage is already set by setCurrentProduct
         setStatus('Product data successfully retrieved from page');
       } else {
         setError('No product data could be extracted from this page');
@@ -236,7 +258,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   },
   
   findMatchManually: async () => {
-    const { currentProduct, settings, setStatus, setError, setLoading, setManualMatch, setComparison } = get();
+    const { currentProduct, settings, setStatus, setError, setLoading, setManualMatch } = get();
     
     if (!currentProduct) {
       setError('No product detected. Try visiting a product page first.');
@@ -286,82 +308,41 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         active: false // Keep current tab active
       });
       
-      // Listen for message from the background search tab
-      const matchFound = await new Promise<any>((resolve) => {
-        const messageListener = (message: any, sender: chrome.runtime.MessageSender) => {
-          // Only listen for messages from our search tab
-          if (sender.tab?.id === searchTab.id && message.action === 'MANUAL_MATCH_FOUND') {
-            chrome.runtime.onMessage.removeListener(messageListener);
-            resolve(message.match);
-          }
-        };
-        
-        chrome.runtime.onMessage.addListener(messageListener);
-        
-        // Set a timeout in case the match isn't found
-        setTimeout(() => {
-          chrome.runtime.onMessage.removeListener(messageListener);
-          resolve(null);
-        }, 30000); // 30 second timeout
-      });
+      // Listen for match result messages
+      // The results will be processed by the background script message handler
+      // and the comparison will be updated automatically
       
-      // Close the search tab when done
-      if (searchTab.id) {
-        try {
-          chrome.tabs.remove(searchTab.id);
-        } catch (e) {
-          console.error('Error closing search tab:', e);
+      // Set a timeout to handle cases where no results are found
+      setTimeout(() => {
+        // If still loading after 30 seconds, assume no good match was found
+        if (get().loading) {
+          setLoading(false);
+          setError('No good match found automatically. Try searching manually.');
+          setStatus('You can click "View Search" to open the search page and look for matches.');
+          
+          // Store a basic comparison with the search URL but no matches
+          const emptyComparison: ProductComparison = {
+            sourceProduct: currentProduct,
+            matchedProducts: {},
+            timestamp: Date.now(),
+            manualMatch: true,
+            searchUrl: destinationUrl
+          };
+          
+          get().setComparison(emptyComparison);
+          
+          // Clear the in-progress flag
+          chrome.storage.local.remove(['manualMatchInProgress']);
         }
-      }
+      }, 30000);
       
-      if (matchFound) {
-        // Save the match to comparison
-        const comparison = {
-          sourceProduct: currentProduct,
-          matchedProducts: {
-            [matchFound.marketplace]: [
-              {
-                title: matchFound.title,
-                price: matchFound.price,
-                image: matchFound.imageUrl,
-                url: matchFound.url,
-                marketplace: matchFound.marketplace,
-                similarity: matchFound.similarityScore,
-                profit: {
-                  amount: currentProduct.price !== null ? 
-                    parseFloat((matchFound.price - currentProduct.price).toFixed(2)) : 0,
-                  percentage: currentProduct.price !== null ? 
-                    parseFloat((((matchFound.price - currentProduct.price) / currentProduct.price) * 100).toFixed(2)) : 0
-                }
-              }
-            ]
-          },
-          timestamp: Date.now(),
-          manualMatch: true,
-          similarity: matchFound.similarityScore,
-          searchUrl: destinationUrl
-        };
-        
-        // Set the comparison in store and save to storage
-        setComparison(comparison);
-        chrome.storage.local.set({ comparison });
-        
-        setStatus(`Found match with ${Math.round(matchFound.similarityScore * 100)}% similarity on ${matchFound.marketplace}`);
-      } else {
-        // If no match found, just open the tab so user can look manually
-        if (searchTab.id) {
-          chrome.tabs.update(searchTab.id, { active: true });
-        } else {
-          // If tab was already closed, open a new one
-          chrome.tabs.create({ url: destinationUrl });
-        }
-        setError('No good match found automatically. Opening search page for manual selection.');
-      }
     } catch (error) {
-      setError(`Error searching for match: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
       setLoading(false);
-      chrome.storage.local.set({ manualMatchInProgress: false });
+      setError(`Error searching for match: ${error instanceof Error ? error.message : String(error)}`);
+      console.error('Error in manual match search:', error);
+      
+      // Clear the in-progress flag
+      chrome.storage.local.remove(['manualMatchInProgress']);
     }
   },
   
@@ -508,6 +489,31 @@ export async function loadSettings(): Promise<Settings> {
 }
 
 /**
+ * Load stored data when popup opens
+ * This ensures state persistence between popup openings
+ */
+export async function loadStoredState(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    chrome.storage.local.get(['currentProduct', 'comparison', 'settings'], (result) => {
+      // Update store with stored values
+      if (result.currentProduct) {
+        usePopupStore.getState().setCurrentProduct(result.currentProduct);
+      }
+      
+      if (result.comparison) {
+        usePopupStore.getState().setComparison(result.comparison);
+      }
+      
+      if (result.settings) {
+        usePopupStore.getState().updateSettings(result.settings);
+      }
+      
+      resolve();
+    });
+  });
+}
+
+/**
  * Check authentication status on startup
  */
 export async function checkAuthStatus(): Promise<boolean> {
@@ -542,3 +548,29 @@ export async function checkAuthStatus(): Promise<boolean> {
     });
   });
 }
+
+// Setup a listener for background script messages (for manual match results)
+// This allows the popup to update its state when a match is found
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.action === 'MANUAL_MATCH_FOUND') {
+    // Load the updated comparison from storage
+    chrome.storage.local.get(['comparison'], (result) => {
+      if (result.comparison) {
+        usePopupStore.getState().setComparison(result.comparison);
+        usePopupStore.getState().setLoading(false);
+        usePopupStore.getState().setStatus('Match found successfully');
+      }
+    });
+  }
+  
+  if (message.action === 'MANUAL_MATCH_NOT_FOUND') {
+    usePopupStore.getState().setLoading(false);
+    usePopupStore.getState().setError('No good match found automatically');
+    usePopupStore.getState().setStatus('Try searching manually with a different query');
+  }
+  
+  if (message.action === 'MANUAL_MATCH_ERROR') {
+    usePopupStore.getState().setLoading(false);
+    usePopupStore.getState().setError(`Error finding match: ${message.error}`);
+  }
+});
