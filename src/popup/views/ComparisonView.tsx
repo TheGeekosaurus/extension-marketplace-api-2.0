@@ -188,30 +188,6 @@ const ComparisonView: React.FC = () => {
           </div>
         </div>
       )}
-      
-      {/* Show credit purchase CTA if authenticated but not showing comparison */}
-      {isAuthenticated && !comparison && !loading && (
-        <div className="bg-muted p-4 rounded-md mt-4">
-          <h3 className="text-lg font-medium mb-2">Need Credits?</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Purchase credits to find profitable arbitrage opportunities across marketplaces.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              className="button"
-              onClick={() => window.open('https://ext.nanotomlogistics.com/purchase', '_blank')}
-            >
-              Purchase Credits
-            </button>
-            <button
-              className="button outline"
-              onClick={() => window.open('https://ext.nanotomlogistics.com/dashboard', '_blank')}
-            >
-              Account Dashboard
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

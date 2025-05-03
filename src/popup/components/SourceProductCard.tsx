@@ -67,7 +67,7 @@ const SourceProductCard: React.FC<SourceProductCardProps> = ({ product }) => {
   };
   
   return (
-    <div className="product-card">
+    <div className="product-card compact">
       {product.imageUrl && (
         <img 
           src={product.imageUrl} 
@@ -76,47 +76,70 @@ const SourceProductCard: React.FC<SourceProductCardProps> = ({ product }) => {
         />
       )}
       <div className="product-info">
-        <h4>{product.title}</h4>
+        {/* Product title with smaller font */}
+        <h4 className="product-title-small">{product.title}</h4>
         
-        {/* Editable price */}
-        <p>
-          Price: {
-            isEditingPrice ? (
-              <input
-                type="text"
-                value={editablePrice}
-                onChange={handlePriceChange}
-                onBlur={handlePriceBlur}
-                onKeyDown={handlePriceKeyDown}
-                autoFocus
-                className="price-edit-input"
-                style={{
-                  width: '60px',
-                  padding: '2px 4px',
-                  border: '1px solid #ccc',
-                  borderRadius: '3px',
-                  fontSize: '14px'
-                }}
-                data-testid="price-edit-input"
-              />
-            ) : (
-              <span 
-                onClick={handlePriceClick} 
-                style={{ cursor: 'pointer', textDecoration: 'underline dotted' }}
-                title="Click to edit price"
-                data-testid="price-display"
-              >
-                {formatPrice(product.price)}
-              </span>
-            )
-          }
-        </p>
-        
-        <p>Platform: {formatMarketplace(product.marketplace)}</p>
-        {product.brand && <p>Brand: {product.brand}</p>}
-        {product.upc && <p>UPC: {product.upc}</p>}
-        {product.asin && <p>ASIN: {product.asin}</p>}
-        {product.productId && <p>Product ID: {product.productId}</p>}
+        {/* Two-column layout for product details */}
+        <div className="product-details-grid">
+          <div className="details-column">
+            {/* Editable price */}
+            <p className="detail-item">
+              <span className="detail-label">Price:</span> {
+                isEditingPrice ? (
+                  <input
+                    type="text"
+                    value={editablePrice}
+                    onChange={handlePriceChange}
+                    onBlur={handlePriceBlur}
+                    onKeyDown={handlePriceKeyDown}
+                    autoFocus
+                    className="price-edit-input"
+                    data-testid="price-edit-input"
+                  />
+                ) : (
+                  <span 
+                    onClick={handlePriceClick} 
+                    className="editable-field"
+                    title="Click to edit price"
+                    data-testid="price-display"
+                  >
+                    {formatPrice(product.price)}
+                  </span>
+                )
+              }
+            </p>
+            
+            <p className="detail-item">
+              <span className="detail-label">Platform:</span> {formatMarketplace(product.marketplace)}
+            </p>
+            
+            {product.brand && 
+              <p className="detail-item">
+                <span className="detail-label">Brand:</span> {product.brand}
+              </p>
+            }
+          </div>
+          
+          <div className="details-column">
+            {product.productId && 
+              <p className="detail-item">
+                <span className="detail-label">Product ID:</span> {product.productId}
+              </p>
+            }
+            
+            {product.upc && 
+              <p className="detail-item">
+                <span className="detail-label">UPC:</span> {product.upc}
+              </p>
+            }
+            
+            {product.asin && 
+              <p className="detail-item">
+                <span className="detail-label">ASIN:</span> {product.asin}
+              </p>
+            }
+          </div>
+        </div>
       </div>
     </div>
   );
