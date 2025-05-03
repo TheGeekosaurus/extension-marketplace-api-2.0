@@ -184,71 +184,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Indicates async response
   }
 
-  // Handle manual match found from search page
-  else if (message.action === 'MANUAL_MATCH_FOUND') {
-    logger.info('Match found in background search:', message.match);
-    
-    // Get the current product from storage
-    chrome.storage.local.get(['manualMatchSourceProduct'], (result) => {
-      const sourceProduct = result.manualMatchSourceProduct;
-      
-      if (sourceProduct) {
-        // Create comparison object with additional match info
-        const comparison = {
-          sourceProduct: sourceProduct,
-          matchedProducts: {
-            [message.match.marketplace]: [
-              {
-                title: message.match.title,
-                price: message.match.price,
-                image: message.match.image,
-                url: message.match.url,
-                marketplace: message.match.marketplace,
-                similarity: message.match.similarityScore,
-                // Calculate profit
-                profit: {
-                  amount: parseFloat((message.match.price - sourceProduct.price).toFixed(2)),
-                  percentage: parseFloat((((message.match.price - sourceProduct.price) / sourceProduct.price) * 100).toFixed(2))
-                }
-              }
-            ]
-          },
-          timestamp: Date.now(),
-          manualMatch: true,
-          similarity: message.match.similarityScore,
-          searchUrl: message.searchUrl
-        };
-        
-        // Store the comparison result
-        chrome.storage.local.set({ comparison }, () => {
-          logger.info('Stored background search comparison result');
-          
-          // Clear the in-progress flag
-          chrome.storage.local.remove(['manualMatchInProgress'], () => {
-            logger.info('Cleared manual match in progress flag');
-          });
-        });
-      }
-    });
-    
-    // Forward the message to the active tab so it can update the UI
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]?.id) {
-        // Only forward the match info, not showing a dialog
-        chrome.tabs.sendMessage(tabs[0].id, {
-          action: 'MANUAL_MATCH_PROCESSED'
-        });
-      }
-    });
-    
-    // If the message came from a tab, close it
-    if (sender.tab?.id) {
-      chrome.tabs.remove(sender.tab.id);
-    }
-    
-    return true;
-  }
-
   // NEW: Handle Home Depot product GraphQL API request
   else if (message.action === 'HD_FETCH_PRODUCT_API') {
     fetchHomeDepotProductData(message)
@@ -528,73 +463,29 @@ async function fetchHomeDepotProductData(message: any): Promise<any> {
     throw error;
   }
 }
+// Add this at the end of your src/background/index.ts file
 
-/**
- * Find a match manually by searching in a separate tab
- * 
- * @param sourceProduct - Source product data
- * @param destinationMarketplace - Target marketplace
- * @returns Promise that resolves when the search is complete
- */
-async function findManualMatch(sourceProduct: ProductData, destinationMarketplace: string): Promise<void> {
-  try {
-    logger.info(`Finding manual match for ${sourceProduct.title} on ${destinationMarketplace}`);
-    
-    // Create search term from product data
-    const brandPrefix = sourceProduct.brand ? `${sourceProduct.brand} ` : '';
-    const searchTerm = `${brandPrefix}${sourceProduct.title}`.substring(0, 100);
-    const encodedSearchTerm = encodeURIComponent(searchTerm);
-    
-    // Create destination URL
-    let destinationUrl;
-    if (destinationMarketplace === 'amazon') {
-      destinationUrl = `https://www.amazon.com/s?k=${encodedSearchTerm}`;
-    } else if (destinationMarketplace === 'walmart') {
-      destinationUrl = `https://www.walmart.com/search?q=${encodedSearchTerm}`;
-    } else {
-      throw new Error(`Unsupported destination marketplace: ${destinationMarketplace}`);
-    }
-    
-    // Store source product for the match finder
-    await new Promise<void>((resolve) => {
-      chrome.storage.local.set({ 
-        manualMatchSourceProduct: sourceProduct,
-        manualMatchInProgress: true
-      }, resolve);
-    });
-    
-    // Open the search in a new background tab
-    const tab = await new Promise<chrome.tabs.Tab>((resolve) => {
-      chrome.tabs.create({ 
-        url: destinationUrl, 
-        active: false // Keep current tab active
-      }, (tab) => {
-        resolve(tab);
-      });
-    });
-    
-    logger.info(`Opened search tab with ID ${tab.id}`);
-    
-    // Tab will run the match finder content script and send results back
-    // Results are handled in the message listener above
-  } catch (error) {
-    logger.error('Error in manual match search:', error);
-    
-    // Clear in-progress flag on error
-    chrome.storage.local.remove(['manualMatchInProgress'], () => {
-      logger.info('Cleared manual match in progress flag after error');
-    });
-    
-    throw error;
-  }
-}
-
-// Add a listener for the "View Search" button click
+// Handle manual match found message from search tab
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'OPEN_SEARCH_URL' && message.url) {
-    chrome.tabs.create({ url: message.url });
-    sendResponse({ success: true });
-    return true;
+  if (message.action === 'MANUAL_MATCH_FOUND' || 
+      message.action === 'MANUAL_MATCH_NOT_FOUND' || 
+      message.action === 'MANUAL_MATCH_ERROR') {
+    
+    console.log('[E-commerce Arbitrage] Received manual match result:', message);
+    
+    // Get the active tab (which should be the original product page)
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      if (tabs[0]?.id) {
+        // Forward the message to the active tab
+        chrome.tabs.sendMessage(tabs[0].id, message);
+        
+        // Close the search tab if we received a result
+        if (sender.tab?.id && message.action === 'MANUAL_MATCH_FOUND') {
+          chrome.tabs.remove(sender.tab.id);
+        }
+      }
+    });
+    
+    return true; // Keep the message channel open for async response
   }
-  return false;
 });

@@ -1,7 +1,7 @@
 // src/popup/Popup.tsx - Main popup component
 
 import React, { useEffect } from 'react';
-import { usePopupStore, checkAuthStatus, loadStoredState } from './state/store';
+import { usePopupStore, checkAuthStatus } from './state/store';
 import { useActiveTab } from './state/selectors';
 import ComparisonView from './views/ComparisonView';
 import SettingsView from './views/SettingsView';
@@ -23,22 +23,31 @@ const Popup: React.FC = () => {
   const updateSettings = usePopupStore(state => state.updateSettings);
   const setStatus = usePopupStore(state => state.setStatus);
   
-  // Load stored state on mount
+  // Load current product and settings on mount
   useEffect(() => {
     console.log('Popup component mounted');
     
-    const initializePopup = async () => {
-      // Load stored state first
-      await loadStoredState();
-      
-      // Check auth status
-      await checkAuthStatus();
-      
-      // Check if we're on a supported website
-      checkCurrentTab();
-    };
+    // Check auth status on mount
+    checkAuthStatus();
     
-    initializePopup();
+    // Check if we're on a supported website
+    checkCurrentTab();
+    
+    // Load stored data
+    chrome.storage.local.get(['currentProduct', 'settings'], (result) => {
+      console.log('Loaded from storage:', result);
+      
+      if (result.currentProduct) {
+        setCurrentProduct(result.currentProduct);
+        setStatus('Product data loaded from storage');
+      } else {
+        setStatus('No product data in storage. Try visiting a product page first.');
+      }
+      
+      if (result.settings) {
+        updateSettings(result.settings);
+      }
+    });
   }, []);
 
   // Check if the current tab is a supported website
@@ -50,12 +59,11 @@ const Popup: React.FC = () => {
       const isProductPage = (
         currentTab.url.includes('amazon.com') || 
         currentTab.url.includes('walmart.com') || 
-        currentTab.url.includes('target.com') ||
-        currentTab.url.includes('homedepot.com')
+        currentTab.url.includes('target.com')
       );
       
       if (!isProductPage) {
-        setStatus('Please navigate to a product page on Amazon, Walmart, Target, or Home Depot.');
+        setStatus('Please navigate to a product page on Amazon, Walmart, or Target.');
       }
     });
   };
