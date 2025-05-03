@@ -6,12 +6,16 @@ import { formatPrice, formatProfit, formatMarketplace } from '../../common/forma
 
 interface MatchedProductCardProps {
   product: ProductMatchResult;
+  showSimilarity?: boolean;
 }
 
 /**
  * Card displaying matched product information with profit calculations
  */
-export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({ product }) => {
+export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({ 
+  product,
+  showSimilarity
+}) => {
   const isProfitable = product.profit && product.profit.amount > 0;
   
   return (
@@ -24,7 +28,15 @@ export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({ product 
         />
       )}
       <div className="product-info">
-        <h5>{product.title}</h5>
+        <div className="product-title-row">
+          <h5>{product.title}</h5>
+          {showSimilarity && product.similarity !== undefined && (
+            <span className="similarity-badge-small">
+              {(product.similarity * 100).toFixed(1)}% match
+            </span>
+          )}
+        </div>
+        
         <p>Price: {formatPrice(product.price)}</p>
         
         {product.fee_breakdown && (
@@ -48,14 +60,17 @@ export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({ product 
         {product.ratings && (
           <p>Rating: {product.ratings.average} ({product.ratings.count} reviews)</p>
         )}
-        <a 
-          href={product.url} 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="view-button"
-        >
-          View Product
-        </a>
+        
+        <div className="product-actions">
+          <a 
+            href={product.url} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="view-button"
+          >
+            View Product
+          </a>
+        </div>
       </div>
     </div>
   );
