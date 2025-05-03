@@ -55,7 +55,7 @@ const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
           <MatchedProductCard 
             key={`${marketplace}-${index}`} 
             product={product}
-            showSimilarity={products.length > 1} // Only show individual similarity if multiple products
+            showSimilarity={true}
             searchUrl={searchUrl || (isManualMatch ? comparison?.searchUrl : undefined)}
           />
         ))
