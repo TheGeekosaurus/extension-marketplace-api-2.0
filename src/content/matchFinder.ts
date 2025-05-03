@@ -200,7 +200,8 @@ function highlightMatchedProduct(
   // Create highlight container
   const highlightContainer = document.createElement('div');
   highlightContainer.id = 'extension-match-highlight';
-  highlightContainer.style.cssText = `
+  const containerStyle = highlightContainer.style;
+  containerStyle.cssText = `
     position: fixed;
     top: 0;
     right: 0;
@@ -217,11 +218,11 @@ function highlightMatchedProduct(
   `;
   
   // Calculate profit
-  const profit = matchedProduct.price && sourceProduct.price 
+  const profit = matchedProduct.price && sourceProduct.price !== null 
     ? matchedProduct.price - sourceProduct.price 
     : 0;
   
-  const profitPercent = sourceProduct.price 
+  const profitPercent = sourceProduct.price !== null 
     ? (profit / sourceProduct.price) * 100 
     : 0;
   
@@ -277,17 +278,20 @@ function highlightMatchedProduct(
   // Highlight the matched product
   element.scrollIntoView({ behavior: 'smooth', block: 'center' });
   
-  const originalBorder = element.style.border;
-  const originalBoxShadow = element.style.boxShadow;
+  // Save original styles
+  const htmlElement = element as HTMLElement;
+  const originalBorder = htmlElement.style.border;
+  const originalBoxShadow = htmlElement.style.boxShadow;
   
-  element.style.border = '3px solid #4a6bd8';
-  element.style.boxShadow = '0 0 10px rgba(74, 107, 216, 0.5)';
+  // Set new styles
+  htmlElement.style.border = '3px solid #4a6bd8';
+  htmlElement.style.boxShadow = '0 0 10px rgba(74, 107, 216, 0.5)';
   
   // Add event listeners
   document.getElementById('extension-close-highlight')?.addEventListener('click', () => {
     highlightContainer.remove();
-    element.style.border = originalBorder;
-    element.style.boxShadow = originalBoxShadow;
+    htmlElement.style.border = originalBorder;
+    htmlElement.style.boxShadow = originalBoxShadow;
   });
   
   document.getElementById('extension-select-match')?.addEventListener('click', () => {
@@ -311,15 +315,15 @@ function highlightMatchedProduct(
     
     document.getElementById('extension-close-after-save')?.addEventListener('click', () => {
       highlightContainer.remove();
-      element.style.border = originalBorder;
-      element.style.boxShadow = originalBoxShadow;
+      htmlElement.style.border = originalBorder;
+      htmlElement.style.boxShadow = originalBoxShadow;
     });
   });
   
   document.getElementById('extension-find-manually')?.addEventListener('click', () => {
     highlightContainer.remove();
-    element.style.border = originalBorder;
-    element.style.boxShadow = originalBoxShadow;
+    htmlElement.style.border = originalBorder;
+    htmlElement.style.boxShadow = originalBoxShadow;
   });
 }
 
@@ -341,8 +345,8 @@ function saveMatchToStorage(sourceProduct: ProductData, matchedProduct: any) {
           url: matchedProduct.url,
           marketplace: matchedProduct.marketplace,
           profit: {
-            amount: parseFloat((matchedProduct.price - sourceProduct.price).toFixed(2)),
-            percentage: parseFloat((((matchedProduct.price - sourceProduct.price) / sourceProduct.price) * 100).toFixed(2))
+            amount: sourceProduct.price !== null ? parseFloat((matchedProduct.price - sourceProduct.price).toFixed(2)) : 0,
+            percentage: sourceProduct.price !== null ? parseFloat((((matchedProduct.price - sourceProduct.price) / sourceProduct.price) * 100).toFixed(2)) : 0
           }
         }
       ]
