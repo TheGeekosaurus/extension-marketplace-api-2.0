@@ -24,7 +24,6 @@ const ComparisonView: React.FC = () => {
   const currentProduct = useCurrentProduct();
   const comparison = useComparison();
   const loading = useLoading();
-  const totalProfit = useTotalPotentialProfit();
   const settings = useSettings();
   const { isAuthenticated } = useAuth();
   const manualMatch = usePopupStore(state => state.manualMatch);
@@ -129,13 +128,7 @@ const ComparisonView: React.FC = () => {
             </div>
           )}
           
-          {/* Display profit summary */}
-          {totalProfit.amount > 0 && (
-            <div className="profit-summary">
-              <p>Total potential profit: <span className="profit positive">${totalProfit.amount.toFixed(2)}</span></p>
-              <p><small>Note: This summary includes only positive profit opportunities</small></p>
-            </div>
-          )}
+          {/* FIX 2: Removed total profit summary box */}
           
           {/* Amazon matches - only show if there's no selected marketplace or if amazon is selected */}
           {(!settings.selectedMarketplace || settings.selectedMarketplace === 'amazon') && (
