@@ -1,6 +1,6 @@
 // src/background/index.ts - Main background script entry point
 
-import { ProductData, ProductComparison } from '../types';
+import { ProductData, ProductComparison, MarketplaceType } from '../types';
 import { MarketplaceApi } from './api/marketplaceApi';
 import { CacheService } from './services/cacheService';
 import { ProfitService } from './services/profitService';
@@ -155,22 +155,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         chrome.storage.local.get(['settings'], (settingsResult) => {
           const settings = settingsResult.settings;
           
-          // Calculate profit with fees
-          let profit = message.match.price - sourceProduct.price;
-          let profitPercentage = ((message.match.price - sourceProduct.price) / sourceProduct.price) * 100;
+          // Initialize profit values
+          let profit = 0;
+          let profitPercentage = 0;
+          
+          // Calculate profit if source product has a price
+          if (sourceProduct.price !== null) {
+            profit = message.match.price - sourceProduct.price;
+            profitPercentage = ((message.match.price - sourceProduct.price) / sourceProduct.price) * 100;
+          }
           
           // Create fee breakdown if settings include fees
           let feeBreakdown = null;
           
           if (settings && settings.includeFees) {
-            const feePercentage = settings.estimatedFees[message.match.marketplace] || 0;
+            // Type safety for marketplace
+            const marketplace = message.match.marketplace as keyof typeof settings.estimatedFees;
+            const feePercentage = settings.estimatedFees[marketplace] || 0;
             const marketplaceFeeAmount = message.match.price * feePercentage;
             const additionalFees = settings.additionalFees || 0;
             const totalFees = marketplaceFeeAmount + additionalFees;
             
-            // Recalculate profit with fees
-            profit = message.match.price - sourceProduct.price - totalFees;
-            profitPercentage = (profit / sourceProduct.price) * 100;
+            // Recalculate profit with fees if price is available
+            if (sourceProduct.price !== null) {
+              profit = message.match.price - sourceProduct.price - totalFees;
+              profitPercentage = (profit / sourceProduct.price) * 100;
+            }
             
             feeBreakdown = {
               marketplace_fee_percentage: feePercentage,
