@@ -9,6 +9,7 @@ import { useFilteredProducts } from '../state/selectors';
 interface MarketplaceSectionProps {
   marketplace: string;
   products: ProductMatchResult[] | undefined;
+  similarity?: number;
 }
 
 /**
@@ -16,7 +17,8 @@ interface MarketplaceSectionProps {
  */
 const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({ 
   marketplace, 
-  products
+  products,
+  similarity
 }) => {
   // Use the selector to get all products (no filtering by profit)
   const allProducts = useFilteredProducts(products);
@@ -27,12 +29,21 @@ const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
   
   return (
     <div className="marketplace-section">
-      <h4>{formatMarketplace(marketplace)}</h4>
+      <div className="marketplace-header">
+        <h4>{formatMarketplace(marketplace)}</h4>
+        {similarity !== undefined && (
+          <span className="similarity-badge">
+            {(similarity * 100).toFixed(1)}% Match
+          </span>
+        )}
+      </div>
+      
       {allProducts.length > 0 ? (
         allProducts.map((product, index) => (
           <MatchedProductCard 
             key={`${marketplace}-${index}`} 
-            product={product} 
+            product={product}
+            showSimilarity={similarity !== undefined}
           />
         ))
       ) : (
