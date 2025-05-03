@@ -264,7 +264,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     }
     
     setLoading(true);
-    setStatus(`Opening ${destinationMarketplace.charAt(0).toUpperCase() + destinationMarketplace.slice(1)} search results...`);
+    setStatus(`Searching ${destinationMarketplace.charAt(0).toUpperCase() + destinationMarketplace.slice(1)} in background...`);
     
     try {
       // Update manual match state
@@ -274,19 +274,82 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         searchUrl: destinationUrl
       });
       
-      // Open the search results in a new tab
-      const newTab = await chrome.tabs.create({ url: destinationUrl, active: true });
-      
       // Store the source product in local storage for the match finder to use
-      chrome.storage.local.set({ manualMatchSourceProduct: currentProduct }, () => {
-        console.log('Stored source product for manual matching');
+      chrome.storage.local.set({ 
+        manualMatchSourceProduct: currentProduct,
+        manualMatchInProgress: true
       });
       
-      setStatus(`Search results opened. The extension will try to find the best match on the page.`);
+      // Open the search tab in background (not active)
+      const searchTab = await chrome.tabs.create({ 
+        url: destinationUrl, 
+        active: false // Keep current tab active
+      });
+      
+      // Listen for message from the background search tab
+      const matchFound = await new Promise<any>((resolve) => {
+        const messageListener = (message: any, sender: chrome.runtime.MessageSender) => {
+          // Only listen for messages from our search tab
+          if (sender.tab?.id === searchTab.id && message.action === 'MANUAL_MATCH_FOUND') {
+            chrome.runtime.onMessage.removeListener(messageListener);
+            resolve(message.match);
+          }
+        };
+        
+        chrome.runtime.onMessage.addListener(messageListener);
+        
+        // Set a timeout in case the match isn't found
+        setTimeout(() => {
+          chrome.runtime.onMessage.removeListener(messageListener);
+          resolve(null);
+        }, 30000); // 30 second timeout
+      });
+      
+      // Close the search tab when done
+      chrome.tabs.remove(searchTab.id!);
+      
+      if (matchFound) {
+        // Save the match to comparison
+        const comparison = {
+          sourceProduct: currentProduct,
+          matchedProducts: {
+            [matchFound.marketplace]: [
+              {
+                title: matchFound.title,
+                price: matchFound.price,
+                image: matchFound.imageUrl,
+                url: matchFound.url,
+                marketplace: matchFound.marketplace,
+                similarity: matchFound.similarityScore,
+                profit: {
+                  amount: currentProduct.price !== null ? 
+                    parseFloat((matchFound.price - currentProduct.price).toFixed(2)) : 0,
+                  percentage: currentProduct.price !== null ? 
+                    parseFloat((((matchFound.price - currentProduct.price) / currentProduct.price) * 100).toFixed(2)) : 0
+                }
+              }
+            ]
+          },
+          timestamp: Date.now(),
+          manualMatch: true,
+          similarity: matchFound.similarityScore
+        };
+        
+        // Set the comparison in store and save to storage
+        set({ comparison });
+        chrome.storage.local.set({ comparison });
+        
+        setStatus(`Found match with ${Math.round(matchFound.similarityScore * 100)}% similarity on ${matchFound.marketplace}`);
+      } else {
+        setError('No good match found or search timed out');
+        // Activate the search tab so user can manually look
+        chrome.tabs.update(searchTab.id!, { active: true });
+      }
     } catch (error) {
-      setError(`Error opening search results: ${error instanceof Error ? error.message : error}`);
+      setError(`Error searching for match: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setLoading(false);
+      chrome.storage.local.set({ manualMatchInProgress: false });
     }
   },
   
