@@ -1,6 +1,8 @@
 // src/content/matchFinder.ts - Find best matching product on search results pages
 
 import { ProductData } from '../types';
+import { findAmazonSearchResultElements, extractAmazonSearchResult } from './matchFinder/amazonSearch';
+import { findWalmartSearchResultElements, extractWalmartSearchResult } from './matchFinder/walmartSearch';
 
 /**
  * Main function to initialize the match finder on search results pages
@@ -92,8 +94,6 @@ async function loadSourceProductAndFindMatch(isBackgroundSearch: boolean = false
 
 /**
  * Find the best matching product on the current search results page
- * REVERTED TO ORIGINAL IMPLEMENTATION
- * 
  * @param sourceProduct - The source product to match
  * @returns The best matching product or null if no good match found
  */
@@ -102,35 +102,16 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
   const isAmazon = window.location.hostname.includes('amazon.com');
   const isWalmart = window.location.hostname.includes('walmart.com');
   
-  let productElements: Element[] = [];
-  
   // Wait a bit more for dynamic content to fully load
   await new Promise(resolve => setTimeout(resolve, 1000));
   
+  // Get all product elements using the appropriate marketplace-specific function
+  let productElements: Element[] = [];
+  
   if (isAmazon) {
-    // Original Amazon selectors
-    productElements = Array.from(document.querySelectorAll('.s-result-item[data-asin]:not(.AdHolder)'));
-    
-    // Fallback for Amazon
-    if (productElements.length === 0) {
-      productElements = Array.from(document.querySelectorAll('.s-result-list .a-section[data-asin], .sg-row[data-asin]'));
-    }
+    productElements = findAmazonSearchResultElements();
   } else if (isWalmart) {
-    // Original Walmart selectors
-    const selectors = [
-      '[data-item-id]',
-      '[data-product-id]',
-      '.search-result-gridview-item',
-      '.product.product-search-result.search-result-gridview-item'
-    ];
-    
-    for (const selector of selectors) {
-      const results = document.querySelectorAll(selector);
-      if (results.length > 0) {
-        productElements = Array.from(results);
-        break;
-      }
-    }
+    productElements = findWalmartSearchResultElements();
   }
   
   if (productElements.length === 0) {
@@ -140,136 +121,48 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
   
   console.log(`[E-commerce Arbitrage] Found ${productElements.length} products on search results page`);
   
-  // Calculate similarity scores for each product using original approach
+  // Extract products from elements using the appropriate marketplace-specific function
   const productsWithScores = productElements.map(element => {
-    // Extract product title
-    let title = '';
-    if (isAmazon) {
-      title = element.querySelector('h2')?.textContent || 
-              element.querySelector('h2 a')?.textContent || 
-              element.querySelector('.a-text-normal')?.textContent || '';
-    } else if (isWalmart) {
-      title = element.querySelector('[data-automation-id="product-title"]')?.textContent || 
-              element.querySelector('.sans-serif.mid-gray')?.textContent || 
-              element.querySelector('.lh-title')?.textContent || '';
-    }
+    let product;
     
-    // If no title, skip this product
-    if (!title.trim()) {
+    if (isAmazon) {
+      product = extractAmazonSearchResult(element);
+    } else if (isWalmart) {
+      product = extractWalmartSearchResult(element);
+    } else {
       return null;
     }
     
-    // Extract price using more permissive approach
-    let price = null;
-    if (isAmazon) {
-      const priceElement = element.querySelector('.a-price .a-offscreen');
-      if (priceElement) {
-        const priceText = priceElement.textContent || '';
-        // More permissive price regex
-        const priceMatch = priceText.match(/[\$\£\€]?(\d+(?:[.,]\d+)?)/);
-        if (priceMatch && priceMatch[1]) {
-          price = parseFloat(priceMatch[1].replace(',', '.'));
-        }
-      }
-      
-      // Amazon fallback price
-      if (price === null) {
-        const altPriceElement = element.querySelector('.a-color-price, .a-color-base');
-        if (altPriceElement) {
-          const priceText = altPriceElement.textContent || '';
-          const priceMatch = priceText.match(/[\$\£\€]?(\d+(?:[.,]\d+)?)/);
-          if (priceMatch && priceMatch[1]) {
-            price = parseFloat(priceMatch[1].replace(',', '.'));
-          }
-        }
-      }
-    } else if (isWalmart) {
-      const priceElement = element.querySelector('[data-automation-id="product-price"]') || 
-                           element.querySelector('.b.black.f1.mr1');
-      if (priceElement) {
-        const priceText = priceElement.textContent || '';
-        // More permissive price regex
-        const priceMatch = priceText.match(/[\$\£\€]?(\d+(?:[.,]\d+)?)/);
-        if (priceMatch && priceMatch[1]) {
-          price = parseFloat(priceMatch[1].replace(',', '.'));
-        }
-      }
-      
-      // Walmart fallback for separated dollars and cents
-      if (price === null) {
-        const wholeDollarElement = element.querySelector('.w_C6.w_D.w_C7.w_Da');
-        const centsElement = element.querySelector('.w_C6.w_D.w_C7.w_Db');
-        
-        if (wholeDollarElement && centsElement) {
-          const dollars = wholeDollarElement.textContent?.replace(/[^\d]/g, '') || '0';
-          const cents = centsElement.textContent?.replace(/[^\d]/g, '') || '00';
-          price = parseFloat(`${dollars}.${cents}`);
-        }
-      }
-    }
-    
-    // Get URL - using original approach
-    let url = '';
-    if (isAmazon) {
-      const linkElement = element.querySelector('a.a-link-normal[href*="/dp/"]');
-      if (linkElement) {
-        const href = linkElement.getAttribute('href') || '';
-        url = href.startsWith('http') ? href : new URL(href, window.location.origin).href;
-      }
-    } else if (isWalmart) {
-      const linkElement = element.querySelector('a[link-identifier="linkTest"]') || 
-                          element.querySelector('a.absolute.w-100.h-100');
-      if (linkElement) {
-        const href = linkElement.getAttribute('href') || '';
-        url = href.startsWith('http') ? href : new URL(href, window.location.origin).href;
-      }
-    }
-    
-    // Get image
-    let imageUrl = undefined;
-    if (isAmazon) {
-      const imgElement = element.querySelector('img.s-image');
-      imageUrl = imgElement ? imgElement.getAttribute('src') || undefined : undefined;
-    } else if (isWalmart) {
-      const imgElement = element.querySelector('img[data-automation-id="product-image"]') || 
-                         element.querySelector('img.absolute');
-      imageUrl = imgElement ? imgElement.getAttribute('src') || undefined : undefined;
-    }
-    
-    // Skip if we couldn't get title, price or URL
-    if (!title || price === null || !url) {
+    if (!product || !product.title || !product.price) {
       return null;
     }
     
     // Calculate title similarity score
-    const similarityScore = calculateTitleSimilarity(title, sourceProduct.title);
+    const similarityScore = calculateTitleSimilarity(product.title, sourceProduct.title);
     
     return {
       element,
-      title,
-      price,
-      url,
-      imageUrl,
-      marketplace: isAmazon ? 'amazon' : 'walmart',
+      ...product,
       similarityScore
     };
   }).filter(Boolean) as Array<any>;
   
+  // Filter out products with missing title or price
+  const validProducts = productsWithScores.filter(p => p.title && p.price !== null);
+  
   // Sort by similarity score (highest first)
-  productsWithScores.sort((a, b) => b.similarityScore - a.similarityScore);
+  validProducts.sort((a, b) => b.similarityScore - a.similarityScore);
   
   // Get the best match (if any)
-  if (productsWithScores.length === 0) {
+  if (validProducts.length === 0) {
     return null;
   }
   
-  const bestMatch = productsWithScores[0];
+  const bestMatch = validProducts[0];
   
-  // Only return if it has a reasonable similarity
-  // Lower the threshold from 0.3 to 0.2 to improve matching
-  if (bestMatch.similarityScore < 0.2) {
+  // Only return match if it has a decent similarity score
+  if (bestMatch.similarityScore < 0.3) {
     console.warn('[E-commerce Arbitrage] Best match has low similarity score:', bestMatch.similarityScore);
-    // Still return the match even with low score
   }
   
   return bestMatch;
@@ -277,8 +170,6 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
 
 /**
  * Calculate similarity between two product titles
- * Using original algorithm with improvements
- * 
  * @param title1 - First product title
  * @param title2 - Second product title
  * @returns Similarity score between 0 and 1
@@ -286,154 +177,26 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
 function calculateTitleSimilarity(title1: string, title2: string): number {
   if (!title1 || !title2) return 0;
   
-  // Normalize strings (more permissive)
-  const normalize = (str: string) => {
-    return str.toLowerCase()
-      .replace(/[^\w\s]/g, '')  // Remove non-alphanumeric chars
-      .replace(/\s+/g, ' ')     // Normalize whitespace
-      .trim();
-  };
+  // Normalize strings
+  const normalize = (str: string) => str.toLowerCase().replace(/[^\w\s]/g, '');
   
   const normalizedTitle1 = normalize(title1);
   const normalizedTitle2 = normalize(title2);
   
-  // Get words from titles
-  // Original implementation only filtered words > 2 chars
-  // Modified to be more lenient with word filtering (>1 char)
-  const words1 = normalizedTitle1.split(/\s+/).filter(w => w.length > 1);
-  const words2 = normalizedTitle2.split(/\s+/).filter(w => w.length > 1);
+  // Get words from titles (filter out very short words)
+  const words1 = normalizedTitle1.split(/\s+/).filter(w => w.length > 2);
+  const words2 = normalizedTitle2.split(/\s+/).filter(w => w.length > 2);
   
-  // Count matching words with a more permissive approach
+  // Count matching words
   let matchCount = 0;
   for (const word1 of words1) {
-    for (const word2 of words2) {
-      // Consider matches if one word includes the other or if they're very similar
-      if (word2.includes(word1) || word1.includes(word2) || levenshteinSimilarity(word1, word2) > 0.8) {
-        matchCount++;
-        break; // Count each word from title1 at most once
-      }
+    if (words2.some(word2 => word2.includes(word1) || word1.includes(word2))) {
+      matchCount++;
     }
   }
   
-  // Original similarity calculation with a small boost
-  const baseScore = matchCount / Math.max(words1.length, words2.length);
-  
-  // Add bonus points for brand name matches 
-  // This helps boost relevant matches
-  const boostScore = checkForBrandMatch(normalizedTitle1, normalizedTitle2) ? 0.1 : 0;
-  
-  // Clamp final score between 0 and 1
-  return Math.min(1, baseScore + boostScore);
-}
-
-/**
- * Check if the brand name appears in both titles
- * 
- * @param title1 First normalized title
- * @param title2 Second normalized title
- * @returns True if there appears to be a brand match
- */
-function checkForBrandMatch(title1: string, title2: string): boolean {
-  // Try to extract what might be a brand (first word or two)
-  const words1 = title1.split(/\s+/);
-  const words2 = title2.split(/\s+/);
-  
-  // Check if first word (potential brand) matches
-  if (words1.length > 0 && words2.length > 0) {
-    const firstWord1 = words1[0];
-    const firstWord2 = words2[0];
-    
-    // If the first words are the same and not too short, likely a brand match
-    if (firstWord1.length > 2 && firstWord1 === firstWord2) {
-      return true;
-    }
-    
-    // Check if first two words match (for brand names with two words)
-    if (words1.length > 1 && words2.length > 1) {
-      const firstTwoWords1 = words1.slice(0, 2).join(' ');
-      const firstTwoWords2 = words2.slice(0, 2).join(' ');
-      
-      if (firstTwoWords1 === firstTwoWords2) {
-        return true;
-      }
-    }
-  }
-  
-  return false;
-}
-
-/**
- * Calculate similarity between two strings using Levenshtein distance
- * Added to improve matching quality
- * 
- * @param str1 First string
- * @param str2 Second string
- * @returns Similarity score between 0 and 1
- */
-function levenshteinSimilarity(str1: string, str2: string): number {
-  const len1 = str1.length;
-  const len2 = str2.length;
-  
-  // Quick return for empty strings or exact matches
-  if (len1 === 0) return len2 === 0 ? 1 : 0;
-  if (len2 === 0) return 0;
-  if (str1 === str2) return 1;
-  
-  // Use a simple version for short strings
-  if (len1 < 10 && len2 < 10) {
-    // Count the number of matching characters
-    let matches = 0;
-    const maxLen = Math.max(len1, len2);
-    
-    for (let i = 0; i < Math.min(len1, len2); i++) {
-      if (str1[i] === str2[i]) matches++;
-    }
-    
-    return matches / maxLen;
-  }
-  
-  // Only use full Levenshtein for longer strings where needed
-  // This is a simplified version that works well for our purpose
-  // and avoids expensive calculations
-  
-  let matches = 0;
-  let commonPrefixLength = 0;
-  
-  // Count common prefix
-  for (let i = 0; i < Math.min(len1, len2); i++) {
-    if (str1[i] === str2[i]) {
-      commonPrefixLength++;
-    } else {
-      break;
-    }
-  }
-  
-  // Count common suffix
-  let commonSuffixLength = 0;
-  for (let i = 1; i <= Math.min(len1, len2) - commonPrefixLength; i++) {
-    if (str1[len1 - i] === str2[len2 - i]) {
-      commonSuffixLength++;
-    } else {
-      break;
-    }
-  }
-  
-  // Count common characters
-  const charMap: Record<string, number> = {};
-  for (const char of str1) {
-    charMap[char] = (charMap[char] || 0) + 1;
-  }
-  
-  for (const char of str2) {
-    if (charMap[char] && charMap[char] > 0) {
-      matches++;
-      charMap[char]--;
-    }
-  }
-  
-  // Calculate similarity as a weighted score
-  const maxLength = Math.max(len1, len2);
-  return (matches + commonPrefixLength + commonSuffixLength) / (maxLength * 2);
+  // Calculate similarity score (0-1)
+  return matchCount / Math.max(words1.length, words2.length);
 }
 
 /**
@@ -574,7 +337,7 @@ function saveMatchToStorage(sourceProduct: ProductData, matchedProduct: any) {
         {
           title: matchedProduct.title,
           price: matchedProduct.price,
-          image: matchedProduct.imageUrl,
+          image: matchedProduct.image,
           url: matchedProduct.url,
           marketplace: matchedProduct.marketplace,
           similarity: matchedProduct.similarityScore,
