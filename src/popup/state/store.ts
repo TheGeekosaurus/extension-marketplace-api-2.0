@@ -234,7 +234,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       setLoading(false);
     }
   },
-
+  
   findMatchManually: async () => {
     const { currentProduct, settings, setStatus, setError, setLoading, setManualMatch, setComparison } = get();
     
@@ -363,7 +363,8 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       setLoading(false);
       chrome.storage.local.set({ manualMatchInProgress: false });
     }
-  }
+  },
+  
   clearCache: async () => {
     const { setStatus, setError } = get();
     
