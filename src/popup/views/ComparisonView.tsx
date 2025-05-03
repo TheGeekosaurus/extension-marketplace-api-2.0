@@ -27,6 +27,7 @@ const ComparisonView: React.FC = () => {
   const totalProfit = useTotalPotentialProfit();
   const settings = useSettings();
   const { isAuthenticated } = useAuth();
+  const manualMatch = usePopupStore(state => state.manualMatch);
   
   // Get actions from store
   const loadProductData = usePopupStore(state => state.loadProductData);
@@ -86,10 +87,10 @@ const ComparisonView: React.FC = () => {
           <button 
             className="match-manually-button"
             onClick={findMatchManually}
-            disabled={loading || !currentProduct}
-            title="Open destination marketplace and find match manually"
+            disabled={loading || !currentProduct || !isAuthenticated}
+            title="Search for matches in the background"
           >
-            Find Match Manually
+            Find Match In Background
           </button>
         </div>
         
@@ -128,6 +129,23 @@ const ComparisonView: React.FC = () => {
             </div>
           )}
           
+          {/* If this is a manual match, display info about it */}
+          {comparison.manualMatch && (
+            <div className="manual-match-info p-4 mb-4">
+              <p className="font-medium">This is a manually selected match.</p>
+              {comparison.searchUrl && (
+                <a 
+                  href={comparison.searchUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline text-sm"
+                >
+                  View original search results
+                </a>
+              )}
+            </div>
+          )}
+          
           {/* Summary of opportunities with positive profit */}
           {totalProfit.amount > 0 && (
             <div className="profit-summary">
@@ -140,7 +158,9 @@ const ComparisonView: React.FC = () => {
           {(!settings.selectedMarketplace || settings.selectedMarketplace === 'amazon') && (
             <MarketplaceSection 
               marketplace="amazon" 
-              products={comparison.matchedProducts.amazon} 
+              products={comparison.matchedProducts.amazon}
+              similarity={comparison.similarity}
+              searchUrl={comparison.searchUrl}
             />
           )}
           
@@ -148,7 +168,9 @@ const ComparisonView: React.FC = () => {
           {(!settings.selectedMarketplace || settings.selectedMarketplace === 'walmart') && (
             <MarketplaceSection 
               marketplace="walmart" 
-              products={comparison.matchedProducts.walmart} 
+              products={comparison.matchedProducts.walmart}
+              similarity={comparison.similarity}
+              searchUrl={comparison.searchUrl}
             />
           )}
           
