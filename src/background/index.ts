@@ -463,3 +463,29 @@ async function fetchHomeDepotProductData(message: any): Promise<any> {
     throw error;
   }
 }
+// Add this at the end of your src/background/index.ts file
+
+// Handle manual match found message from search tab
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'MANUAL_MATCH_FOUND' || 
+      message.action === 'MANUAL_MATCH_NOT_FOUND' || 
+      message.action === 'MANUAL_MATCH_ERROR') {
+    
+    console.log('[E-commerce Arbitrage] Received manual match result:', message);
+    
+    // Get the active tab (which should be the original product page)
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      if (tabs[0]?.id) {
+        // Forward the message to the active tab
+        chrome.tabs.sendMessage(tabs[0].id, message);
+        
+        // Close the search tab if we received a result
+        if (sender.tab?.id && message.action === 'MANUAL_MATCH_FOUND') {
+          chrome.tabs.remove(sender.tab.id);
+        }
+      }
+    });
+    
+    return true; // Keep the message channel open for async response
+  }
+});
