@@ -142,6 +142,48 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Indicates async response
   }
 
+  // Handle manual match selection
+  else if (message.action === 'MANUAL_MATCH_SELECTED') {
+    logger.info('Manual match selected:', message.match);
+    
+    // Get the current product from storage
+    chrome.storage.local.get(['manualMatchSourceProduct'], (result) => {
+      const sourceProduct = result.manualMatchSourceProduct;
+      
+      if (sourceProduct) {
+        // Create comparison object
+        const comparison = {
+          sourceProduct: sourceProduct,
+          matchedProducts: {
+            [message.match.marketplace]: [
+              {
+                title: message.match.title,
+                price: message.match.price,
+                image: message.match.imageUrl,
+                url: message.match.url,
+                marketplace: message.match.marketplace,
+                // Calculate profit
+                profit: {
+                  amount: parseFloat((message.match.price - sourceProduct.price).toFixed(2)),
+                  percentage: parseFloat((((message.match.price - sourceProduct.price) / sourceProduct.price) * 100).toFixed(2))
+                }
+              }
+            ]
+          },
+          timestamp: Date.now()
+        };
+        
+        // Store the comparison result
+        chrome.storage.local.set({ comparison }, () => {
+          logger.info('Stored manual comparison result');
+        });
+      }
+    });
+    
+    sendResponse({ success: true });
+    return true; // Indicates async response
+  }
+
   // NEW: Handle Home Depot product GraphQL API request
   else if (message.action === 'HD_FETCH_PRODUCT_API') {
     fetchHomeDepotProductData(message)

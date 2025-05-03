@@ -36,6 +36,14 @@
       ],
       "js": ["contentScript.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://*.amazon.com/s*",
+        "https://*.walmart.com/search*"
+      ],
+      "js": ["matchFinder.js"],
+      "run_at": "document_idle"
     }
   ],
   "icons": {

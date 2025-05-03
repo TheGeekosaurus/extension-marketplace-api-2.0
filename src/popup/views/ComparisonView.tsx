@@ -31,6 +31,7 @@ const ComparisonView: React.FC = () => {
   // Get actions from store
   const loadProductData = usePopupStore(state => state.loadProductData);
   const fetchPriceComparison = usePopupStore(state => state.fetchPriceComparison);
+  const findMatchManually = usePopupStore(state => state.findMatchManually);
   const setActiveTab = usePopupStore(state => state.setActiveTab);
 
   // Determine if current product is from the selected marketplace
@@ -80,6 +81,15 @@ const ComparisonView: React.FC = () => {
             }
           >
             {loading ? 'Loading...' : 'Find Matching Products'}
+          </button>
+          
+          <button 
+            className="match-manually-button"
+            onClick={findMatchManually}
+            disabled={loading || !currentProduct}
+            title="Open destination marketplace and find match manually"
+          >
+            Find Match Manually
           </button>
         </div>
         
