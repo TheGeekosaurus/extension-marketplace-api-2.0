@@ -21,11 +21,20 @@ export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({
 }) => {
   const isProfitable = product.profit && product.profit.amount > 0;
   
-  // Get the manualMatch.searchUrl from store
+  // Get the manualMatch searchUrl from store
   const manualMatchSearchUrl = usePopupStore(state => state.manualMatch.searchUrl);
   
   // Use provided searchUrl or fetch from store
   const finalSearchUrl = searchUrl || manualMatchSearchUrl;
+  
+  // Handle opening the search page
+  const handleViewSearchClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    
+    if (finalSearchUrl) {
+      chrome.tabs.create({ url: finalSearchUrl });
+    }
+  };
   
   return (
     <div className="product-card matched">
@@ -83,8 +92,7 @@ export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({
           {finalSearchUrl && (
             <a 
               href={finalSearchUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
+              onClick={handleViewSearchClick}
               className="view-search-button"
             >
               View Search
