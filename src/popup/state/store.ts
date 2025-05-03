@@ -1,7 +1,7 @@
 // src/popup/state/store.ts - Central state store for popup
 
 import { create } from 'zustand';
-import { ProductData, ProductComparison, Settings } from '../../types';
+import { ProductData, ProductComparison, Settings, ProductMatchResult } from '../../types';
 import { sendMessage } from '../../common/messaging';
 import { DEFAULT_SETTINGS } from '../../common/constants';
 
@@ -18,6 +18,17 @@ interface AuthState {
 }
 
 /**
+ * Manual match interface for tracking background searches
+ */
+interface ManualMatchState {
+  isSearching: boolean;
+  searchUrl: string | null;
+  sourceProduct: ProductData | null;
+  matchedProduct: ProductMatchResult | null;
+  similarity: number | null;
+}
+
+/**
  * Popup state interface
  */
 interface PopupState {
@@ -28,6 +39,9 @@ interface PopupState {
   
   // Auth state
   authState: AuthState;
+  
+  // Manual match state
+  manualMatch: ManualMatchState;
   
   // UI state
   loading: boolean;
@@ -44,13 +58,15 @@ interface PopupState {
   setActiveTab: (tab: 'comparison' | 'settings' | 'account') => void;
   updateSettings: (settings: Partial<Settings>) => void;
   setAuthState: (state: Partial<AuthState>) => void;
+  setManualMatchState: (state: Partial<ManualMatchState>) => void;
   
   // API actions
   loadProductData: () => Promise<void>;
   fetchPriceComparison: () => Promise<void>;
+  findMatchManually: () => Promise<void>;
   clearCache: () => Promise<void>;
   saveSettings: () => Promise<void>;
-  findMatchManually: () => Promise<void>;
+  viewSearchResults: () => Promise<void>;
   
   // Auth actions
   validateApiKey: (apiKey: string) => Promise<boolean>;
@@ -70,6 +86,13 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     isAuthenticated: false,
     user: null
   },
+  manualMatch: {
+    isSearching: false,
+    searchUrl: null,
+    sourceProduct: null,
+    matchedProduct: null,
+    similarity: null
+  },
   loading: false,
   error: null,
   status: null,
@@ -87,6 +110,9 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   })),
   setAuthState: (partialState) => set((state) => ({
     authState: { ...state.authState, ...partialState }
+  })),
+  setManualMatchState: (partialState) => set((state) => ({
+    manualMatch: { ...state.manualMatch, ...partialState }
   })),
   
   // API actions
@@ -215,7 +241,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   },
   
   findMatchManually: async () => {
-    const { currentProduct, settings, setStatus, setError, setLoading } = get();
+    const { currentProduct, settings, setStatus, setError, setLoading, setManualMatchState } = get();
     
     if (!currentProduct) {
       setError('No product detected. Try visiting a product page first.');
@@ -243,23 +269,90 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     }
     
     setLoading(true);
-    setStatus(`Opening ${destinationMarketplace.charAt(0).toUpperCase() + destinationMarketplace.slice(1)} search results...`);
+    setStatus(`Searching for matches on ${destinationMarketplace}...`);
+    
+    // Update manual match state
+    setManualMatchState({
+      isSearching: true,
+      searchUrl: destinationUrl,
+      sourceProduct: currentProduct,
+      matchedProduct: null,
+      similarity: null
+    });
     
     try {
-      // Open the search results in a new tab
-      const newTab = await chrome.tabs.create({ url: destinationUrl, active: true });
-      
-      // Store the source product in local storage for the match finder to use
-      chrome.storage.local.set({ manualMatchSourceProduct: currentProduct }, () => {
-        console.log('Stored source product for manual matching');
+      // Send message to background script to perform search in background
+      const response = await sendMessage({
+        action: 'BACKGROUND_SEARCH',
+        sourceProduct: currentProduct,
+        searchUrl: destinationUrl,
+        marketplace: destinationMarketplace
       });
       
-      setStatus(`Search results opened. The extension will try to find the best match on the page.`);
+      if (response && response.success) {
+        setStatus('Search completed. Best match found.');
+        
+        // Create comparison from the match
+        if (response.match) {
+          // Update manual match state
+          setManualMatchState({
+            isSearching: false,
+            matchedProduct: response.match,
+            similarity: response.similarity || 0
+          });
+          
+          // Create comparison object
+          const matchedProducts: Record<string, ProductMatchResult[]> = {};
+          matchedProducts[destinationMarketplace] = [response.match];
+          
+          // Set the comparison
+          setComparison({
+            sourceProduct: currentProduct,
+            matchedProducts: matchedProducts,
+            timestamp: Date.now(),
+            manualMatch: true,
+            similarity: response.similarity || 0,
+            searchUrl: destinationUrl
+          });
+        } else {
+          setError('No good matches found. Try refining your search or selecting a different marketplace.');
+          setManualMatchState({
+            isSearching: false
+          });
+        }
+      } else {
+        setError(response?.error || 'Failed to search for matches');
+        setManualMatchState({
+          isSearching: false
+        });
+      }
     } catch (error) {
-      setError(`Error opening search results: ${error instanceof Error ? error.message : error}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setError(`Error searching for matches: ${errorMessage}`);
+      setManualMatchState({
+        isSearching: false
+      });
+      console.error('Error in manual match search:', error);
     } finally {
       setLoading(false);
     }
+  },
+  
+  viewSearchResults: async () => {
+    const { comparison } = get();
+    
+    if (!comparison || !comparison.searchUrl) {
+      return;
+    }
+    
+    // Open the search results in a new tab
+    await chrome.tabs.create({ 
+      url: comparison.searchUrl, 
+      active: true 
+    });
+    
+    // The matchFinder.ts script will automatically run on the search page
+    // and highlight the matched product
   },
   
   clearCache: async () => {
