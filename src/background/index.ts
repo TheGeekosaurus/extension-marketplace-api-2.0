@@ -1,6 +1,6 @@
 // src/background/index.ts - Main background script entry point
 
-import { ProductData, ProductComparison, ProductMatchResult } from '../types';
+import { ProductData, ProductComparison } from '../types';
 import { MarketplaceApi } from './api/marketplaceApi';
 import { CacheService } from './services/cacheService';
 import { ProfitService } from './services/profitService';
@@ -8,7 +8,6 @@ import { initializeSettings, getSettings, loadSettings, saveSettings } from './s
 import { AuthService } from './services/authService';
 import { createLogger } from './utils/logger';
 import { handleError } from './utils/errorHandler';
-import { extractProductFromPage, findBestMatch, fetchPage } from './services/searchService';
 
 // Initialize logger
 const logger = createLogger('Background');
@@ -70,77 +69,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse(handleError(error, 'getting price comparison'));
       });
     
-    return true; // Indicates async response
-  }
-  
-  // Handle background search request
-  else if (message.action === 'BACKGROUND_SEARCH') {
-    logger.info('Performing background search for:', message.sourceProduct);
-    
-    performBackgroundSearch(message.sourceProduct, message.searchUrl, message.marketplace)
-      .then(result => {
-        if (result.match) {
-          logger.info('Found match in background search:', result.match);
-          sendResponse({ 
-            success: true, 
-            match: result.match,
-            similarity: result.similarity
-          });
-        } else {
-          logger.warn('No good match found in background search');
-          sendResponse({ 
-            success: false, 
-            error: 'No good match found' 
-          });
-        }
-      })
-      .catch(error => {
-        logger.error('Error in background search:', error);
-        sendResponse(handleError(error, 'background search'));
-      });
-    
-    return true; // Indicates async response
-  }
-  
-  // Handle manual match selection
-  else if (message.action === 'MANUAL_MATCH_SELECTED') {
-    logger.info('Manual match selected:', message.match);
-    
-    // Get the current product from storage
-    chrome.storage.local.get(['manualMatchSourceProduct'], (result) => {
-      const sourceProduct = result.manualMatchSourceProduct;
-      
-      if (sourceProduct) {
-        // Create comparison object
-        const comparison = {
-          sourceProduct: sourceProduct,
-          matchedProducts: {
-            [message.match.marketplace]: [
-              {
-                title: message.match.title,
-                price: message.match.price,
-                image: message.match.imageUrl,
-                url: message.match.url,
-                marketplace: message.match.marketplace,
-                // Calculate profit
-                profit: {
-                  amount: parseFloat((message.match.price - sourceProduct.price).toFixed(2)),
-                  percentage: parseFloat((((message.match.price - sourceProduct.price) / sourceProduct.price) * 100).toFixed(2))
-                }
-              }
-            ]
-          },
-          timestamp: Date.now()
-        };
-        
-        // Store the comparison result
-        chrome.storage.local.set({ comparison }, () => {
-          logger.info('Stored manual comparison result');
-        });
-      }
-    });
-    
-    sendResponse({ success: true });
     return true; // Indicates async response
   }
   
@@ -211,6 +139,48 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse(handleError(error, 'logging out'));
       });
     
+    return true; // Indicates async response
+  }
+
+  // Handle manual match selection
+  else if (message.action === 'MANUAL_MATCH_SELECTED') {
+    logger.info('Manual match selected:', message.match);
+    
+    // Get the current product from storage
+    chrome.storage.local.get(['manualMatchSourceProduct'], (result) => {
+      const sourceProduct = result.manualMatchSourceProduct;
+      
+      if (sourceProduct) {
+        // Create comparison object
+        const comparison = {
+          sourceProduct: sourceProduct,
+          matchedProducts: {
+            [message.match.marketplace]: [
+              {
+                title: message.match.title,
+                price: message.match.price,
+                image: message.match.imageUrl,
+                url: message.match.url,
+                marketplace: message.match.marketplace,
+                // Calculate profit
+                profit: {
+                  amount: parseFloat((message.match.price - sourceProduct.price).toFixed(2)),
+                  percentage: parseFloat((((message.match.price - sourceProduct.price) / sourceProduct.price) * 100).toFixed(2))
+                }
+              }
+            ]
+          },
+          timestamp: Date.now()
+        };
+        
+        // Store the comparison result
+        chrome.storage.local.set({ comparison }, () => {
+          logger.info('Stored manual comparison result');
+        });
+      }
+    });
+    
+    sendResponse({ success: true });
     return true; // Indicates async response
   }
 
@@ -381,105 +351,6 @@ async function getPriceComparison(productData: ProductData): Promise<ProductComp
     return comparisonResult;
   } catch (error) {
     logger.error('Error getting price comparison:', error);
-    throw error;
-  }
-}
-
-/**
- * Perform background search for product match
- * 
- * @param sourceProduct - Product to find matches for
- * @param searchUrl - URL to search for matches
- * @param marketplace - Marketplace to search
- * @returns Match result with best match and similarity score
- */
-async function performBackgroundSearch(
-  sourceProduct: ProductData, 
-  searchUrl: string, 
-  marketplace: string
-): Promise<{ match: ProductMatchResult | null; similarity: number }> {
-  try {
-    logger.info(`Starting background search for ${marketplace}:`, sourceProduct.title);
-    
-    // Fetch the search results page HTML
-    const pageHtml = await fetchPage(searchUrl);
-    
-    if (!pageHtml) {
-      throw new Error('Failed to fetch search results page');
-    }
-    
-    // Extract products from the page
-    const products = await extractProductFromPage(pageHtml, marketplace, searchUrl);
-    
-    if (!products || products.length === 0) {
-      logger.warn('No products found on search results page');
-      return { match: null, similarity: 0 };
-    }
-    
-    logger.info(`Found ${products.length} products on search results page`);
-    
-    // Find the best match
-    const { bestMatch, similarity } = findBestMatch(sourceProduct, products);
-    
-    if (!bestMatch) {
-      logger.warn('No good match found');
-      return { match: null, similarity: 0 };
-    }
-    
-    // Get settings for fee calculations
-    const settings = await loadSettings();
-    
-    // Calculate profit for this product
-    const matchedProduct = bestMatch as ProductMatchResult;
-    
-    // Fix price if needed (handle parsing errors)
-    if (matchedProduct.price && matchedProduct.price > 1000) {
-      const priceString = matchedProduct.price.toString();
-      if (priceString.length > 5) {
-        // Extract what's likely the real price
-        matchedProduct.price = parseFloat(priceString.substring(0, 2) + '.' + priceString.substring(2, 4));
-        logger.info('Fixed large price number:', matchedProduct.price);
-      }
-    }
-    
-    // Calculate profit
-    if (matchedProduct.price && sourceProduct.price) {
-      matchedProduct.profit = {
-        amount: parseFloat((matchedProduct.price - sourceProduct.price).toFixed(2)),
-        percentage: parseFloat((((matchedProduct.price - sourceProduct.price) / (sourceProduct.price || 1)) * 100).toFixed(2))
-      };
-      
-      // Add fee breakdown if fees are enabled
-      if (settings.includeFees) {
-        const feePercentage = settings.estimatedFees[marketplace as keyof typeof settings.estimatedFees] || 0;
-        const marketplaceFeeAmount = matchedProduct.price * feePercentage;
-        const additionalFees = settings.additionalFees || 0;
-        const totalFees = marketplaceFeeAmount + additionalFees;
-        
-        matchedProduct.fee_breakdown = {
-          marketplace_fee_percentage: feePercentage,
-          marketplace_fee_amount: parseFloat(marketplaceFeeAmount.toFixed(2)),
-          additional_fees: parseFloat(additionalFees.toFixed(2)),
-          total_fees: parseFloat(totalFees.toFixed(2))
-        };
-        
-        // Adjust profit to include fees
-        matchedProduct.profit.amount = parseFloat((matchedProduct.profit.amount - totalFees).toFixed(2));
-        matchedProduct.profit.percentage = parseFloat(
-          (((matchedProduct.price - sourceProduct.price - totalFees) / sourceProduct.price) * 100).toFixed(2)
-        );
-      }
-    }
-    
-    // Add similarity score to matched product
-    matchedProduct.similarity = similarity;
-    
-    return { 
-      match: matchedProduct,
-      similarity 
-    };
-  } catch (error) {
-    logger.error('Error in background search:', error);
     throw error;
   }
 }
