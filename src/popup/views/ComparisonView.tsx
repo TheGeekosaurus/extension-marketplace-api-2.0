@@ -10,7 +10,7 @@ import {
   useAuth
 } from '../state/selectors';
 import { usePopupStore } from '../state/store';
-import { formatDate, formatMarketplace, formatPrice } from '../../common/formatting';
+import { formatDate, formatMarketplace } from '../../common/formatting';
 import SourceProductCard from '../components/SourceProductCard';
 import MarketplaceSection from '../components/MarketplaceSection';
 import StatusMessage from '../components/StatusMessage';
@@ -32,7 +32,6 @@ const ComparisonView: React.FC = () => {
   const loadProductData = usePopupStore(state => state.loadProductData);
   const fetchPriceComparison = usePopupStore(state => state.fetchPriceComparison);
   const findMatchManually = usePopupStore(state => state.findMatchManually);
-  const viewSearchResults = usePopupStore(state => state.viewSearchResults);
   const setActiveTab = usePopupStore(state => state.setActiveTab);
 
   // Determine if current product is from the selected marketplace
@@ -78,7 +77,7 @@ const ComparisonView: React.FC = () => {
                 ? 'Please log in first to use this feature' 
                 : isCurrentProductFromSelectedMarketplace && settings.selectedMarketplace 
                   ? `Cannot search for arbitrage when the current product is from the selected marketplace (${settings.selectedMarketplace})` 
-                  : 'Find matching products on other marketplaces (uses API credits)'
+                  : 'Find matching products on other marketplaces'
             }
           >
             {loading ? 'Loading...' : 'Find Matching Products'}
@@ -88,7 +87,7 @@ const ComparisonView: React.FC = () => {
             className="match-manually-button"
             onClick={findMatchManually}
             disabled={loading || !currentProduct}
-            title="Find matches without using API credits"
+            title="Open destination marketplace and find match manually"
           >
             Find Match Manually
           </button>
@@ -97,7 +96,7 @@ const ComparisonView: React.FC = () => {
         {!isAuthenticated && (
           <div className="auth-required">
             <p className="text-sm text-amber-600 p-2 bg-amber-50 rounded-md mt-2">
-              You need to log in to use API-based matching. 
+              You need to log in to find arbitrage opportunities. 
               <button 
                 className="ml-1 underline text-blue-600"
                 onClick={() => setActiveTab('account')}
@@ -122,31 +121,6 @@ const ComparisonView: React.FC = () => {
         <div className="matched-products">
           <h3>Matching Products</h3>
           
-          {/* Display manual match info if this is a manual match */}
-          {comparison.manualMatch && comparison.similarity !== undefined && (
-            <div className="manual-match-info bg-muted p-4 rounded-lg mb-4">
-              <div className="flex justify-between items-center mb-2">
-                <h4 className="font-semibold text-lg">Manual Match Results</h4>
-                <span className="bg-primary text-white px-2 py-1 rounded text-sm">
-                  {(comparison.similarity * 100).toFixed(1)}% Match
-                </span>
-              </div>
-              
-              <p className="text-sm mb-3">
-                Match found without using API credits. The similarity score indicates how closely the titles match.
-              </p>
-              
-              {comparison.searchUrl && (
-                <button 
-                  className="view-search-button w-full"
-                  onClick={viewSearchResults}
-                >
-                  View Search Results
-                </button>
-              )}
-            </div>
-          )}
-          
           {/* Show which marketplace we're showing results for */}
           {settings.selectedMarketplace && (
             <div className="status-message">
@@ -163,27 +137,25 @@ const ComparisonView: React.FC = () => {
           )}
           
           {/* Amazon matches - only show if there's no selected marketplace or if amazon is selected */}
-          {(!settings.selectedMarketplace || settings.selectedMarketplace === 'amazon') && comparison.matchedProducts.amazon && (
+          {(!settings.selectedMarketplace || settings.selectedMarketplace === 'amazon') && (
             <MarketplaceSection 
               marketplace="amazon" 
               products={comparison.matchedProducts.amazon} 
-              similarity={comparison.manualMatch ? comparison.similarity : undefined}
             />
           )}
           
           {/* Walmart matches - only show if there's no selected marketplace or if walmart is selected */}
-          {(!settings.selectedMarketplace || settings.selectedMarketplace === 'walmart') && comparison.matchedProducts.walmart && (
+          {(!settings.selectedMarketplace || settings.selectedMarketplace === 'walmart') && (
             <MarketplaceSection 
               marketplace="walmart" 
-              products={comparison.matchedProducts.walmart}
-              similarity={comparison.manualMatch ? comparison.similarity : undefined}
+              products={comparison.matchedProducts.walmart} 
             />
           )}
           
           {/* No matches found */}
           {Object.keys(comparison.matchedProducts).length === 0 || 
-           ((!comparison.matchedProducts.amazon || comparison.matchedProducts.amazon.length === 0) && 
-            (!comparison.matchedProducts.walmart || comparison.matchedProducts.walmart.length === 0)) && (
+           (comparison.matchedProducts.amazon?.length === 0 && 
+            comparison.matchedProducts.walmart?.length === 0) && (
             <p>No matching products found on other marketplaces.</p>
           )}
           
