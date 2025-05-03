@@ -451,7 +451,7 @@ async function performBackgroundSearch(
       
       // Add fee breakdown if fees are enabled
       if (settings.includeFees) {
-        const feePercentage = settings.estimatedFees[marketplace] || 0;
+        const feePercentage = settings.estimatedFees[marketplace as keyof typeof settings.estimatedFees] || 0;
         const marketplaceFeeAmount = matchedProduct.price * feePercentage;
         const additionalFees = settings.additionalFees || 0;
         const totalFees = marketplaceFeeAmount + additionalFees;
