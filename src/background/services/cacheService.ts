@@ -200,12 +200,120 @@ export class CacheService {
   
   /**
    * Generate a cache key for a product comparison
+   * Improved to create more reliable and consistent keys
    * 
    * @param productData - Product data
    * @returns Cache key for the product
    */
   static generateProductCacheKey(productData: any): string {
-    const identifier = productData.upc || productData.asin || productData.productId;
+    // First try to use UPC or ASIN as they're most reliable
+    let identifier = '';
+    
+    if (productData.upc) {
+      identifier = `upc-${productData.upc}`;
+    } else if (productData.asin) {
+      identifier = `asin-${productData.asin}`;
+    } else if (productData.productId) {
+      identifier = `id-${productData.productId}`;
+    } else if (productData.title) {
+      // If no ID available, use a hash of the title
+      // Get first 20 chars of title, lowercase, and replace spaces with dashes
+      const titleHash = productData.title
+        .toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .replace(/\s+/g, '-')
+        .substring(0, 20);
+      
+      identifier = `title-${titleHash}`;
+      
+      // Add price to make the key more specific if available
+      if (productData.price !== null && productData.price !== undefined) {
+        identifier += `-price-${productData.price.toString().replace('.', 'p')}`;
+      }
+    } else {
+      // Fallback to a timestamp if nothing else is available
+      identifier = `unknown-${Date.now()}`;
+    }
+    
+    // Add marketplace to ensure uniqueness across platforms
     return `${productData.marketplace}-${identifier}`;
+  }
+  
+  /**
+   * Generate a multi-search cache key that includes selected marketplace
+   * 
+   * @param productData - Source product data
+   * @param selectedMarketplace - Selected marketplace to search (if any)
+   * @returns Cache key for multi-search
+   */
+  static generateMultiSearchCacheKey(productData: any, selectedMarketplace?: string | null): string {
+    // Create a base key using the product cache key
+    const baseKey = this.generateProductCacheKey(productData);
+    
+    // Add a suffix for the type of search
+    const searchType = 'multi-search';
+    
+    // Add selected marketplace if applicable
+    const marketplaceSuffix = selectedMarketplace ? `-${selectedMarketplace}` : '-all';
+    
+    return `${baseKey}-${searchType}${marketplaceSuffix}`;
+  }
+  
+  /**
+   * Check if a cache entry exists without retrieving the data
+   * 
+   * @param key - Cache key
+   * @returns Promise that resolves to true if cache exists and is valid
+   */
+  static async exists(key: string): Promise<boolean> {
+    // First check memory cache
+    const cacheKey = this.getCacheKey(key);
+    if (this.memoryCache[cacheKey]) {
+      return true;
+    }
+    
+    // Then check chrome storage
+    return new Promise<boolean>((resolve) => {
+      chrome.storage.local.get([cacheKey], (result) => {
+        if (chrome.runtime.lastError || !result[cacheKey]) {
+          resolve(false);
+          return;
+        }
+        
+        const cacheItem = result[cacheKey] as CacheData<any>;
+        
+        // Check if cache is expired
+        const settings = getSettings();
+        const now = Date.now();
+        const cacheExpiration = settings.cacheExpiration * 60 * 60 * 1000; // hours to ms
+        
+        if (now - cacheItem.timestamp > cacheExpiration) {
+          resolve(false);
+          return;
+        }
+        
+        resolve(true);
+      });
+    });
+  }
+  
+  /**
+   * Get all cached items that match a certain prefix
+   * 
+   * @param keyPrefix - Prefix to match
+   * @returns Promise that resolves to array of cache keys
+   */
+  static async getKeysByPrefix(keyPrefix: string): Promise<string[]> {
+    const prefix = this.getCacheKey(keyPrefix);
+    
+    return new Promise<string[]>((resolve) => {
+      chrome.storage.local.get(null, (items) => {
+        const matchingKeys = Object.keys(items)
+          .filter(key => key.startsWith(prefix))
+          .map(key => key.substring(this.PREFIX.length)); // Remove the global prefix
+        
+        resolve(matchingKeys);
+      });
+    });
   }
 }
