@@ -18,6 +18,15 @@ interface AuthState {
 }
 
 /**
+ * Manual match state interface
+ */
+interface ManualMatchState {
+  enabled: boolean;
+  sourceProduct: ProductData | null;
+  searchUrl: string | null;
+}
+
+/**
  * Popup state interface
  */
 interface PopupState {
@@ -28,6 +37,9 @@ interface PopupState {
   
   // Auth state
   authState: AuthState;
+  
+  // Manual match state
+  manualMatch: ManualMatchState;
   
   // UI state
   loading: boolean;
@@ -44,6 +56,7 @@ interface PopupState {
   setActiveTab: (tab: 'comparison' | 'settings' | 'account') => void;
   updateSettings: (settings: Partial<Settings>) => void;
   setAuthState: (state: Partial<AuthState>) => void;
+  setManualMatch: (state: Partial<ManualMatchState>) => void;
   
   // API actions
   loadProductData: () => Promise<void>;
@@ -70,6 +83,11 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     isAuthenticated: false,
     user: null
   },
+  manualMatch: {
+    enabled: false,
+    sourceProduct: null,
+    searchUrl: null
+  },
   loading: false,
   error: null,
   status: null,
@@ -87,6 +105,9 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   })),
   setAuthState: (partialState) => set((state) => ({
     authState: { ...state.authState, ...partialState }
+  })),
+  setManualMatch: (partialState) => set((state) => ({
+    manualMatch: { ...state.manualMatch, ...partialState }
   })),
   
   // API actions
@@ -215,7 +236,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   },
   
   findMatchManually: async () => {
-    const { currentProduct, settings, setStatus, setError, setLoading } = get();
+    const { currentProduct, settings, setStatus, setError, setLoading, setManualMatch } = get();
     
     if (!currentProduct) {
       setError('No product detected. Try visiting a product page first.');
@@ -246,6 +267,13 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     setStatus(`Opening ${destinationMarketplace.charAt(0).toUpperCase() + destinationMarketplace.slice(1)} search results...`);
     
     try {
+      // Update manual match state
+      setManualMatch({
+        enabled: true,
+        sourceProduct: currentProduct,
+        searchUrl: destinationUrl
+      });
+      
       // Open the search results in a new tab
       const newTab = await chrome.tabs.create({ url: destinationUrl, active: true });
       
