@@ -234,9 +234,9 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       setLoading(false);
     }
   },
-  
+
   findMatchManually: async () => {
-    const { currentProduct, settings, setStatus, setError, setLoading, setManualMatch } = get();
+    const { currentProduct, settings, setStatus, setError, setLoading, setManualMatch, setComparison } = get();
     
     if (!currentProduct) {
       setError('No product detected. Try visiting a product page first.');
@@ -306,7 +306,13 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       });
       
       // Close the search tab when done
-      chrome.tabs.remove(searchTab.id!);
+      if (searchTab.id) {
+        try {
+          chrome.tabs.remove(searchTab.id);
+        } catch (e) {
+          console.error('Error closing search tab:', e);
+        }
+      }
       
       if (matchFound) {
         // Save the match to comparison
@@ -332,18 +338,24 @@ export const usePopupStore = create<PopupState>((set, get) => ({
           },
           timestamp: Date.now(),
           manualMatch: true,
-          similarity: matchFound.similarityScore
+          similarity: matchFound.similarityScore,
+          searchUrl: destinationUrl
         };
         
         // Set the comparison in store and save to storage
-        set({ comparison });
+        setComparison(comparison);
         chrome.storage.local.set({ comparison });
         
         setStatus(`Found match with ${Math.round(matchFound.similarityScore * 100)}% similarity on ${matchFound.marketplace}`);
       } else {
-        setError('No good match found or search timed out');
-        // Activate the search tab so user can manually look
-        chrome.tabs.update(searchTab.id!, { active: true });
+        // If no match found, just open the tab so user can look manually
+        if (searchTab.id) {
+          chrome.tabs.update(searchTab.id, { active: true });
+        } else {
+          // If tab was already closed, open a new one
+          chrome.tabs.create({ url: destinationUrl });
+        }
+        setError('No good match found automatically. Opening search page for manual selection.');
       }
     } catch (error) {
       setError(`Error searching for match: ${error instanceof Error ? error.message : String(error)}`);
@@ -351,8 +363,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       setLoading(false);
       chrome.storage.local.set({ manualMatchInProgress: false });
     }
-  },
-  
+  }
   clearCache: async () => {
     const { setStatus, setError } = get();
     

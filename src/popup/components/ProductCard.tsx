@@ -3,10 +3,12 @@
 import React from 'react';
 import { ProductMatchResult } from '../../types';
 import { formatPrice, formatProfit, formatMarketplace } from '../../common/formatting';
+import { usePopupStore } from '../state/store';
 
 interface MatchedProductCardProps {
   product: ProductMatchResult;
   showSimilarity?: boolean;
+  searchUrl?: string;
 }
 
 /**
@@ -14,9 +16,16 @@ interface MatchedProductCardProps {
  */
 export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({ 
   product,
-  showSimilarity
+  showSimilarity = true,
+  searchUrl
 }) => {
   const isProfitable = product.profit && product.profit.amount > 0;
+  
+  // Get the manualMatch.searchUrl from store
+  const manualMatchSearchUrl = usePopupStore(state => state.manualMatch.searchUrl);
+  
+  // Use provided searchUrl or fetch from store
+  const finalSearchUrl = searchUrl || manualMatchSearchUrl;
   
   return (
     <div className="product-card matched">
@@ -70,6 +79,17 @@ export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({
           >
             View Product
           </a>
+          
+          {finalSearchUrl && (
+            <a 
+              href={finalSearchUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="view-search-button"
+            >
+              View Search
+            </a>
+          )}
         </div>
       </div>
     </div>
