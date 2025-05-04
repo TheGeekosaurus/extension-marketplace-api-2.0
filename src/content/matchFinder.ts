@@ -1,16 +1,6 @@
 // src/content/matchFinder.ts - Find best matching product on search results pages
 
 import { ProductData } from '../types';
-import { 
-  findAmazonSearchResultElements, 
-  extractAmazonSearchResult, 
-  calculateAmazonTitleSimilarity 
-} from './matchFinder/amazonSearch';
-import { 
-  findWalmartSearchResultElements, 
-  extractWalmartSearchResult, 
-  calculateWalmartTitleSimilarity 
-} from './matchFinder/walmartSearch';
 
 /**
  * Main function to initialize the match finder on search results pages
@@ -102,7 +92,7 @@ async function loadSourceProductAndFindMatch(isBackgroundSearch: boolean = false
  * @returns The best matching product or null if no good match found
  */
 async function findBestMatchOnPage(sourceProduct: ProductData) {
-  // Different handling based on marketplace
+  // Different selectors based on marketplace
   const isAmazon = window.location.hostname.includes('amazon.com');
   const isWalmart = window.location.hostname.includes('walmart.com');
   
@@ -111,11 +101,10 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
   // Wait a bit more for dynamic content to fully load
   await new Promise(resolve => setTimeout(resolve, 1000));
   
-  // Find all product elements on the page using marketplace-specific selectors
   if (isAmazon) {
-    productElements = findAmazonSearchResultElements();
+    productElements = Array.from(document.querySelectorAll('.s-result-item[data-asin]:not(.AdHolder)'));
   } else if (isWalmart) {
-    productElements = findWalmartSearchResultElements();
+    productElements = Array.from(document.querySelectorAll('[data-item-id], [data-product-id], .search-result-gridview-item'));
   }
   
   if (productElements.length === 0) {
@@ -127,54 +116,74 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
   
   // Calculate similarity scores for each product
   const productsWithScores = productElements.map(element => {
-    // Extract product data using marketplace-specific extraction
-    let productData = null;
-    
+    // Extract product title
+    let title = '';
     if (isAmazon) {
-      productData = extractAmazonSearchResult(element);
+      title = element.querySelector('h2')?.textContent || '';
     } else if (isWalmart) {
-      productData = extractWalmartSearchResult(element);
+      title = element.querySelector('[data-automation-id="product-title"], .sans-serif.mid-gray')?.textContent || '';
     }
     
-    if (!productData || !productData.title || productData.price === null) {
-      return null;
+    // Extract price
+    let price = null;
+    if (isAmazon) {
+      const priceElement = element.querySelector('.a-price .a-offscreen');
+      price = priceElement ? parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0') : null;
+    } else if (isWalmart) {
+      const priceElement = element.querySelector('[data-automation-id="product-price"], .b.black.f1.mr1');
+      price = priceElement ? parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0') : null;
     }
     
-    // Calculate title similarity score using marketplace-specific calculator
-    let similarityScore;
+    // Calculate title similarity score
+    const similarityScore = calculateTitleSimilarity(title, sourceProduct.title);
+    
+    // Get URL
+    let url = '';
     if (isAmazon) {
-      similarityScore = calculateAmazonTitleSimilarity(productData.title, sourceProduct.title);
+      const linkElement = element.querySelector('a.a-link-normal[href*="/dp/"]');
+      url = linkElement ? new URL(linkElement.getAttribute('href') || '', window.location.origin).href : '';
     } else if (isWalmart) {
-      similarityScore = calculateWalmartTitleSimilarity(productData.title, sourceProduct.title);
-    } else {
-      // Fallback generic similarity calculation
-      similarityScore = calculateTitleSimilarity(productData.title, sourceProduct.title);
+      const linkElement = element.querySelector('a[link-identifier="linkTest"], a.absolute.w-100.h-100');
+      url = linkElement ? new URL(linkElement.getAttribute('href') || '', window.location.origin).href : '';
+    }
+    
+    // Get image
+    let imageUrl = '';
+    if (isAmazon) {
+      const imgElement = element.querySelector('img.s-image');
+      imageUrl = imgElement ? imgElement.getAttribute('src') || '' : '';
+    } else if (isWalmart) {
+      const imgElement = element.querySelector('img[data-automation-id="product-image"], img.absolute');
+      imageUrl = imgElement ? imgElement.getAttribute('src') || '' : '';
     }
     
     return {
       element,
-      title: productData.title,
-      price: productData.price,
+      title,
+      price,
       similarityScore,
-      url: productData.url || '',
-      imageUrl: productData.image || '',
+      url,
+      imageUrl,
       marketplace: isAmazon ? 'amazon' : 'walmart'
     };
-  }).filter((item): item is any => item !== null && item !== undefined);
+  });
+  
+  // Filter out products with missing title or price
+  const validProducts = productsWithScores.filter(p => p.title && p.price !== null);
   
   // Sort by similarity score (highest first)
-  productsWithScores.sort((a, b) => b!.similarityScore - a!.similarityScore);
+  validProducts.sort((a, b) => b.similarityScore - a.similarityScore);
   
   // Get the best match (if any)
-  if (productsWithScores.length === 0) {
+  if (validProducts.length === 0) {
     return null;
   }
   
-  const bestMatch = productsWithScores[0];
+  const bestMatch = validProducts[0];
   
   // Only return match if it has a decent similarity score
-  if (bestMatch!.similarityScore < 0.3) {
-    console.warn('[E-commerce Arbitrage] Best match has low similarity score:', bestMatch!.similarityScore);
+  if (bestMatch.similarityScore < 0.3) {
+    console.warn('[E-commerce Arbitrage] Best match has low similarity score:', bestMatch.similarityScore);
   }
   
   return bestMatch;
@@ -182,8 +191,6 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
 
 /**
  * Calculate similarity between two product titles
- * Generic fallback in case marketplace-specific functions aren't available
- * 
  * @param title1 - First product title
  * @param title2 - Second product title
  * @returns Similarity score between 0 and 1
