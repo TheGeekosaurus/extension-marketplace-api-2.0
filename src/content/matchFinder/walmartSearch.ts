@@ -3,6 +3,38 @@
 import { ProductMatchResult } from '../../types';
 
 /**
+ * Find all product elements on a Walmart search page
+ * 
+ * @returns Array of DOM elements representing search results
+ */
+export function findWalmartSearchResultElements(): Element[] {
+  try {
+    // Try multiple selectors as Walmart's DOM structure can vary
+    const selectors = [
+      '[data-item-id]', // Product with item ID
+      '[data-product-id]', // Product with product ID
+      '.search-result-gridview-item', // Grid view item
+      '.product.product-search-result.search-result-gridview-item', // Old style grid view
+      '.sans-serif.relative.pb3.pt2.ph3.w-100' // Common product container
+    ];
+    
+    for (const selector of selectors) {
+      const results = document.querySelectorAll(selector);
+      if (results.length > 0) {
+        console.log(`[E-commerce Arbitrage] Found ${results.length} Walmart search results using selector: ${selector}`);
+        return Array.from(results);
+      }
+    }
+    
+    console.warn('[E-commerce Arbitrage] No Walmart search results found on page');
+    return [];
+  } catch (error) {
+    console.error('[E-commerce Arbitrage] Error finding Walmart search results:', error);
+    return [];
+  }
+}
+
+/**
  * Extract a product from a Walmart search result element
  * 
  * @param element - The search result DOM element
@@ -143,33 +175,34 @@ export function extractWalmartSearchResult(element: Element): Partial<ProductMat
 }
 
 /**
- * Find all product elements on a Walmart search page
+ * Calculate similarity between two product titles
+ * Used for comparing source product with potential matches
  * 
- * @returns Array of DOM elements representing search results
+ * @param title1 - First product title
+ * @param title2 - Second product title
+ * @returns Similarity score between 0 and 1
  */
-export function findWalmartSearchResultElements(): Element[] {
-  try {
-    // Try multiple selectors as Walmart's DOM structure can vary
-    const selectors = [
-      '[data-item-id]', // Product with item ID
-      '[data-product-id]', // Product with product ID
-      '.search-result-gridview-item', // Grid view item
-      '.product.product-search-result.search-result-gridview-item', // Old style grid view
-      '.sans-serif.relative.pb3.pt2.ph3.w-100' // Common product container
-    ];
-    
-    for (const selector of selectors) {
-      const results = document.querySelectorAll(selector);
-      if (results.length > 0) {
-        console.log(`[E-commerce Arbitrage] Found ${results.length} Walmart search results using selector: ${selector}`);
-        return Array.from(results);
-      }
+export function calculateWalmartTitleSimilarity(title1: string, title2: string): number {
+  if (!title1 || !title2) return 0;
+  
+  // Normalize strings
+  const normalize = (str: string) => str.toLowerCase().replace(/[^\w\s]/g, '');
+  
+  const normalizedTitle1 = normalize(title1);
+  const normalizedTitle2 = normalize(title2);
+  
+  // Get words from titles (filter out very short words)
+  const words1 = normalizedTitle1.split(/\s+/).filter(w => w.length > 2);
+  const words2 = normalizedTitle2.split(/\s+/).filter(w => w.length > 2);
+  
+  // Count matching words
+  let matchCount = 0;
+  for (const word1 of words1) {
+    if (words2.some(word2 => word2.includes(word1) || word1.includes(word2))) {
+      matchCount++;
     }
-    
-    console.warn('[E-commerce Arbitrage] No Walmart search results found on page');
-    return [];
-  } catch (error) {
-    console.error('[E-commerce Arbitrage] Error finding Walmart search results:', error);
-    return [];
   }
+  
+  // Calculate similarity score (0-1)
+  return matchCount / Math.max(words1.length, words2.length);
 }
