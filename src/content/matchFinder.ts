@@ -160,7 +160,7 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
       imageUrl: productData.image || '',
       marketplace: isAmazon ? 'amazon' : 'walmart'
     };
-  }).filter(Boolean); // Remove null entries
+  }).filter((item): item is any => item !== null && item !== undefined);
   
   // Sort by similarity score (highest first)
   productsWithScores.sort((a, b) => b!.similarityScore - a!.similarityScore);
