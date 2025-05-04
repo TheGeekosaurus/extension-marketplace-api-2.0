@@ -87,6 +87,74 @@ async function loadSourceProductAndFindMatch(isBackgroundSearch: boolean = false
 }
 
 /**
+ * Enhanced price extraction for Walmart search results
+ * @param element - The product element containing the price
+ * @returns Extracted price or null if not found
+ */
+function extractWalmartPrice(element: Element): number | null {
+  try {
+    // Try multiple selectors to find the price element
+    const priceSelectors = [
+      '[data-automation-id="product-price"]',
+      '.b.black.f1.mr1',
+      '.w_iUH7', // Class from screenshot
+      'span.w_iUH', 
+      '[data-testid="price-current"]',
+      'span[data-automation-id="current-price"]',
+      '[class*="price"]', // Any element with "price" in class name
+      '.f4-l.mr1.black'
+    ];
+    
+    // Try each selector
+    for (const selector of priceSelectors) {
+      const priceElement = element.querySelector(selector);
+      if (priceElement) {
+        const priceText = priceElement.textContent || '';
+        
+        // Extract price using regex
+        const priceMatch = priceText.match(/\$\s*(\d+(?:\.\d{1,2})?)/);
+        if (priceMatch && priceMatch[1]) {
+          return parseFloat(priceMatch[1]);
+        }
+        
+        // If no match with regex, try a direct clean of the text
+        const cleaned = priceText.replace(/[^\d.]/g, '');
+        if (cleaned && !isNaN(parseFloat(cleaned))) {
+          return parseFloat(cleaned);
+        }
+      }
+    }
+    
+    // Try dollars and cents separately (Walmart sometimes separates them)
+    const dollarElement = element.querySelector('.w_C6.w_D.w_C7.w_Da');
+    const centsElement = element.querySelector('.w_C6.w_D.w_C7.w_Db');
+    
+    if (dollarElement && centsElement) {
+      const dollars = dollarElement.textContent?.replace(/[^\d]/g, '') || '0';
+      const cents = centsElement.textContent?.replace(/[^\d]/g, '') || '00';
+      return parseFloat(`${dollars}.${cents}`);
+    }
+    
+    // If all else fails, look for any element with price-like text
+    const allElements = element.querySelectorAll('*');
+    for (const el of Array.from(allElements)) {
+      const text = el.textContent || '';
+      if (text.includes('$') && /\d/.test(text)) {
+        const priceMatch = text.match(/\$\s*(\d+\.\d{2})/);
+        if (priceMatch && priceMatch[1]) {
+          return parseFloat(priceMatch[1]);
+        }
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('[E-commerce Arbitrage] Error extracting Walmart price:', error);
+    return null;
+  }
+}
+
+/**
  * Find the best matching product on the current search results page
  * @param sourceProduct - The source product to match
  * @returns The best matching product or null if no good match found
@@ -102,9 +170,39 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
   await new Promise(resolve => setTimeout(resolve, 1000));
   
   if (isAmazon) {
-    productElements = Array.from(document.querySelectorAll('.s-result-item[data-asin]:not(.AdHolder)'));
+    // Enhanced Amazon selectors
+    const selectors = [
+      '.s-result-item[data-asin]:not(.AdHolder)',
+      '[data-component-type="s-search-result"]',
+      '.sg-col-inner .a-section.a-spacing-base'
+    ];
+    
+    for (const selector of selectors) {
+      const elements = document.querySelectorAll(selector);
+      if (elements.length > 0) {
+        productElements = Array.from(elements);
+        break;
+      }
+    }
   } else if (isWalmart) {
-    productElements = Array.from(document.querySelectorAll('[data-item-id], [data-product-id], .search-result-gridview-item'));
+    // Enhanced Walmart selectors
+    const selectors = [
+      '[data-item-id]', 
+      '[data-product-id]', 
+      '.search-result-gridview-item',
+      'div[data-testid="list-view"]',
+      '.mb1.ph1.pa0-xl.bb.b--near-white', // Common container in the latest Walmart design
+      '[data-testid="search-result-gridview-item"]',
+      '.w-100.center.flex.flex-column' // Another common product container
+    ];
+    
+    for (const selector of selectors) {
+      const elements = document.querySelectorAll(selector);
+      if (elements.length > 0) {
+        productElements = Array.from(elements);
+        break;
+      }
+    }
   }
   
   if (productElements.length === 0) {
@@ -119,19 +217,61 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
     // Extract product title
     let title = '';
     if (isAmazon) {
-      title = element.querySelector('h2')?.textContent || '';
+      const titleSelectors = ['h2', '.a-size-base-plus', '.a-text-normal'];
+      for (const selector of titleSelectors) {
+        const titleElement = element.querySelector(selector);
+        if (titleElement && titleElement.textContent) {
+          title = titleElement.textContent.trim();
+          break;
+        }
+      }
     } else if (isWalmart) {
-      title = element.querySelector('[data-automation-id="product-title"], .sans-serif.mid-gray')?.textContent || '';
+      const titleSelectors = [
+        '[data-automation-id="product-title"]', 
+        '.sans-serif.mid-gray',
+        'span.w_iuH',
+        'span[data-automation-id="product-title"]',
+        '[data-testid="product-title"]'
+      ];
+      for (const selector of titleSelectors) {
+        const titleElement = element.querySelector(selector);
+        if (titleElement && titleElement.textContent) {
+          title = titleElement.textContent.trim();
+          break;
+        }
+      }
+      
+      // If no title found with selectors, try to find any element with a long text
+      if (!title) {
+        const spans = element.querySelectorAll('span');
+        for (const span of Array.from(spans)) {
+          const text = span.textContent?.trim() || '';
+          if (text.length > 20 && !text.includes('$')) {
+            title = text;
+            break;
+          }
+        }
+      }
     }
     
     // Extract price
     let price = null;
     if (isAmazon) {
-      const priceElement = element.querySelector('.a-price .a-offscreen');
-      price = priceElement ? parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0') : null;
+      const priceSelectors = ['.a-price .a-offscreen', '.a-color-price', '.a-price-whole'];
+      for (const selector of priceSelectors) {
+        const priceElement = element.querySelector(selector);
+        if (priceElement && priceElement.textContent) {
+          const priceText = priceElement.textContent;
+          const cleanedPrice = priceText.replace(/[^0-9.]/g, '');
+          if (cleanedPrice && !isNaN(parseFloat(cleanedPrice))) {
+            price = parseFloat(cleanedPrice);
+            break;
+          }
+        }
+      }
     } else if (isWalmart) {
-      const priceElement = element.querySelector('[data-automation-id="product-price"], .b.black.f1.mr1');
-      price = priceElement ? parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0') : null;
+      // Use our enhanced Walmart price extraction
+      price = extractWalmartPrice(element);
     }
     
     // Calculate title similarity score
@@ -140,21 +280,50 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
     // Get URL
     let url = '';
     if (isAmazon) {
-      const linkElement = element.querySelector('a.a-link-normal[href*="/dp/"]');
-      url = linkElement ? new URL(linkElement.getAttribute('href') || '', window.location.origin).href : '';
+      const linkSelectors = ['a.a-link-normal[href*="/dp/"]', 'a[href*="/dp/"]'];
+      for (const selector of linkSelectors) {
+        const linkElement = element.querySelector(selector);
+        if (linkElement && linkElement.getAttribute('href')) {
+          url = new URL(linkElement.getAttribute('href') || '', window.location.origin).href;
+          break;
+        }
+      }
     } else if (isWalmart) {
-      const linkElement = element.querySelector('a[link-identifier="linkTest"], a.absolute.w-100.h-100');
-      url = linkElement ? new URL(linkElement.getAttribute('href') || '', window.location.origin).href : '';
+      const linkSelectors = [
+        'a[link-identifier="linkTest"]', 
+        'a.absolute.w-100.h-100',
+        'a[href*="/ip/"]',
+        'a[data-testid="product-title"]'
+      ];
+      for (const selector of linkSelectors) {
+        const linkElement = element.querySelector(selector);
+        if (linkElement && linkElement.getAttribute('href')) {
+          url = new URL(linkElement.getAttribute('href') || '', window.location.origin).href;
+          break;
+        }
+      }
     }
     
     // Get image
     let imageUrl = '';
     if (isAmazon) {
-      const imgElement = element.querySelector('img.s-image');
+      const imgElement = element.querySelector('img.s-image, img.image');
       imageUrl = imgElement ? imgElement.getAttribute('src') || '' : '';
     } else if (isWalmart) {
-      const imgElement = element.querySelector('img[data-automation-id="product-image"], img.absolute');
-      imageUrl = imgElement ? imgElement.getAttribute('src') || '' : '';
+      const imgSelectors = [
+        'img[data-automation-id="product-image"]', 
+        'img.absolute',
+        'img[loading="lazy"]',
+        'img.w_iUF',
+        'img[data-testid="product-image"]'
+      ];
+      for (const selector of imgSelectors) {
+        const imgElement = element.querySelector(selector);
+        if (imgElement && imgElement.getAttribute('src')) {
+          imageUrl = imgElement.getAttribute('src') || '';
+          break;
+        }
+      }
     }
     
     return {
@@ -168,17 +337,26 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
     };
   });
   
+  // Debug info for price extraction
+  const debugInfo = productsWithScores.map(p => ({ 
+    title: p.title?.substring(0, 30) + '...', 
+    price: p.price,
+    score: p.similarityScore
+  }));
+  console.log('[E-commerce Arbitrage] Extracted products with scores:', debugInfo);
+  
   // Filter out products with missing title or price
   const validProducts = productsWithScores.filter(p => p.title && p.price !== null);
+  
+  if (validProducts.length === 0) {
+    console.warn('[E-commerce Arbitrage] No valid products found with title and price');
+    return null;
+  }
   
   // Sort by similarity score (highest first)
   validProducts.sort((a, b) => b.similarityScore - a.similarityScore);
   
   // Get the best match (if any)
-  if (validProducts.length === 0) {
-    return null;
-  }
-  
   const bestMatch = validProducts[0];
   
   // Only return match if it has a decent similarity score
@@ -378,6 +556,7 @@ function saveMatchToStorage(sourceProduct: ProductData, matchedProduct: any) {
           image: matchedProduct.imageUrl,
           url: matchedProduct.url,
           marketplace: matchedProduct.marketplace,
+          similarity: matchedProduct.similarityScore,
           profit: {
             amount: sourceProduct.price !== null ? parseFloat((matchedProduct.price - sourceProduct.price).toFixed(2)) : 0,
             percentage: sourceProduct.price !== null ? parseFloat((((matchedProduct.price - sourceProduct.price) / sourceProduct.price) * 100).toFixed(2)) : 0
@@ -385,7 +564,10 @@ function saveMatchToStorage(sourceProduct: ProductData, matchedProduct: any) {
         }
       ]
     },
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    manualMatch: true,
+    similarity: matchedProduct.similarityScore,
+    searchUrl: window.location.href
   };
   
   // Save to storage
