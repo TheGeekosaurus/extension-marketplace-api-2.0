@@ -23,16 +23,18 @@ export interface ProductData {
 export interface ProductMatchResult {
   title: string;
   price: number | null;
+  shippingPrice?: number | null; // Added shipping price
   image: string | null;
   url: string;
   marketplace: MarketplaceType;
   item_id?: string;
   asin?: string;
   upc?: string;
+  brand?: string | null; // Added brand to match results
   profit?: ProfitInfo;
   ratings?: RatingsInfo;
   fee_breakdown?: FeeBreakdown;
-  similarity?: number; // Added similarity score for manual matches
+  similarity?: number; // Similarity score for manual matches
 }
 
 /**
@@ -73,6 +75,6 @@ export interface ProductComparison {
   };
   timestamp: number;
   manualMatch?: boolean; // Indicates if this was a manual match
-  similarity?: number; // Similarity score for manual matches
+  similarity?: number; // Overall similarity score for manual matches
   searchUrl?: string; // URL used for searching, for viewing results
 }

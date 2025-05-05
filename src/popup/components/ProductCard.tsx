@@ -37,6 +37,11 @@ export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({
     }
   };
   
+  // Calculate total price (product price + shipping)
+  const totalPrice = product.price !== null 
+    ? (product.price + (product.shippingPrice || 0)) 
+    : null;
+  
   return (
     <div className="product-card matched">
       {product.image && (
@@ -55,6 +60,7 @@ export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({
             </span>
           )}
         </div>
+        
         {/* Display brand if available */}
         {product.brand && (
           <p className="detail-item" style={{marginTop: '2px', marginBottom: '6px'}}>
@@ -68,6 +74,20 @@ export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({
             <p className="detail-item">
               <span className="detail-label">Price:</span> {formatPrice(product.price)}
             </p>
+            
+            {/* Show shipping price if available */}
+            {product.shippingPrice && product.shippingPrice > 0 && (
+              <p className="detail-item">
+                <span className="detail-label">Shipping:</span> {formatPrice(product.shippingPrice)}
+              </p>
+            )}
+            
+            {/* Show total price if there's shipping */}
+            {product.shippingPrice && product.shippingPrice > 0 && product.price !== null && (
+              <p className="detail-item" style={{fontWeight: 'bold'}}>
+                <span className="detail-label">Total:</span> {formatPrice(totalPrice)}
+              </p>
+            )}
             
             {product.fee_breakdown && (
               <>
@@ -101,6 +121,12 @@ export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({
             {product.item_id && (
               <p className="detail-item">
                 <span className="detail-label">Item ID:</span> {product.item_id}
+              </p>
+            )}
+            
+            {product.marketplace && (
+              <p className="detail-item">
+                <span className="detail-label">Marketplace:</span> {formatMarketplace(product.marketplace)}
               </p>
             )}
           </div>
