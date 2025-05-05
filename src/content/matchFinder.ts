@@ -127,40 +127,13 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
     // Extract price
     let price = null;
     if (isAmazon) {
-      const priceElement = element.querySelector(selectors.price);
-      if (priceElement) {
-        price = parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0');
-      }
-      
-      // Try fallback price if primary not found or is zero
-      if (!price || price === 0) {
-        const fallbackPriceElement = element.querySelector('.a-color-price, .a-color-base');
-        if (fallbackPriceElement) {
-          const priceText = fallbackPriceElement.textContent || '';
-          const priceMatch = priceText.match(/\$?(\d+(?:\.\d{1,2})?)/);
-          if (priceMatch && priceMatch[1]) {
-            price = parseFloat(priceMatch[1]);
-          }
-        }
-      }
+      const priceElement = element.querySelector('.a-price .a-offscreen');
+      price = priceElement ? parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0') : null;
     } else if (isWalmart) {
-      const priceElement = element.querySelector(selectors.price);
-      if (priceElement) {
-        price = parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0');
-      }
-      
-      // Try Walmart's separated dollars and cents format
-      if (!price || price === 0) {
-        const dollarsElement = element.querySelector('.w_C6.w_D.w_C7.w_Da');
-        const centsElement = element.querySelector('.w_C6.w_D.w_C7.w_Db');
-        
-        if (dollarsElement && centsElement) {
-          const dollars = dollarsElement.textContent?.replace(/[^\d]/g, '') || '0';
-          const cents = centsElement.textContent?.replace(/[^\d]/g, '') || '00';
-          price = parseFloat(`${dollars}.${cents}`);
-        }
-      }
+      const priceElement = element.querySelector('[data-automation-id="product-price"], .b.black.f1.mr1');
+      price = priceElement ? parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0') : null;
     }
+    
     // Calculate title similarity score
     const similarityScore = calculateTitleSimilarity(title, sourceProduct.title);
     
