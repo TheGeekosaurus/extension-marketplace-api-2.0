@@ -53,8 +53,4 @@ module.exports = {
       ],
     }),
   ],
-  // Add stats config to show detailed error information
-  stats: {
-    errorDetails: true
-  }
 };

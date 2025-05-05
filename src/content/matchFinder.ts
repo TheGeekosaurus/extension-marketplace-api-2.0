@@ -1,7 +1,7 @@
 // src/content/matchFinder.ts - Find best matching product on search results pages
 
 import { ProductData } from '../types';
-import { selectorConfig, isAmazonSelectors, isWalmartSelectors } from '../config/selectors.config';
+import { selectorConfig } from '../config/selectors.config';
 
 /**
  * Main function to initialize the match finder on search results pages
@@ -148,15 +148,12 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
       
       // Try fallback price if primary not found or is zero
       if (!price || price === 0) {
-        // Use type guard to safely access Amazon-specific selectors
-        if (isAmazonSelectors(selectors)) {
-          const fallbackPriceElement = element.querySelector(selectors.fallbackPrice);
-          if (fallbackPriceElement) {
-            const priceText = fallbackPriceElement.textContent || '';
-            const priceMatch = priceText.match(/\$?(\d+(?:\.\d{1,2})?)/);
-            if (priceMatch && priceMatch[1]) {
-              price = parseFloat(priceMatch[1]);
-            }
+        const fallbackPriceElement = element.querySelector(selectors.fallbackPrice);
+        if (fallbackPriceElement) {
+          const priceText = fallbackPriceElement.textContent || '';
+          const priceMatch = priceText.match(/\$?(\d+(?:\.\d{1,2})?)/);
+          if (priceMatch && priceMatch[1]) {
+            price = parseFloat(priceMatch[1]);
           }
         }
       }
@@ -168,16 +165,13 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
       
       // Try Walmart's separated dollars and cents format
       if (!price || price === 0) {
-        // Use type guard to safely access Walmart-specific selectors
-        if (isWalmartSelectors(selectors)) {
-          const dollarsElement = element.querySelector(selectors.priceDollars);
-          const centsElement = element.querySelector(selectors.priceCents);
-          
-          if (dollarsElement && centsElement) {
-            const dollars = dollarsElement.textContent?.replace(/[^\d]/g, '') || '0';
-            const cents = centsElement.textContent?.replace(/[^\d]/g, '') || '00';
-            price = parseFloat(`${dollars}.${cents}`);
-          }
+        const dollarsElement = element.querySelector(selectors.priceDollars);
+        const centsElement = element.querySelector(selectors.priceCents);
+        
+        if (dollarsElement && centsElement) {
+          const dollars = dollarsElement.textContent?.replace(/[^\d]/g, '') || '0';
+          const cents = centsElement.textContent?.replace(/[^\d]/g, '') || '00';
+          price = parseFloat(`${dollars}.${cents}`);
         }
       }
     }
