@@ -1,7 +1,6 @@
 // src/content/matchFinder.ts - Find best matching product on search results pages
 
 import { ProductData } from '../types';
-import { selectorConfig, isAmazonSelectors, isWalmartSelectors } from '../config/selectors.config';
 
 /**
  * Main function to initialize the match finder on search results pages
@@ -97,20 +96,15 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
   const isAmazon = window.location.hostname.includes('amazon.com');
   const isWalmart = window.location.hostname.includes('walmart.com');
   
-  // Get the appropriate selectors based on marketplace
-  const selectors = isAmazon ? selectorConfig.amazon : selectorConfig.walmart;
-  
   let productElements: Element[] = [];
   
   // Wait a bit more for dynamic content to fully load
   await new Promise(resolve => setTimeout(resolve, 1000));
   
-  // Try primary container selector
-  productElements = Array.from(document.querySelectorAll(selectors.productContainer));
-  
-  // If no elements found, try fallback selector
-  if (productElements.length === 0 && selectors.fallbackContainer) {
-    productElements = Array.from(document.querySelectorAll(selectors.fallbackContainer));
+  if (isAmazon) {
+    productElements = Array.from(document.querySelectorAll('.s-result-item[data-asin]:not(.AdHolder)'));
+  } else if (isWalmart) {
+    productElements = Array.from(document.querySelectorAll('[data-item-id], [data-product-id], .search-result-gridview-item'));
   }
   
   if (productElements.length === 0) {
@@ -123,171 +117,51 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
   // Calculate similarity scores for each product
   const productsWithScores = productElements.map(element => {
     // Extract product title
-    const titleElement = element.querySelector(selectors.title);
-    const title = titleElement?.textContent?.trim() || '';
-    
-    // Extract brand name (improved brand extraction)
-    const brandElement = element.querySelector(selectors.brand);
-    let brand = brandElement?.textContent?.trim() || '';
-    
-    // Clean up brand text (sometimes includes "by" or "Visit the X Store")
-    if (brand.includes('Visit the ')) {
-      brand = brand.replace('Visit the ', '').replace(' Store', '');
-    }
-    if (brand.includes('by ')) {
-      brand = brand.replace('by ', '');
+    let title = '';
+    if (isAmazon) {
+      title = element.querySelector('h2')?.textContent || '';
+    } else if (isWalmart) {
+      title = element.querySelector('[data-automation-id="product-title"], .sans-serif.mid-gray')?.textContent || '';
     }
     
     // Extract price
     let price = null;
-    let shippingPrice = 0;
-    
     if (isAmazon) {
-      const priceElement = element.querySelector(selectors.price);
-      if (priceElement) {
-        price = parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0');
-      }
-      
-      // Try fallback price if primary not found or is zero
-      if (!price || price === 0) {
-        // Use type guard to safely access Amazon-specific selectors
-        if (isAmazonSelectors(selectors)) {
-          const fallbackPriceElement = element.querySelector(selectors.fallbackPrice);
-          if (fallbackPriceElement) {
-            const priceText = fallbackPriceElement.textContent || '';
-            const priceMatch = priceText.match(/\$?(\d+(?:\.\d{1,2})?)/);
-            if (priceMatch && priceMatch[1]) {
-              price = parseFloat(priceMatch[1]);
-            }
-          }
-        }
-      }
-      
-      // Check for shipping price
-      const shippingElement = element.querySelector('.a-color-secondary');
-      if (shippingElement) {
-        const shippingText = shippingElement.textContent || '';
-        const shippingMatch = shippingText.match(/\+\s*\$?([\d.]+)\s*shipping/i);
-        if (shippingMatch && shippingMatch[1]) {
-          shippingPrice = parseFloat(shippingMatch[1]);
-        }
-      }
-      
+      const priceElement = element.querySelector('.a-price .a-offscreen');
+      price = priceElement ? parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0') : null;
     } else if (isWalmart) {
-      const priceElement = element.querySelector(selectors.price);
-      if (priceElement) {
-        price = parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0');
-      }
-      
-      // Try Walmart's separated dollars and cents format
-      if (!price || price === 0) {
-        // Use type guard to safely access Walmart-specific selectors
-        if (isWalmartSelectors(selectors)) {
-          const dollarsElement = element.querySelector(selectors.priceDollars);
-          const centsElement = element.querySelector(selectors.priceCents);
-          
-          if (dollarsElement && centsElement) {
-            const dollars = dollarsElement.textContent?.replace(/[^\d]/g, '') || '0';
-            const cents = centsElement.textContent?.replace(/[^\d]/g, '') || '00';
-            price = parseFloat(`${dollars}.${cents}`);
-          }
-        }
-      }
-      
-      // Check for shipping price in Walmart
-      const shippingElement = element.querySelector('[data-automation-id="shipping-message"], .shipping-text');
-      if (shippingElement) {
-        const shippingText = shippingElement.textContent || '';
-        const shippingMatch = shippingText.match(/\+\s*\$?([\d.]+)\s*shipping|shipping\s*\$?([\d.]+)/i);
-        if (shippingMatch) {
-          shippingPrice = parseFloat(shippingMatch[1] || shippingMatch[2]);
-        }
-      }
+      const priceElement = element.querySelector('[data-automation-id="product-price"], .b.black.f1.mr1');
+      price = priceElement ? parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0') : null;
     }
     
     // Calculate title similarity score
-    const titleSimilarity = calculateTitleSimilarity(title, sourceProduct.title);
-    
-    // Check for exact brand match - this is critical for accurate matching
-    let exactBrandMatch = false;
-    let brandSimilarity = 0;
-    
-    if (sourceProduct.brand && brand) {
-      const sourceBrandLower = sourceProduct.brand.toLowerCase().trim();
-      const targetBrandLower = brand.toLowerCase().trim();
-      
-      // Check for exact brand match first
-      exactBrandMatch = (sourceBrandLower === targetBrandLower);
-      
-      // Calculate brand similarity score
-      if (!exactBrandMatch) {
-        brandSimilarity = calculateTitleSimilarity(sourceBrandLower, targetBrandLower);
-      } else {
-        // If exact match, set to 1.0
-        brandSimilarity = 1.0;
-      }
-    }
-    
-    // Calculate final similarity score with strong emphasis on brand matching
-    // This is the core of our improved matching algorithm
-    let finalScore = titleSimilarity;
-    
-    // If brands exist on both products, brand matching is extremely important
-    if (sourceProduct.brand && brand) {
-      if (exactBrandMatch) {
-        // Exact brand match gets a massive bonus (essentially guaranteeing it's at the top)
-        // This should solve the issue where identical products are being missed
-        finalScore = Math.min(titleSimilarity + 0.6, 1.0);
-        console.log(`[E-commerce Arbitrage] EXACT brand match: "${brand}" vs "${sourceProduct.brand}". Adding 0.6 bonus to score.`);
-      } else if (brandSimilarity > 0.8) {
-        // Strong brand match (80%+): add 40% bonus (capped at 1.0)
-        finalScore = Math.min(titleSimilarity + 0.4, 1.0);
-        console.log(`[E-commerce Arbitrage] Strong brand match (${brandSimilarity.toFixed(2)}) for "${brand}" vs "${sourceProduct.brand}". Adding 0.4 bonus.`);
-      } else if (brandSimilarity > 0.5) {
-        // Moderate brand match (50-80%): add 25% bonus
-        finalScore = Math.min(titleSimilarity + 0.25, 1.0);
-        console.log(`[E-commerce Arbitrage] Moderate brand match (${brandSimilarity.toFixed(2)}) for "${brand}" vs "${sourceProduct.brand}". Adding 0.25 bonus.`);
-      }
-    }
-    
-    // DEBUG: Log matching information for this product
-    console.log(`[E-commerce Arbitrage] Product: "${title}" | Brand: "${brand}" | Title Similarity: ${titleSimilarity.toFixed(2)} | Brand Similarity: ${brandSimilarity.toFixed(2)} | Final Score: ${finalScore.toFixed(2)}`);
-    
-    // Check for exact title match (case insensitive)
-    if (title.toLowerCase() === sourceProduct.title.toLowerCase()) {
-      console.log(`[E-commerce Arbitrage] EXACT title match found! Boosting score to maximum.`);
-      finalScore = 1.0;
-    }
+    const similarityScore = calculateTitleSimilarity(title, sourceProduct.title);
     
     // Get URL
     let url = '';
-    const linkElement = element.querySelector(selectors.link);
-    if (linkElement) {
-      url = linkElement.getAttribute('href') || '';
-      // Convert relative URLs to absolute
-      if (url && !url.startsWith('http')) {
-        url = new URL(url, window.location.origin).href;
-      }
+    if (isAmazon) {
+      const linkElement = element.querySelector('a.a-link-normal[href*="/dp/"]');
+      url = linkElement ? new URL(linkElement.getAttribute('href') || '', window.location.origin).href : '';
+    } else if (isWalmart) {
+      const linkElement = element.querySelector('a[link-identifier="linkTest"], a.absolute.w-100.h-100');
+      url = linkElement ? new URL(linkElement.getAttribute('href') || '', window.location.origin).href : '';
     }
     
     // Get image
     let imageUrl = '';
-    const imgElement = element.querySelector(selectors.image);
-    if (imgElement) {
-      imageUrl = imgElement.getAttribute('src') || '';
+    if (isAmazon) {
+      const imgElement = element.querySelector('img.s-image');
+      imageUrl = imgElement ? imgElement.getAttribute('src') || '' : '';
+    } else if (isWalmart) {
+      const imgElement = element.querySelector('img[data-automation-id="product-image"], img.absolute');
+      imageUrl = imgElement ? imgElement.getAttribute('src') || '' : '';
     }
     
     return {
       element,
       title,
-      brand,
       price,
-      shippingPrice,
-      totalPrice: price !== null ? price + shippingPrice : null,
-      brandSimilarity,
-      titleSimilarity,
-      exactBrandMatch,
-      similarityScore: finalScore, // Enhanced similarity with brand bonus
+      similarityScore,
       url,
       imageUrl,
       marketplace: isAmazon ? 'amazon' : 'walmart'
@@ -297,25 +171,20 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
   // Filter out products with missing title or price
   const validProducts = productsWithScores.filter(p => p.title && p.price !== null);
   
-  if (validProducts.length === 0) {
-    console.warn('[E-commerce Arbitrage] No valid products found with price and title');
-    return null;
-  }
-  
   // Sort by similarity score (highest first)
   validProducts.sort((a, b) => b.similarityScore - a.similarityScore);
   
-  // Print the top 3 matches for debugging
-  console.log('[E-commerce Arbitrage] Top 3 matches:');
-  validProducts.slice(0, 3).forEach((match, idx) => {
-    console.log(`[E-commerce Arbitrage] Match #${idx + 1}: "${match.title}" | Brand: "${match.brand}" | Score: ${match.similarityScore.toFixed(2)}`);
-  });
+  // Get the best match (if any)
+  if (validProducts.length === 0) {
+    return null;
+  }
   
   const bestMatch = validProducts[0];
   
-  // DEBUG: Log information about the best match
-  console.log(`[E-commerce Arbitrage] Best match: "${bestMatch.title}" with score ${bestMatch.similarityScore.toFixed(2)}`);
-  console.log(`[E-commerce Arbitrage] Price: ${bestMatch.price}, Shipping: ${bestMatch.shippingPrice}, Total: ${bestMatch.totalPrice}`);
+  // Only return match if it has a decent similarity score
+  if (bestMatch.similarityScore < 0.3) {
+    console.warn('[E-commerce Arbitrage] Best match has low similarity score:', bestMatch.similarityScore);
+  }
   
   return bestMatch;
 }
@@ -329,61 +198,26 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
 function calculateTitleSimilarity(title1: string, title2: string): number {
   if (!title1 || !title2) return 0;
   
-  // Normalize strings - remove non-alphanumeric characters and extra spaces
-  const normalize = (str: string) => {
-    // Replace non-alphanumeric characters with spaces, then convert to lowercase
-    const normalized = str.toLowerCase().replace(/[^\w\s]/g, ' ');
-    // Replace multiple spaces with a single space
-    return normalized.replace(/\s+/g, ' ').trim();
-  };
+  // Normalize strings
+  const normalize = (str: string) => str.toLowerCase().replace(/[^\w\s]/g, '');
   
   const normalizedTitle1 = normalize(title1);
   const normalizedTitle2 = normalize(title2);
   
-  // Early return for exact matches after normalization
-  if (normalizedTitle1 === normalizedTitle2) {
-    return 1.0;
-  }
-  
-  // Get significant words from titles (filter out very short words)
+  // Get words from titles (filter out very short words)
   const words1 = normalizedTitle1.split(/\s+/).filter(w => w.length > 2);
   const words2 = normalizedTitle2.split(/\s+/).filter(w => w.length > 2);
   
-  if (words1.length === 0 || words2.length === 0) {
-    return 0;
+  // Count matching words
+  let matchCount = 0;
+  for (const word1 of words1) {
+    if (words2.some(word2 => word2.includes(word1) || word1.includes(word2))) {
+      matchCount++;
+    }
   }
   
-  // Count exact word matches (gives higher weight to exact matches)
-  let exactMatchCount = 0;
-  const usedIndices = new Set<number>();
-  
-  words1.forEach(word1 => {
-    for (let i = 0; i < words2.length; i++) {
-      if (!usedIndices.has(i) && words2[i] === word1) {
-        exactMatchCount++;
-        usedIndices.add(i);
-        break;
-      }
-    }
-  });
-  
-  // Count partial matches for words not exactly matched
-  let partialMatchCount = 0;
-  words1.forEach(word1 => {
-    for (let i = 0; i < words2.length; i++) {
-      if (!usedIndices.has(i) && (words2[i].includes(word1) || word1.includes(words2[i]))) {
-        partialMatchCount += 0.5; // partial matches count as half
-        usedIndices.add(i);
-        break;
-      }
-    }
-  });
-  
-  // Calculate similarity score with more weight on exact matches
-  const totalScore = exactMatchCount + partialMatchCount;
-  const maxPossibleScore = Math.max(words1.length, words2.length);
-  
-  return totalScore / maxPossibleScore;
+  // Calculate similarity score (0-1)
+  return matchCount / Math.max(words1.length, words2.length);
 }
 
 /**
@@ -417,10 +251,9 @@ function highlightMatchedProduct(
     font-family: Arial, sans-serif;
   `;
   
-  // Calculate profit - use totalPrice if available (price + shipping)
-  const comparePrice = matchedProduct.totalPrice !== null ? matchedProduct.totalPrice : matchedProduct.price;
-  const profit = comparePrice && sourceProduct.price !== null 
-    ? comparePrice - sourceProduct.price 
+  // Calculate profit
+  const profit = matchedProduct.price && sourceProduct.price !== null 
+    ? matchedProduct.price - sourceProduct.price 
     : 0;
   
   const profitPercent = sourceProduct.price !== null 
@@ -437,14 +270,11 @@ function highlightMatchedProduct(
       <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">Source Product:</div>
       <div style="font-size: 13px; color: #555;">${sourceProduct.title}</div>
       <div style="font-size: 13px; margin-top: 4px;">Price: ${sourceProduct.price?.toFixed(2) || 'N/A'}</div>
-      ${sourceProduct.brand ? `<div style="font-size: 13px; margin-top: 4px;">Brand: ${sourceProduct.brand}</div>` : ''}
     </div>
     <div style="margin-bottom: 12px;">
       <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">Matched Product:</div>
       <div style="font-size: 13px; color: #555;">${matchedProduct.title}</div>
       <div style="font-size: 13px; margin-top: 4px;">Price: ${matchedProduct.price?.toFixed(2) || 'N/A'}</div>
-      ${matchedProduct.shippingPrice > 0 ? `<div style="font-size: 13px; margin-top: 4px;">Shipping: ${matchedProduct.shippingPrice.toFixed(2)}</div>` : ''}
-      ${matchedProduct.brand ? `<div style="font-size: 13px; margin-top: 4px;">Brand: ${matchedProduct.brand}</div>` : ''}
       <div style="font-size: 13px; margin-top: 4px;">Similarity: ${(matchedProduct.similarityScore * 100).toFixed(1)}%</div>
     </div>
     <div style="margin-bottom: 16px;">
@@ -537,11 +367,6 @@ function highlightMatchedProduct(
  * @param matchedProduct - The matched product
  */
 function saveMatchToStorage(sourceProduct: ProductData, matchedProduct: any) {
-  // Calculate profit - use totalPrice if available (price + shipping)
-  const comparePrice = matchedProduct.totalPrice !== null ? matchedProduct.totalPrice : matchedProduct.price;
-  const profitAmount = sourceProduct.price !== null ? comparePrice - sourceProduct.price : 0;
-  const profitPercentage = sourceProduct.price !== null ? ((comparePrice - sourceProduct.price) / sourceProduct.price) * 100 : 0;
-  
   // Create a comparison object
   const comparison = {
     sourceProduct,
@@ -553,20 +378,14 @@ function saveMatchToStorage(sourceProduct: ProductData, matchedProduct: any) {
           image: matchedProduct.imageUrl,
           url: matchedProduct.url,
           marketplace: matchedProduct.marketplace,
-          brand: matchedProduct.brand, // Added brand to the saved match
-          similarity: matchedProduct.similarityScore, // Add similarity score
-          shippingPrice: matchedProduct.shippingPrice || 0, // Include shipping price
           profit: {
-            amount: parseFloat(profitAmount.toFixed(2)),
-            percentage: parseFloat(profitPercentage.toFixed(2))
+            amount: sourceProduct.price !== null ? parseFloat((matchedProduct.price - sourceProduct.price).toFixed(2)) : 0,
+            percentage: sourceProduct.price !== null ? parseFloat((((matchedProduct.price - sourceProduct.price) / sourceProduct.price) * 100).toFixed(2)) : 0
           }
         }
       ]
     },
-    timestamp: Date.now(),
-    manualMatch: true,
-    similarity: matchedProduct.similarityScore, // Add overall similarity
-    searchUrl: window.location.href // Save the search URL
+    timestamp: Date.now()
   };
   
   // Save to storage

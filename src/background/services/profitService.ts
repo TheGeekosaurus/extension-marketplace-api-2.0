@@ -58,20 +58,17 @@ export class ProfitService {
           return;
         }
         
-        // Include shipping price in calculations if available
-        const shippingPrice = product.shippingPrice || 0;
-        const totalProductPrice = product.price + shippingPrice;
-        
+        let sellPrice = product.price;
         const feePercentage = estimatedFees[marketplace as keyof typeof estimatedFees] || 0;
         
-        // Calculate marketplace fees based on total price (including shipping)
-        const marketplaceFeeAmount = includeFees ? (totalProductPrice * feePercentage) : 0;
+        // Calculate marketplace fees
+        const marketplaceFeeAmount = includeFees ? (sellPrice * feePercentage) : 0;
         
         // Apply additional fees
         const totalFees = marketplaceFeeAmount + additionalFees;
         
         // Calculate net profit
-        const profitAmount = totalProductPrice - sourceProduct.price! - totalFees;
+        const profitAmount = sellPrice - sourceProduct.price! - totalFees;
         const profitPercentage = (profitAmount / sourceProduct.price!) * 100;
         
         product.profit = {
@@ -88,8 +85,7 @@ export class ProfitService {
         };
         
         console.log(`[E-commerce Arbitrage Profit] Calculated profit for ${marketplace} product:`, 
-          { price: product.price, shipping: shippingPrice, totalPrice: totalProductPrice,
-            profit: product.profit, fees: product.fee_breakdown });
+          { profit: product.profit, fees: product.fee_breakdown });
       });
     });
     
