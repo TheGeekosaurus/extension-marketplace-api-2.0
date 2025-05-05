@@ -269,9 +269,27 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     const destinationMarketplace = settings.selectedMarketplace || 
       (currentProduct.marketplace === 'amazon' ? 'walmart' : 'amazon');
     
-    // Create search term from product data
-    const brandPrefix = currentProduct.brand ? `${currentProduct.brand} ` : '';
-    const searchTerm = `${brandPrefix}${currentProduct.title}`.substring(0, 100);
+    // Create smart search term from product data
+    const createSmartSearchTerm = () => {
+      // Only add brand if it exists and is not already in the title
+      if (currentProduct.brand) {
+        const titleLower = currentProduct.title.toLowerCase();
+        const brandLower = currentProduct.brand.toLowerCase();
+        
+        // Check if brand is already included in the title
+        const brandAlreadyInTitle = titleLower.includes(brandLower);
+        
+        if (!brandAlreadyInTitle) {
+          // Brand not in title, include it in search
+          return `${currentProduct.brand} ${currentProduct.title}`.substring(0, 100);
+        }
+      }
+      
+      // Brand is already in title or doesn't exist, just use title
+      return currentProduct.title.substring(0, 100);
+    };
+    
+    const searchTerm = createSmartSearchTerm();
     const encodedSearchTerm = encodeURIComponent(searchTerm);
     
     // Create destination URL
@@ -286,7 +304,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     }
     
     setLoading(true);
-    setStatus(`Searching ${destinationMarketplace.charAt(0).toUpperCase() + destinationMarketplace.slice(1)} in background...`);
+    setStatus(`Searching ${destinationMarketplace.charAt(0).toUpperCase() + destinationMarketplace.slice(1)} in background with smart search: ${searchTerm}...`);
     
     try {
       // Update manual match state
@@ -382,6 +400,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
                 image: matchFound.imageUrl,
                 url: matchFound.url,
                 marketplace: matchFound.marketplace,
+                brand: matchFound.brand,
                 similarity: matchFound.similarityScore,
                 profit: {
                   amount: parseFloat(profit.toFixed(2)),
