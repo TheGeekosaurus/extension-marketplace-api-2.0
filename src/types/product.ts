@@ -23,6 +23,7 @@ export interface ProductData {
 export interface ProductMatchResult {
   title: string;
   price: number | null;
+  shippingPrice?: number | null; // Added shipping price
   image: string | null;
   url: string;
   marketplace: MarketplaceType;
