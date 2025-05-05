@@ -56,6 +56,13 @@ export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({
           )}
         </div>
         
+        {/* Display brand if available */}
+        {product.brand && (
+          <p className="detail-item" style={{marginTop: '2px', marginBottom: '6px'}}>
+            <span className="detail-label">Brand:</span> <strong>{product.brand}</strong>
+          </p>
+        )}
+        
         {/* Two-column layout for product details */}
         <div className="product-details-grid">
           <div className="details-column">
