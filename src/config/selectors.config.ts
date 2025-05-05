@@ -1,10 +1,48 @@
 // src/config/selectors.config.ts - Centralized configuration for marketplace selectors
 
 /**
+ * Interface for Amazon selectors
+ */
+export interface AmazonSelectors {
+  productContainer: string;
+  fallbackContainer: string;
+  title: string;
+  price: string;
+  fallbackPrice: string;
+  brand: string;
+  image: string;
+  link: string;
+  rating: string;
+  reviewCount: string;
+  asinPattern: RegExp;
+}
+
+/**
+ * Interface for Walmart selectors
+ */
+export interface WalmartSelectors {
+  productContainer: string;
+  fallbackContainer: string;
+  title: string;
+  price: string;
+  brand: string;
+  image: string;
+  link: string;
+  rating: string;
+  reviewCount: string;
+  priceDollars: string;
+  priceCents: string;
+  itemIdPatterns: RegExp[];
+}
+
+/**
  * Configuration for marketplace DOM selectors
  * Moving selectors to a config file makes it easier to update when marketplace HTML changes
  */
-export const selectorConfig = {
+export const selectorConfig: {
+  amazon: AmazonSelectors;
+  walmart: WalmartSelectors;
+} = {
   amazon: {
     // Product container in search results
     productContainer: '.s-result-item[data-asin]:not(.AdHolder)',
@@ -58,6 +96,26 @@ export const selectorConfig = {
  * @param marketplace - The marketplace to get selectors for
  * @returns The selectors for the specified marketplace
  */
-export function getSelectors(marketplace: 'amazon' | 'walmart'): any {
+export function getSelectors(marketplace: 'amazon' | 'walmart'): AmazonSelectors | WalmartSelectors {
   return selectorConfig[marketplace];
+}
+
+/**
+ * Type guard to check if selectors are for Amazon
+ * 
+ * @param selectors - Selectors to check
+ * @returns True if selectors are for Amazon
+ */
+export function isAmazonSelectors(selectors: AmazonSelectors | WalmartSelectors): selectors is AmazonSelectors {
+  return 'asinPattern' in selectors;
+}
+
+/**
+ * Type guard to check if selectors are for Walmart
+ * 
+ * @param selectors - Selectors to check
+ * @returns True if selectors are for Walmart
+ */
+export function isWalmartSelectors(selectors: AmazonSelectors | WalmartSelectors): selectors is WalmartSelectors {
+  return 'priceDollars' in selectors;
 }
