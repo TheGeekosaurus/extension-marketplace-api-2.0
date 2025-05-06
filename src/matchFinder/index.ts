@@ -50,6 +50,11 @@ export async function findMatch(
     // Wait for match to be found or timeout
     const result = await waitForMatchResult(searchTab.id, options.timeout || 30000);
     
+    // If successful, add the search URL to the result for "View Search" button
+    if (result.success && result.match) {
+      result.match.searchUrl = searchUrl;
+    }
+    
     // Close the search tab
     if (searchTab.id) {
       await closeTab(searchTab.id);
