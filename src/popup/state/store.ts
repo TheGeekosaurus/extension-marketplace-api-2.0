@@ -360,7 +360,8 @@ export const usePopupStore = create<PopupState>((set, get) => ({
           },
           timestamp: Date.now(),
           manualMatch: true,
-          similarity: result.match.similarityScore
+          similarity: result.match.similarityScore,
+          searchUrl: result.match.searchUrl // Add the search URL for the "View Search" button
         };
         
         // Update the comparison state
@@ -370,7 +371,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         setManualMatch({
           enabled: true,
           sourceProduct: currentProduct,
-          searchUrl: result.match.url
+          searchUrl: result.match.searchUrl || null
         });
       } else {
         // Handle no match found
