@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { ProductData, ProductComparison, Settings, MarketplaceType } from '../../types';
+import { findMatch } from '../../matchFinder';
 import { sendMessage } from '../../common/messaging';
 import { DEFAULT_SETTINGS } from '../../common/constants';
 
@@ -258,10 +259,17 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   },
   
   findMatchManually: async () => {
-    const { currentProduct, settings, setStatus, setError, setLoading, setManualMatch, setComparison } = get();
+    const { currentProduct, settings, setStatus, setError, setLoading, setManualMatch, setComparison, authState } = get();
     
     if (!currentProduct) {
       setError('No product detected. Try visiting a product page first.');
+      return;
+    }
+    
+    // Check if the user is authenticated
+    if (!authState.isAuthenticated) {
+      setError('Please enter your API key in the Account tab to use this feature.');
+      set({ activeTab: 'account' });
       return;
     }
     
@@ -269,81 +277,40 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     const destinationMarketplace = settings.selectedMarketplace || 
       (currentProduct.marketplace === 'amazon' ? 'walmart' : 'amazon');
     
-    // Create search term from product data
-    const brandPrefix = currentProduct.brand ? `${currentProduct.brand} ` : '';
-    const searchTerm = `${brandPrefix}${currentProduct.title}`.substring(0, 100);
-    const encodedSearchTerm = encodeURIComponent(searchTerm);
-    
-    // Create destination URL
-    let destinationUrl;
-    if (destinationMarketplace === 'amazon') {
-      destinationUrl = `https://www.amazon.com/s?k=${encodedSearchTerm}`;
-    } else if (destinationMarketplace === 'walmart') {
-      destinationUrl = `https://www.walmart.com/search?q=${encodedSearchTerm}`;
-    } else {
-      setError(`Unsupported destination marketplace: ${destinationMarketplace}`);
-      return;
-    }
-    
     setLoading(true);
     setStatus(`Searching ${destinationMarketplace.charAt(0).toUpperCase() + destinationMarketplace.slice(1)} in background...`);
     
     try {
-      // Update manual match state
+      // Update manual match state to indicate we're searching
       setManualMatch({
         enabled: true,
         sourceProduct: currentProduct,
-        searchUrl: destinationUrl
+        searchUrl: null // Will be updated with the actual URL
       });
       
-      // Store the source product in local storage for the match finder to use
-      chrome.storage.local.set({ 
-        manualMatchSourceProduct: currentProduct,
-        manualMatchInProgress: true
-      });
-      
-      // Open the search tab in background (not active)
-      const searchTab = await chrome.tabs.create({ 
-        url: destinationUrl, 
-        active: false // Keep current tab active
-      });
-      
-      // Listen for message from the background search tab
-      const matchFound = await new Promise<any>((resolve) => {
-        const messageListener = (message: any, sender: chrome.runtime.MessageSender) => {
-          // Only listen for messages from our search tab
-          if (sender.tab?.id === searchTab.id && message.action === 'MANUAL_MATCH_FOUND') {
-            chrome.runtime.onMessage.removeListener(messageListener);
-            resolve(message.match);
-          }
-        };
-        
-        chrome.runtime.onMessage.addListener(messageListener);
-        
-        // Set a timeout in case the match isn't found
-        setTimeout(() => {
-          chrome.runtime.onMessage.removeListener(messageListener);
-          resolve(null);
-        }, 30000); // 30 second timeout
-      });
-      
-      // Close the search tab when done
-      if (searchTab.id) {
-        try {
-          chrome.tabs.remove(searchTab.id);
-        } catch (e) {
-          console.error('Error closing search tab:', e);
+      // Use the new match finder module
+      const result = await findMatch(
+        currentProduct, 
+        destinationMarketplace as 'amazon' | 'walmart',
+        {
+          includeBrand: true, 
+          maxTitleWords: 10,
+          timeout: 30000,
+          minSimilarity: 0.3
         }
-      }
+      );
       
-      if (matchFound) {
+      if (result.success && result.match) {
+        // Handle successful match
+        setStatus(`Found match with ${Math.round(result.match.similarityScore * 100)}% similarity on ${result.match.marketplace}`);
+        
         // Calculate profit with fees if enabled
         let profit = 0;
         let profitPercentage = 0;
         
         if (currentProduct.price !== null) {
-          profit = matchFound.price - currentProduct.price;
-          profitPercentage = ((matchFound.price - currentProduct.price) / currentProduct.price) * 100;
+          profit = result.match.price - currentProduct.price;
+          profitPercentage = ((result.match.price - currentProduct.price) / currentProduct.price) * 100;
         }
         
         // Create fee breakdown if settings include fees
@@ -351,15 +318,15 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         
         if (settings.includeFees) {
           // Type guard - ensure marketplace is valid
-          const marketplace = matchFound.marketplace as keyof typeof settings.estimatedFees;
+          const marketplace = result.match.marketplace as keyof typeof settings.estimatedFees;
           const feePercentage = settings.estimatedFees[marketplace] || 0;
-          const marketplaceFeeAmount = matchFound.price * feePercentage;
+          const marketplaceFeeAmount = result.match.price * feePercentage;
           const additionalFees = settings.additionalFees || 0;
           const totalFees = marketplaceFeeAmount + additionalFees;
           
           // Recalculate profit with fees if price is available
           if (currentProduct.price !== null) {
-            profit = matchFound.price - currentProduct.price - totalFees;
+            profit = result.match.price - currentProduct.price - totalFees;
             profitPercentage = (profit / currentProduct.price) * 100;
           }
           
@@ -371,18 +338,18 @@ export const usePopupStore = create<PopupState>((set, get) => ({
           };
         }
         
-        // Save the match to comparison
+        // Create comparison object
         const comparison = {
           sourceProduct: currentProduct,
           matchedProducts: {
-            [matchFound.marketplace]: [
+            [result.match.marketplace]: [
               {
-                title: matchFound.title,
-                price: matchFound.price,
-                image: matchFound.imageUrl,
-                url: matchFound.url,
-                marketplace: matchFound.marketplace,
-                similarity: matchFound.similarityScore,
+                title: result.match.title,
+                price: result.match.price,
+                image: result.match.imageUrl,
+                url: result.match.url,
+                marketplace: result.match.marketplace,
+                similarity: result.match.similarityScore,
                 profit: {
                   amount: parseFloat(profit.toFixed(2)),
                   percentage: parseFloat(profitPercentage.toFixed(2))
@@ -393,30 +360,30 @@ export const usePopupStore = create<PopupState>((set, get) => ({
           },
           timestamp: Date.now(),
           manualMatch: true,
-          similarity: matchFound.similarityScore,
-          searchUrl: destinationUrl
+          similarity: result.match.similarityScore
         };
         
-        // Set the comparison in store and save to storage
+        // Update the comparison state
         setComparison(comparison);
-        // FIX 3: Already persisted in setComparison
         
-        setStatus(`Found match with ${Math.round(matchFound.similarityScore * 100)}% similarity on ${matchFound.marketplace}`);
+        // Update manual match state with search URL
+        setManualMatch({
+          enabled: true,
+          sourceProduct: currentProduct,
+          searchUrl: result.match.url
+        });
       } else {
-        // If no match found, just open the tab so user can look manually
-        if (searchTab.id) {
-          chrome.tabs.update(searchTab.id, { active: true });
-        } else {
-          // If tab was already closed, open a new one
-          chrome.tabs.create({ url: destinationUrl });
-        }
-        setError('No good match found automatically. Opening search page for manual selection.');
+        // Handle no match found
+        setError(result.error || 'No suitable match found');
+        
+        // Let the user know they can try a manual search
+        setStatus('Try creating a manual search with more specific keywords');
       }
     } catch (error) {
       setError(`Error searching for match: ${error instanceof Error ? error.message : String(error)}`);
+      console.error('Error in findMatchManually:', error);
     } finally {
       setLoading(false);
-      chrome.storage.local.set({ manualMatchInProgress: false });
     }
   },
   
