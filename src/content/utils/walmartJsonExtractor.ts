@@ -3,6 +3,58 @@
 import { logExtraction } from './extraction';
 
 /**
+ * Interface for Walmart JSON data structure
+ */
+interface WalmartJsonData {
+  props?: {
+    pageProps?: {
+      initialData?: {
+        searchResult?: {
+          itemStacks?: Array<{
+            items?: Array<WalmartJsonItemRaw>;
+          }>;
+        };
+      };
+    };
+  };
+}
+
+/**
+ * Raw item structure from Walmart's JSON data
+ */
+interface WalmartJsonItemRaw {
+  usItemId?: string;
+  id?: string;
+  name?: string;
+  title?: string;
+  price?: string | number;
+  priceInfo?: {
+    currentPrice?: {
+      price?: number;
+    };
+    linePrice?: number;
+    linePriceDisplay?: string;
+  };
+  sellPrice?: number;
+  canonicalUrl?: string;
+  productPageUrl?: string;
+  imageInfo?: {
+    thumbnailUrl?: string;
+  };
+  image?: string;
+  images?: string[];
+  brand?: string;
+  brandName?: string;
+  rating?: number;
+  averageRating?: string | number;
+  reviewCount?: number;
+  reviewsCount?: number;
+  ratingsTotal?: number;
+  upc?: string;
+  gtin?: string;
+}
+
+/**
  * Interface for the normalized Walmart item data
  */
 export interface WalmartJsonItem {
@@ -33,7 +85,7 @@ export function extractWalmartJsonData(): WalmartJsonItem[] | null {
     }
     
     // Parse the JSON data
-    const data = JSON.parse(jsonTag.textContent);
+    const data = JSON.parse(jsonTag.textContent) as WalmartJsonData;
     
     // Navigate to the items array in the data structure
     const searchResult = data.props?.pageProps?.initialData?.searchResult;
@@ -52,17 +104,19 @@ export function extractWalmartJsonData(): WalmartJsonItem[] | null {
     logExtraction('walmart', `Found ${items.length} items in Walmart JSON data`);
     
     // Transform items into a standardized format
-    const normalizedItems = items.map(item => {
+    const normalizedItems = items.map((item: WalmartJsonItemRaw): WalmartJsonItem => {
       // Extract price with fallbacks
       let price: number | null = null;
-      if (item.price) {
+      if (typeof item.price === 'number') {
+        price = item.price;
+      } else if (typeof item.price === 'string') {
         price = parseFloat(item.price);
       } else if (item.priceInfo?.currentPrice?.price) {
-        price = parseFloat(item.priceInfo.currentPrice.price);
+        price = item.priceInfo.currentPrice.price;
       } else if (item.sellPrice) {
-        price = parseFloat(item.sellPrice);
+        price = item.sellPrice;
       } else if (item.priceInfo?.linePrice) {
-        price = parseFloat(item.priceInfo.linePrice);
+        price = item.priceInfo.linePrice;
       }
       
       // Get url with proper formatting
@@ -83,14 +137,24 @@ export function extractWalmartJsonData(): WalmartJsonItem[] | null {
         thumbnailUrl = item.images[0];
       }
       
+      // Parse ratings
+      let averageRating: number | null = null;
+      if (typeof item.averageRating === 'number') {
+        averageRating = item.averageRating;
+      } else if (typeof item.averageRating === 'string') {
+        averageRating = parseFloat(item.averageRating);
+      } else if (item.rating !== undefined) {
+        averageRating = item.rating;
+      }
+      
       return {
-        usItemId: item.usItemId || item.id,
-        name: item.name || item.title,
+        usItemId: item.usItemId || item.id || '',
+        name: item.name || item.title || '',
         price,
         canonicalUrl,
         thumbnailUrl,
         brand: item.brand || item.brandName || null,
-        averageRating: item.rating || (item.averageRating ? parseFloat(item.averageRating) : null),
+        averageRating,
         numReviews: item.reviewCount || item.reviewsCount || item.ratingsTotal || null,
         upc: item.upc || item.gtin || null
       };
