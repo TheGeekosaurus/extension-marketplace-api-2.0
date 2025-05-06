@@ -130,45 +130,70 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
       const priceElement = element.querySelector('.a-price .a-offscreen');
       price = priceElement ? parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0') : null;
     } else if (isWalmart) {
-      // Original logic
-      const priceElement = element.querySelector('[data-automation-id="product-price"], .b.black.f1.mr1, .w_iUH');
+      // Improved price extraction for Walmart
       
-      if (priceElement) {
-        const priceText = priceElement.textContent || '';
-        // Extract just the numeric part with up to 2 decimal places
-        const priceMatch = priceText.match(/\$?(\d+(?:\.\d{2})?)/);
-        if (priceMatch && priceMatch[1]) {
-          price = parseFloat(priceMatch[1]);
-          console.log('[E-commerce Arbitrage] Extracted price:', price);
+      // Method 1: Try to find the specific price element with class w_1UH7
+      const priceSpan = element.querySelector('span.w_1UH7');
+      if (priceSpan) {
+        const priceText = priceSpan.textContent || '';
+        console.log('[E-commerce Arbitrage] Found price span text:', priceText);
+        
+        // Try direct match for "$X.XX" pattern
+        const exactPriceMatch = priceText.match(/\$(\d+\.\d{2})/);
+        if (exactPriceMatch && exactPriceMatch[1]) {
+          price = parseFloat(exactPriceMatch[1]);
+          console.log('[E-commerce Arbitrage] Extracted exact price from span:', price);
         } else {
-          // If the default regex fails, try a simpler version
-          // This specifically tries to extract just any price with a dollar sign
-          const simplePriceMatch = priceText.match(/\$\s*(\d+(?:\.\d{2})?)/);
-          if (simplePriceMatch && simplePriceMatch[1]) {
-            price = parseFloat(simplePriceMatch[1]);
-            console.log('[E-commerce Arbitrage] Extracted price with simpler regex:', price);
-          }
-        }
-      }
-      
-      // Only if price is still null, try to find a "Now" price (which can be buggy)
-      if (price === null) {
-        // Check for elements with "Now" and a price
-        const nowElements = element.querySelectorAll('span:contains("Now")');
-        for (const nowEl of Array.from(nowElements)) {
-          const nowText = nowEl.textContent || '';
-          const nowPriceMatch = nowText.match(/Now\s+\$(\d+\.\d{2})/i);
+          // Try "Now $X.XX" pattern
+          const nowPriceMatch = priceText.match(/Now\s+\$(\d+\.\d{2})/i);
           if (nowPriceMatch && nowPriceMatch[1]) {
             price = parseFloat(nowPriceMatch[1]);
-            console.log('[E-commerce Arbitrage] Extracted Now price:', price);
-            break;
+            console.log('[E-commerce Arbitrage] Extracted Now price from span:', price);
+          } else {
+            // Try "current price $X.XX" pattern
+            const currentPriceMatch = priceText.match(/current\s+price\s+(?:Now)?\s*\$(\d+\.\d{2})/i);
+            if (currentPriceMatch && currentPriceMatch[1]) {
+              price = parseFloat(currentPriceMatch[1]);
+              console.log('[E-commerce Arbitrage] Extracted current price from span:', price);
+            }
           }
         }
       }
       
-      // Log a warning if price parsing fails
+      // Method 2: Fall back to the original approach if Method 1 failed
       if (price === null) {
-        console.warn('[E-commerce Arbitrage] Could not extract price from element:', priceElement?.textContent);
+        const priceElement = element.querySelector('[data-automation-id="product-price"], .b.black.f1.mr1');
+        if (priceElement) {
+          const priceText = priceElement.textContent || '';
+          // Extract just the numeric part with up to 2 decimal places
+          const priceMatch = priceText.match(/\$?(\d+(?:\.\d{2})?)/);
+          if (priceMatch && priceMatch[1]) {
+            price = parseFloat(priceMatch[1]);
+            console.log('[E-commerce Arbitrage] Extracted price using fallback:', price);
+          }
+        }
+      }
+      
+      // Method 3: Check for separate price element for complex price formats
+      if (price === null) {
+        // Look for a div containing the price
+        const priceDivs = element.querySelectorAll('div');
+        for (const div of Array.from(priceDivs)) {
+          const text = div.textContent || '';
+          if (text.includes('$') && /\d+\.\d{2}/.test(text)) {
+            const priceMatch = text.match(/\$(\d+\.\d{2})/);
+            if (priceMatch && priceMatch[1]) {
+              price = parseFloat(priceMatch[1]);
+              console.log('[E-commerce Arbitrage] Extracted price from div:', price);
+              break;
+            }
+          }
+        }
+      }
+      
+      // Log warning if price extraction failed
+      if (price === null) {
+        console.warn('[E-commerce Arbitrage] Could not extract price from element');
       }
     }
     
