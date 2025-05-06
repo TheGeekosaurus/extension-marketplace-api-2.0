@@ -4,6 +4,7 @@ import { MarketplaceType } from '../../types';
 import { findAmazonSearchResultElements } from '../matchFinder/amazonSearch';
 import { findWalmartSearchResultElements } from '../matchFinder/walmartSearch';
 import { SelectorTestResult, SelectorTestGroup } from './selectorTester';
+import { extractWalmartJsonData } from './walmartJsonExtractor';
 
 /**
  * Search page specific selector groups
@@ -52,14 +53,16 @@ export const walmartSearchSelectors = {
     '[data-product-id]',
     '.search-result-gridview-item',
     '.product.product-search-result.search-result-gridview-item', 
-    '.sans-serif.relative.pb3.pt2.ph3.w-100'
+    '.sans-serif.relative.pb3.pt2.ph3.w-100',
+    '[data-testid="product-card"]'
   ],
   title: [
     '[data-automation-id="product-title"]', 
     '.sans-serif.mid-gray', 
     '.w_iUH', 
     '.lh-title',
-    '.w_DP'
+    '.w_DP',
+    '[data-testid="title"]'
   ],
   price: [
     '[data-automation-id="product-price"]', 
@@ -73,20 +76,24 @@ export const walmartSearchSelectors = {
     'img[data-automation-id="product-image"]', 
     'img.absolute', 
     'img.w_iUF',
-    'img.db.center.mw100.h-auto'
+    'img.db.center.mw100.h-auto',
+    'img[data-testid="product-image"]'
   ],
   link: [
     'a[link-identifier="linkTest"]', 
     'a.absolute.w-100.h-100', 
-    '.sans-serif.w_iUH a'
+    '.sans-serif.w_iUH a',
+    'a[href*="/ip/"]'
   ],
   rating: [
     '.stars-container', 
-    '[data-automation-id="product-stars"]'
+    '[data-automation-id="product-stars"]',
+    '[data-testid="stars-container"]'
   ],
   reviewCount: [
     '.stars-reviews-count', 
-    '[data-automation-id="product-reviews"]'
+    '[data-automation-id="product-reviews"]',
+    '[data-testid="reviews-count"]'
   ]
 };
 
@@ -184,6 +191,46 @@ export function testSearchSelectors(marketplace: MarketplaceType): Record<string
 }
 
 /**
+ * Test Walmart JSON extraction
+ * 
+ * @returns Test results for Walmart JSON extraction
+ */
+export function testWalmartJsonExtraction(): {
+  success: boolean;
+  count: number;
+  sampleItem?: any;
+  error?: string;
+} {
+  try {
+    const items = extractWalmartJsonData();
+    
+    if (!items || items.length === 0) {
+      console.log('[Search Selector Tester] No items found in Walmart JSON extraction');
+      return {
+        success: false,
+        count: 0,
+        error: 'No items found in JSON data'
+      };
+    }
+    
+    console.log(`[Search Selector Tester] Found ${items.length} items in Walmart JSON extraction`);
+    
+    return {
+      success: true,
+      count: items.length,
+      sampleItem: items[0]
+    };
+  } catch (error) {
+    console.error('[Search Selector Tester] Error testing Walmart JSON extraction:', error);
+    return {
+      success: false,
+      count: 0,
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
+/**
  * Test actual search result extraction by using the find*SearchResultElements functions
  * 
  * @param marketplace - Marketplace to test
@@ -229,6 +276,7 @@ export function testSearchResultExtraction(marketplace: MarketplaceType): {
 /**
  * Run a comprehensive search page selector test
  * Tests both individual selectors and the full extraction process
+ * Also tests JSON extraction for Walmart
  * 
  * @param marketplace - Marketplace to test
  * @returns Combined test results
@@ -240,6 +288,12 @@ export function runSearchSelectorDebugger(marketplace: MarketplaceType): {
     elements: number;
     error?: string;
   };
+  jsonExtractionResult?: {
+    success: boolean;
+    count: number;
+    sampleItem?: any;
+    error?: string;
+  };
 } {
   console.log(`[Search Selector Debugger] Running debugger for ${marketplace}`);
   
@@ -248,6 +302,12 @@ export function runSearchSelectorDebugger(marketplace: MarketplaceType): {
   
   // Test overall extraction
   const extractionResult = testSearchResultExtraction(marketplace);
+  
+  // Special test for Walmart JSON extraction
+  let jsonExtractionResult;
+  if (marketplace === 'walmart') {
+    jsonExtractionResult = testWalmartJsonExtraction();
+  }
   
   // Log comprehensive results
   console.group(`[Search Selector Debugger] Results for ${marketplace}`);
@@ -281,11 +341,26 @@ export function runSearchSelectorDebugger(marketplace: MarketplaceType): {
   }
   console.groupEnd();
   
+  // Log JSON extraction results for Walmart
+  if (jsonExtractionResult) {
+    console.group('Walmart JSON Extraction Test:');
+    if (jsonExtractionResult.success) {
+      console.log(`✅ Successfully extracted ${jsonExtractionResult.count} items from Walmart JSON`);
+      if (jsonExtractionResult.sampleItem) {
+        console.log('Sample item:', jsonExtractionResult.sampleItem);
+      }
+    } else {
+      console.error(`❌ Failed to extract from Walmart JSON: ${jsonExtractionResult.error || 'No items found'}`);
+    }
+    console.groupEnd();
+  }
+  
   console.groupEnd();
   
   return {
     selectorResults,
-    extractionResult
+    extractionResult,
+    jsonExtractionResult
   };
 }
 
@@ -299,6 +374,7 @@ export function highlightSearchResultElements(marketplace: MarketplaceType): voi
   
   try {
     let elements: Element[] = [];
+    let jsonItems: any[] | null = null;
     
     // Use the appropriate element finder function
     switch (marketplace) {
@@ -306,7 +382,23 @@ export function highlightSearchResultElements(marketplace: MarketplaceType): voi
         elements = findAmazonSearchResultElements();
         break;
       case 'walmart':
-        elements = findWalmartSearchResultElements();
+        // Try JSON extraction first for Walmart
+        jsonItems = extractWalmartJsonData();
+        if (!jsonItems || jsonItems.length === 0) {
+          console.log('[Search Selector Highlighter] No items found in Walmart JSON, falling back to DOM extraction');
+          elements = findWalmartSearchResultElements();
+        } else {
+          console.log(`[Search Selector Highlighter] Found ${jsonItems.length} items in Walmart JSON`);
+          // Find corresponding DOM elements for JSON items
+          for (const item of jsonItems) {
+            const element = document.querySelector(`[data-item-id="${item.usItemId}"]`) || 
+                           document.querySelector(`[data-product-id="${item.usItemId}"]`) ||
+                           document.querySelector(`[data-testid="product-card"][data-item-id="${item.usItemId}"]`);
+            if (element) {
+              elements.push(element);
+            }
+          }
+        }
         break;
       default:
         console.error(`[Search Selector Highlighter] Unsupported marketplace: ${marketplace}`);
@@ -359,6 +451,29 @@ export function highlightSearchResultElements(marketplace: MarketplaceType): voi
     });
     
     console.log(`[Search Selector Highlighter] Highlighted ${highlightedElements.size} elements`);
+    
+    // Show an info box for Walmart JSON extraction
+    if (marketplace === 'walmart' && jsonItems) {
+      const infoBox = document.createElement('div');
+      infoBox.style.position = 'fixed';
+      infoBox.style.bottom = '10px';
+      infoBox.style.left = '10px';
+      infoBox.style.padding = '10px';
+      infoBox.style.background = 'rgba(0, 0, 0, 0.8)';
+      infoBox.style.color = 'white';
+      infoBox.style.borderRadius = '5px';
+      infoBox.style.zIndex = '9999';
+      infoBox.style.maxWidth = '300px';
+      infoBox.style.fontSize = '14px';
+      infoBox.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.2)';
+      infoBox.classList.add('selector-highlight');
+      infoBox.innerHTML = `
+        <div style="font-weight: bold; margin-bottom: 5px;">Walmart JSON Extraction</div>
+        <div>Successfully extracted ${jsonItems.length} items from Walmart JSON.</div>
+        <div style="font-size: 12px; margin-top: 5px;">${elements.length} items were matched to DOM elements.</div>
+      `;
+      document.body.appendChild(infoBox);
+    }
     
     // Show a tooltip with instructions
     const tooltip = document.createElement('div');
