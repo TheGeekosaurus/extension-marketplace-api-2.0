@@ -27,8 +27,7 @@ export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({
   const comparison = usePopupStore(state => state.comparison);
   
   // Use provided searchUrl, or fetch from comparison, or fetch from store
-  // Ensure we only pass string or undefined (not null) to avoid type errors
-  const finalSearchUrl = searchUrl || (comparison && comparison.searchUrl) || manualMatchSearchUrl || undefined;
+  const finalSearchUrl = searchUrl || (comparison && comparison.searchUrl) || manualMatchSearchUrl;
   
   // Handle opening the search page
   const handleViewSearchClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
