@@ -1,6 +1,8 @@
 // src/content/matchFinder.ts - Find best matching product on search results pages
 
 import { ProductData } from '../types';
+import { extractWalmartJsonData, WalmartJsonItem } from './utils/walmartJsonExtractor';
+import { logExtraction } from './utils/extraction';
 
 /**
  * Main function to initialize the match finder on search results pages
@@ -92,50 +94,135 @@ async function loadSourceProductAndFindMatch(isBackgroundSearch: boolean = false
  * @returns The best matching product or null if no good match found
  */
 async function findBestMatchOnPage(sourceProduct: ProductData) {
-  // Different selectors based on marketplace
+  // Different approach based on marketplace
   const isAmazon = window.location.hostname.includes('amazon.com');
   const isWalmart = window.location.hostname.includes('walmart.com');
-  
-  let productElements: Element[] = [];
   
   // Wait a bit more for dynamic content to fully load
   await new Promise(resolve => setTimeout(resolve, 1000));
   
-  if (isAmazon) {
-    productElements = Array.from(document.querySelectorAll('.s-result-item[data-asin]:not(.AdHolder)'));
-  } else if (isWalmart) {
-    productElements = Array.from(document.querySelectorAll('[data-item-id], [data-product-id], .search-result-gridview-item'));
+  // Special handling for Walmart using JSON extraction
+  if (isWalmart) {
+    return findWalmartMatchUsingJson(sourceProduct);
+  } else if (isAmazon) {
+    return findAmazonMatchUsingDOM(sourceProduct);
   }
   
-  if (productElements.length === 0) {
-    console.warn('[E-commerce Arbitrage] No product results found on page');
-    return null;
-  }
-  
-  console.log(`[E-commerce Arbitrage] Found ${productElements.length} products on search results page`);
-  
-  // Calculate similarity scores for each product
-  const productsWithScores = productElements.map(element => {
-    // Extract product title
-    let title = '';
-    if (isAmazon) {
-      title = element.querySelector('h2')?.textContent || '';
-    } else if (isWalmart) {
-      title = element.querySelector('[data-automation-id="product-title"], .sans-serif.mid-gray')?.textContent || '';
+  console.warn('[E-commerce Arbitrage] Unsupported marketplace for matching');
+  return null;
+}
+
+/**
+ * Find the best matching product on Walmart using JSON extraction
+ * @param sourceProduct - The source product to match
+ * @returns The best matching product or null if no good match found
+ */
+async function findWalmartMatchUsingJson(sourceProduct: ProductData) {
+  try {
+    logExtraction('walmart', 'Finding matches using JSON extraction');
+    
+    // Extract Walmart product data from JSON
+    const walmartItems = extractWalmartJsonData();
+    
+    if (!walmartItems || walmartItems.length === 0) {
+      console.warn('[E-commerce Arbitrage] No product results found in Walmart JSON');
+      
+      // Fallback to DOM extraction if JSON extraction fails
+      logExtraction('walmart', 'JSON extraction failed, falling back to DOM extraction');
+      return findWalmartMatchUsingDOM(sourceProduct);
     }
     
-    // Extract price
-    let price = null;
-    if (isAmazon) {
-      const priceElement = element.querySelector('.a-price .a-offscreen');
-      price = priceElement ? parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0') : null;
-    } else if (isWalmart) {
+    console.log(`[E-commerce Arbitrage] Processing ${walmartItems.length} Walmart items from JSON`);
+    
+    // Calculate similarity scores for each item
+    const scoredItems = walmartItems.map(item => {
+      const similarityScore = calculateTitleSimilarity(item.name, sourceProduct.title);
+      return {
+        ...item,
+        similarityScore
+      };
+    });
+    
+    // Sort by similarity score (highest first)
+    scoredItems.sort((a, b) => b.similarityScore - a.similarityScore);
+    
+    // Get the best match
+    const bestMatch = scoredItems[0];
+    
+    if (!bestMatch || bestMatch.similarityScore < 0.3) {
+      console.warn('[E-commerce Arbitrage] No good matches found on this Walmart page');
+      return null;
+    }
+    
+    // Find the corresponding DOM element for highlighting
+    const element = document.querySelector(`[data-item-id="${bestMatch.usItemId}"]`) || 
+                    document.querySelector(`[data-product-id="${bestMatch.usItemId}"]`) ||
+                    document.querySelector(`[data-testid="product-card"][data-item-id="${bestMatch.usItemId}"]`);
+    
+    if (!element) {
+      console.warn('[E-commerce Arbitrage] Could not find DOM element for the matched product');
+      
+      // Even if we can't find the element, we can still return the match data
+      // The highlightMatchedProduct function will handle the missing element
+    }
+    
+    return {
+      element, // May be null, but that's handled in the highlighting function
+      title: bestMatch.name,
+      price: bestMatch.price || 0,
+      url: bestMatch.canonicalUrl,
+      imageUrl: bestMatch.thumbnailUrl,
+      similarityScore: bestMatch.similarityScore,
+      marketplace: 'walmart'
+    };
+  } catch (error) {
+    console.error('[E-commerce Arbitrage] Error finding Walmart match using JSON:', error);
+    
+    // Fallback to DOM extraction if JSON extraction fails
+    logExtraction('walmart', 'Error in JSON extraction, falling back to DOM extraction');
+    return findWalmartMatchUsingDOM(sourceProduct);
+  }
+}
+
+/**
+ * Find the best matching product on Walmart using DOM elements
+ * @param sourceProduct - The source product to match
+ * @returns The best matching product or null if no good match found
+ */
+async function findWalmartMatchUsingDOM(sourceProduct: ProductData) {
+  try {
+    logExtraction('walmart', 'Finding matches using DOM extraction');
+    
+    // Find product elements using DOM selectors
+    const productElements = Array.from(document.querySelectorAll(
+      '[data-item-id], [data-product-id], .search-result-gridview-item, [data-testid="product-card"]'
+    ));
+    
+    if (productElements.length === 0) {
+      console.warn('[E-commerce Arbitrage] No product results found in Walmart DOM');
+      return null;
+    }
+    
+    console.log(`[E-commerce Arbitrage] Found ${productElements.length} products on Walmart search results page`);
+    
+    // Calculate similarity scores for each product
+    const productsWithScores = productElements.map(element => {
+      // Extract product title
+      const titleElement = element.querySelector(
+        '[data-automation-id="product-title"], .sans-serif.mid-gray, .w_iUH, .lh-title, [data-testid="title"]'
+      );
+      const title = titleElement?.textContent?.trim() || '';
+      
+      // Extract price - Walmart often has complex price structures
+      let price: number | null = null;
+      
       // Try multiple selectors for Walmart prices
       const priceSelectors = [
         // Primary selector for current HTML structure
         'span.w_1UH7',
         // Backup selectors for other possible structures
         '[data-automation-id="product-price"]', 
+        '[data-testid="price-current"]',
         '.b.black.f1.mr1', 
         '.w_iUH'
       ];
@@ -155,7 +242,6 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
             
             // Sanity check - if extracted price seems unreasonable (too high)
             if (price > 10000) {
-              console.log('[E-commerce Arbitrage] Suspicious price detected:', price);
               price = null; // Reset and try next selector
             } else {
               break; // We found a valid price, stop trying more selectors
@@ -175,61 +261,147 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
           price = parseFloat(`${dollars}.${cents}`);
         }
       }
+      
+      // Calculate title similarity score
+      const similarityScore = calculateTitleSimilarity(title, sourceProduct.title);
+      
+      // Get URL
+      const linkElement = element.querySelector('a[link-identifier="linkTest"], a.absolute.w-100.h-100, a[href*="/ip/"]');
+      const url = linkElement ? new URL(linkElement.getAttribute('href') || '', window.location.origin).href : '';
+      
+      // Get image
+      const imgElement = element.querySelector('img[data-automation-id="product-image"], img.absolute, img.w_iUF, img[data-testid="product-image"]');
+      const imageUrl = imgElement ? imgElement.getAttribute('src') || '' : '';
+      
+      return {
+        element,
+        title,
+        price,
+        similarityScore,
+        url,
+        imageUrl,
+        marketplace: 'walmart'
+      };
+    });
+    
+    // Filter out products with missing title or price
+    const validProducts = productsWithScores.filter(p => p.title && p.price !== null);
+    
+    // Sort by similarity score (highest first)
+    validProducts.sort((a, b) => b.similarityScore - a.similarityScore);
+    
+    // Get the best match (if any)
+    if (validProducts.length === 0) {
+      return null;
     }
     
-    // Calculate title similarity score
-    const similarityScore = calculateTitleSimilarity(title, sourceProduct.title);
+    const bestMatch = validProducts[0];
     
-    // Get URL
-    let url = '';
-    if (isAmazon) {
-      const linkElement = element.querySelector('a.a-link-normal[href*="/dp/"]');
-      url = linkElement ? new URL(linkElement.getAttribute('href') || '', window.location.origin).href : '';
-    } else if (isWalmart) {
-      const linkElement = element.querySelector('a[link-identifier="linkTest"], a.absolute.w-100.h-100');
-      url = linkElement ? new URL(linkElement.getAttribute('href') || '', window.location.origin).href : '';
+    // Only return match if it has a decent similarity score
+    if (bestMatch.similarityScore < 0.3) {
+      console.warn('[E-commerce Arbitrage] Best match has low similarity score:', bestMatch.similarityScore);
     }
     
-    // Get image
-    let imageUrl = '';
-    if (isAmazon) {
-      const imgElement = element.querySelector('img.s-image');
-      imageUrl = imgElement ? imgElement.getAttribute('src') || '' : '';
-    } else if (isWalmart) {
-      const imgElement = element.querySelector('img[data-automation-id="product-image"], img.absolute');
-      imageUrl = imgElement ? imgElement.getAttribute('src') || '' : '';
-    }
-    
-    return {
-      element,
-      title,
-      price,
-      similarityScore,
-      url,
-      imageUrl,
-      marketplace: isAmazon ? 'amazon' : 'walmart'
-    };
-  });
-  
-  // Filter out products with missing title or price
-  const validProducts = productsWithScores.filter(p => p.title && p.price !== null);
-  
-  // Sort by similarity score (highest first)
-  validProducts.sort((a, b) => b.similarityScore - a.similarityScore);
-  
-  // Get the best match (if any)
-  if (validProducts.length === 0) {
+    return bestMatch;
+  } catch (error) {
+    console.error('[E-commerce Arbitrage] Error finding Walmart match using DOM:', error);
     return null;
   }
-  
-  const bestMatch = validProducts[0];
-  
-  // Only return match if it has a decent similarity score
-  if (bestMatch.similarityScore < 0.3) {
-    console.warn('[E-commerce Arbitrage] Best match has low similarity score:', bestMatch.similarityScore);
+}
+
+/**
+ * Find the best matching product on Amazon using DOM elements
+ * @param sourceProduct - The source product to match
+ * @returns The best matching product or null if no good match found
+ */
+async function findAmazonMatchUsingDOM(sourceProduct: ProductData) {
+  try {
+    // Extract product elements from Amazon search results
+    const productElements = Array.from(document.querySelectorAll('.s-result-item[data-asin]:not(.AdHolder)'));
+    
+    if (productElements.length === 0) {
+      console.warn('[E-commerce Arbitrage] No product results found on Amazon page');
+      return null;
+    }
+    
+    console.log(`[E-commerce Arbitrage] Found ${productElements.length} products on Amazon search results page`);
+    
+    // Calculate similarity scores for each product
+    const productsWithScores = productElements.map(element => {
+      // Extract product title
+      const titleElement = element.querySelector('h2, h2 a, .a-text-normal');
+      const title = titleElement?.textContent?.trim() || '';
+      
+      // Extract price
+      const priceElement = element.querySelector('.a-price .a-offscreen');
+      let price: number | null = null;
+      
+      if (priceElement) {
+        const priceText = priceElement.textContent || '';
+        // Extract only the numeric part
+        const priceMatch = priceText.match(/\$?(\d+(?:\.\d{1,2})?)/);
+        if (priceMatch && priceMatch[1]) {
+          price = parseFloat(priceMatch[1]);
+        }
+      }
+      
+      // Try alternative price selectors if the primary one failed
+      if (price === null) {
+        const altPriceElement = element.querySelector('.a-color-price, .a-color-base');
+        if (altPriceElement) {
+          const priceText = altPriceElement.textContent || '';
+          const priceMatch = priceText.match(/\$?(\d+(?:\.\d{1,2})?)/);
+          if (priceMatch && priceMatch[1]) {
+            price = parseFloat(priceMatch[1]);
+          }
+        }
+      }
+      
+      // Calculate title similarity score
+      const similarityScore = calculateTitleSimilarity(title, sourceProduct.title);
+      
+      // Get URL
+      const linkElement = element.querySelector('a.a-link-normal[href*="/dp/"]');
+      const url = linkElement ? new URL(linkElement.getAttribute('href') || '', window.location.origin).href : '';
+      
+      // Get image
+      const imgElement = element.querySelector('img.s-image');
+      const imageUrl = imgElement ? imgElement.getAttribute('src') || '' : '';
+      
+      return {
+        element,
+        title,
+        price,
+        similarityScore,
+        url,
+        imageUrl,
+        marketplace: 'amazon'
+      };
+    });
+    
+    // Filter out products with missing title or price
+    const validProducts = productsWithScores.filter(p => p.title && p.price !== null);
+    
+    // Sort by similarity score (highest first)
+    validProducts.sort((a, b) => b.similarityScore - a.similarityScore);
+    
+    // Get the best match (if any)
+    if (validProducts.length === 0) {
+      return null;
+    }
+    
+    const bestMatch = validProducts[0];
+    
+    // Only return match if it has a decent similarity score
+    if (bestMatch.similarityScore < 0.3) {
+      console.warn('[E-commerce Arbitrage] Best match has low similarity score:', bestMatch.similarityScore);
+    }
+    
+    return bestMatch;
+  } catch (error) {
+    console.error('[E-commerce Arbitrage] Error finding Amazon match using DOM:', error);
+    return null;
   }
-  
-  return bestMatch;
 }
 
 /**
@@ -270,7 +442,7 @@ function calculateTitleSimilarity(title1: string, title2: string): number {
  * @param matchedProduct - The matched product data
  */
 function highlightMatchedProduct(
-  element: Element, 
+  element: Element | null, 
   sourceProduct: ProductData, 
   matchedProduct: any
 ) {
@@ -294,6 +466,32 @@ function highlightMatchedProduct(
     font-family: Arial, sans-serif;
   `;
   
+  // Create status message if we couldn't find the DOM element
+  let statusMessage = '';
+  let originalBorder = '';
+  let originalBoxShadow = '';
+  let htmlElement: HTMLElement | null = null;
+  
+  if (!element) {
+    statusMessage = `
+      <div style="background-color: #fff3cd; padding: 8px; border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
+        <strong>Note:</strong> Product information was found, but the DOM element could not be highlighted.
+      </div>
+    `;
+  } else {
+    // Highlight the element if found
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+    // Save original styles
+    htmlElement = element as HTMLElement;
+    originalBorder = htmlElement.style.border;
+    originalBoxShadow = htmlElement.style.boxShadow;
+    
+    // Set new styles
+    htmlElement.style.border = '3px solid #4a6bd8';
+    htmlElement.style.boxShadow = '0 0 10px rgba(74, 107, 216, 0.5)';
+  }
+  
   // Calculate profit
   const profit = matchedProduct.price && sourceProduct.price !== null 
     ? matchedProduct.price - sourceProduct.price 
@@ -309,6 +507,7 @@ function highlightMatchedProduct(
       <button id="extension-close-highlight" style="border: none; background: none; cursor: pointer; font-size: 16px;">×</button>
     </div>
     <h3 style="margin: 0 0 8px; font-size: 16px; color: #4a6bd8;">Found Potential Match</h3>
+    ${statusMessage}
     <div style="margin-bottom: 12px;">
       <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">Source Product:</div>
       <div style="font-size: 13px; color: #555;">${sourceProduct.title}</div>
@@ -352,23 +551,13 @@ function highlightMatchedProduct(
   // Add highlight to page
   document.body.appendChild(highlightContainer);
   
-  // Highlight the matched product
-  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  
-  // Save original styles
-  const htmlElement = element as HTMLElement;
-  const originalBorder = htmlElement.style.border;
-  const originalBoxShadow = htmlElement.style.boxShadow;
-  
-  // Set new styles
-  htmlElement.style.border = '3px solid #4a6bd8';
-  htmlElement.style.boxShadow = '0 0 10px rgba(74, 107, 216, 0.5)';
-  
   // Add event listeners
   document.getElementById('extension-close-highlight')?.addEventListener('click', () => {
     highlightContainer.remove();
-    htmlElement.style.border = originalBorder;
-    htmlElement.style.boxShadow = originalBoxShadow;
+    if (htmlElement) {
+      htmlElement.style.border = originalBorder;
+      htmlElement.style.boxShadow = originalBoxShadow;
+    }
   });
   
   document.getElementById('extension-select-match')?.addEventListener('click', () => {
@@ -392,15 +581,19 @@ function highlightMatchedProduct(
     
     document.getElementById('extension-close-after-save')?.addEventListener('click', () => {
       highlightContainer.remove();
-      htmlElement.style.border = originalBorder;
-      htmlElement.style.boxShadow = originalBoxShadow;
+      if (htmlElement) {
+        htmlElement.style.border = originalBorder;
+        htmlElement.style.boxShadow = originalBoxShadow;
+      }
     });
   });
   
   document.getElementById('extension-find-manually')?.addEventListener('click', () => {
     highlightContainer.remove();
-    htmlElement.style.border = originalBorder;
-    htmlElement.style.boxShadow = originalBoxShadow;
+    if (htmlElement) {
+      htmlElement.style.border = originalBorder;
+      htmlElement.style.boxShadow = originalBoxShadow;
+    }
   });
 }
 
