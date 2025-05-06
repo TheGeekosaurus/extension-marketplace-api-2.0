@@ -56,7 +56,6 @@ export interface MatchResult {
     imageUrl: string;
     marketplace: SupportedMarketplace;
     similarityScore: number;
-    searchUrl?: string; // Add search URL for "View Search" button
   };
 }
 
