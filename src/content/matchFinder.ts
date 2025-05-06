@@ -130,50 +130,74 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
       const priceElement = element.querySelector('.a-price .a-offscreen');
       price = priceElement ? parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0') : null;
     } else if (isWalmart) {
-      // Try multiple selectors for Walmart prices
-      const priceSelectors = [
-        // Primary selector for current HTML structure
-        'span.w_1UH7',
-        // Backup selectors for other possible structures
-        '[data-automation-id="product-price"]', 
-        '.b.black.f1.mr1', 
-        '.w_iUH'
-      ];
+      // Get the full HTML of the product element for more reliable price extraction
+      const productHTML = element.innerHTML;
       
-      // Try each selector until we find a valid price
-      for (const selector of priceSelectors) {
-        const priceElement = element.querySelector(selector);
-        if (priceElement) {
-          const priceText = priceElement.textContent || '';
-          
-          // Extract only dollars and cents with a more precise regex
-          // This looks for a price format like $XX.XX
-          const priceMatch = priceText.match(/\$\s*(\d+(?:\.\d{2})?)/);
-          
-          if (priceMatch && priceMatch[1]) {
-            price = parseFloat(priceMatch[1]);
-            
-            // Sanity check - if extracted price seems unreasonable (too high)
-            if (price > 10000) {
-              console.log('[E-commerce Arbitrage] Suspicious price detected:', price);
-              price = null; // Reset and try next selector
-            } else {
-              break; // We found a valid price, stop trying more selectors
+      // Method 1: Look for common Walmart price formats with regex
+      // This will handle various formats including "Now $X" and "$X"
+      let priceMatch = productHTML.match(/Now\s+\$(\d+)[\s\.](\d{2})/i);
+      if (priceMatch && priceMatch[1] && priceMatch[2]) {
+        // Format: "Now $X.XX" or "Now $X XX"
+        price = parseFloat(`${priceMatch[1]}.${priceMatch[2]}`);
+        console.log('[E-commerce Arbitrage] Extracted price using format 1:', price);
+      }
+      
+      // Method 2: Try standard price format
+      if (price === null) {
+        priceMatch = productHTML.match(/\$(\d+\.\d{2})/);
+        if (priceMatch && priceMatch[1]) {
+          price = parseFloat(priceMatch[1]);
+          console.log('[E-commerce Arbitrage] Extracted price using format 2:', price);
+        }
+      }
+      
+      // Method 3: Try specific Walmart selectors
+      if (price === null) {
+        const priceSelectors = [
+          'span.w_1UH7',
+          '[data-automation-id="product-price"]',
+          '.b.black.f1.mr1',
+          '.w_iUH'
+        ];
+        
+        for (const selector of priceSelectors) {
+          const priceElement = element.querySelector(selector);
+          if (priceElement) {
+            const priceText = priceElement.textContent || '';
+            // Extract only dollars and cents
+            const extractedMatch = priceText.match(/\$\s*(\d+(?:\.\d{2})?)/);
+            if (extractedMatch && extractedMatch[1]) {
+              price = parseFloat(extractedMatch[1]);
+              console.log('[E-commerce Arbitrage] Extracted price using selector:', selector, price);
+              break;
             }
           }
         }
       }
       
-      // If we still couldn't find a price, try looking specifically for separate dollar/cents elements
+      // Method 4: Special case for Walmart's "Now $X superscript YY" format
       if (price === null) {
-        const wholeDollarElement = element.querySelector('.w_C6.w_D.w_C7.w_Da');
-        const centsElement = element.querySelector('.w_C6.w_D.w_C7.w_Db');
-        
-        if (wholeDollarElement && centsElement) {
-          const dollars = wholeDollarElement.textContent?.replace(/[^\d]/g, '') || '0';
-          const cents = centsElement.textContent?.replace(/[^\d]/g, '') || '00';
-          price = parseFloat(`${dollars}.${cents}`);
+        // This regex tries to find formats like "Now $9 99" where 99 might be superscript
+        const nowPriceMatch = productHTML.match(/Now\s+\$(\d+)[^\d]*(\d{2})/i);
+        if (nowPriceMatch && nowPriceMatch[1] && nowPriceMatch[2]) {
+          price = parseFloat(`${nowPriceMatch[1]}.${nowPriceMatch[2]}`);
+          console.log('[E-commerce Arbitrage] Extracted price using Now $ format:', price);
         }
+      }
+      
+      // Method 5: Last resort - try to find any dollar amount in the product card
+      if (price === null) {
+        const anyPriceMatch = productHTML.match(/\$\s*(\d+)/);
+        if (anyPriceMatch && anyPriceMatch[1]) {
+          price = parseFloat(anyPriceMatch[1]);
+          console.log('[E-commerce Arbitrage] Extracted price using last resort:', price);
+        }
+      }
+      
+      // Sanity check - if price seems unreasonably high, log warning
+      if (price !== null && price > 1000) {
+        console.warn('[E-commerce Arbitrage] Suspiciously high price detected:', price);
+        // Don't reset price to null here, but log a warning
       }
     }
     
