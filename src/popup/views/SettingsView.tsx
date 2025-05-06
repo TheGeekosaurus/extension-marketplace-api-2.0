@@ -1,6 +1,6 @@
 // src/popup/views/SettingsView.tsx - Settings tab content
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useSettings } from '../state/selectors';
 import { usePopupStore } from '../state/store';
 import StatusMessage from '../components/StatusMessage';
@@ -12,6 +12,12 @@ import { ResellableMarketplaceType } from '../../types';
 const SettingsView: React.FC = () => {
   // Get settings from store
   const settings = useSettings();
+  
+  // Local state for selector testing results
+  const [selectorTestResults, setSelectorTestResults] = useState<any>(null);
+  const [testingSelectors, setTestingSelectors] = useState(false);
+  const [customStatus, setCustomStatus] = useState<string | null>(null);
+  const [customError, setCustomError] = useState<string | null>(null);
   
   // Get actions from store
   const updateSettings = usePopupStore(state => state.updateSettings);
@@ -57,6 +63,91 @@ const SettingsView: React.FC = () => {
         [market]: feeValue
       }
     });
+  };
+  
+  // Test selectors for the current marketplace page
+  const handleTestSelectors = async () => {
+    setTestingSelectors(true);
+    setCustomStatus('Testing selectors on current page...');
+    setCustomError(null);
+    setSelectorTestResults(null);
+    
+    try {
+      // Get the current active tab
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tabs[0]?.id) {
+        throw new Error('No active tab found');
+      }
+      
+      // Send message to content script to test selectors
+      const response = await new Promise<any>((resolve) => {
+        chrome.tabs.sendMessage(
+          tabs[0].id!, 
+          { action: 'DEBUG_SELECTORS' }, 
+          (response) => {
+            if (chrome.runtime.lastError) {
+              resolve({ 
+                success: false, 
+                error: chrome.runtime.lastError.message 
+              });
+              return;
+            }
+            resolve(response);
+          }
+        );
+      });
+      
+      if (response && response.success) {
+        setCustomStatus(`Selector test complete for ${response.marketplace}`);
+        setSelectorTestResults(response.results);
+      } else {
+        setCustomError(response?.error || 'Failed to test selectors. Make sure you are on a supported product page.');
+      }
+    } catch (error) {
+      setCustomError(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setTestingSelectors(false);
+    }
+  };
+  
+  // Highlight selectors on the current page
+  const handleHighlightSelectors = async () => {
+    setCustomStatus('Highlighting selectors on current page...');
+    setCustomError(null);
+    
+    try {
+      // Get the current active tab
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tabs[0]?.id) {
+        throw new Error('No active tab found');
+      }
+      
+      // Send message to content script to highlight selectors
+      const response = await new Promise<any>((resolve) => {
+        chrome.tabs.sendMessage(
+          tabs[0].id!, 
+          { action: 'HIGHLIGHT_SELECTORS' }, 
+          (response) => {
+            if (chrome.runtime.lastError) {
+              resolve({ 
+                success: false, 
+                error: chrome.runtime.lastError.message 
+              });
+              return;
+            }
+            resolve(response);
+          }
+        );
+      });
+      
+      if (response && response.success) {
+        setCustomStatus(`Highlighting selectors for ${response.marketplace}. Click anywhere on the page to dismiss.`);
+      } else {
+        setCustomError(response?.error || 'Failed to highlight selectors. Make sure you are on a supported product page.');
+      }
+    } catch (error) {
+      setCustomError(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    }
   };
   
   return (
@@ -230,11 +321,88 @@ const SettingsView: React.FC = () => {
         </div>
       </div>
       
+      {/* New: Debug Tools Section */}
+      <div className="settings-group">
+        <h4>Debug Tools</h4>
+        <p className="setting-description">
+          These tools help diagnose selector issues on marketplace pages.
+        </p>
+        
+        <div className="button-container">
+          <button 
+            className="debug-button" 
+            onClick={handleTestSelectors}
+            disabled={testingSelectors}
+          >
+            {testingSelectors ? 'Testing...' : 'Test Selectors on Current Page'}
+          </button>
+          
+          <button 
+            className="highlight-button" 
+            onClick={handleHighlightSelectors}
+          >
+            Highlight Elements on Page
+          </button>
+        </div>
+        
+        <small>
+          Note: You must be on a supported marketplace product page (Amazon, Walmart, Target, Home Depot)
+        </small>
+      </div>
+      
+      {/* Display selector test results */}
+      {selectorTestResults && (
+        <div className="selector-test-results">
+          <h4>Selector Test Results</h4>
+          
+          {Object.entries(selectorTestResults).map(([groupName, group]: [string, any]) => (
+            <div key={groupName} className="selector-group">
+              <h5>
+                {groupName}: {group.foundCount}/{group.totalCount} selectors matched
+              </h5>
+              
+              <div className="selector-details">
+                {group.results.map((result: any, index: number) => (
+                  <div 
+                    key={index} 
+                    className={`selector-result ${result.found ? 'success' : 'failure'}`}
+                  >
+                    <div className="selector-status">
+                      {result.found ? '✅' : '❌'} {result.selector}
+                    </div>
+                    
+                    {result.found && (
+                      <div className="selector-info">
+                        Found {result.count} element{result.count !== 1 ? 's' : ''}
+                        {result.foundText && (
+                          <div className="selector-text">
+                            Text: "{result.foundText}"
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {!result.found && result.error && (
+                      <div className="selector-error">
+                        Error: {result.error}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      
       <button className="save-settings-button" onClick={saveSettings}>
         Save Settings
       </button>
       
-      <StatusMessage />
+      <StatusMessage 
+        customStatus={customStatus}
+        customError={customError}
+      />
     </div>
   );
 };
