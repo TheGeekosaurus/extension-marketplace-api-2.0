@@ -6,6 +6,7 @@ import { extractWalmartProductData } from './extractors/walmart';
 import { extractTargetProductData } from './extractors/target';
 import { extractHomeDepotProductData } from './extractors/homedepot';
 import { runSelectorDebugger, highlightSelectors } from './utils/selectorTester';
+import { runSearchSelectorDebugger, highlightSearchResultElements } from './utils/searchSelectorTester';
 
 /**
  * Main function to extract product data based on current page
@@ -88,6 +89,37 @@ function getCurrentMarketplace() {
   return null;
 }
 
+/**
+ * Determine if the current page is a search results page
+ * 
+ * @returns Boolean indicating if this is a search page
+ */
+function isSearchPage() {
+  const url = window.location.href;
+  
+  // Amazon search pages
+  if (url.includes('amazon.com/s?') || url.includes('amazon.com/s/?') || url.includes('amazon.com/search/')) {
+    return true;
+  }
+  
+  // Walmart search pages
+  if (url.includes('walmart.com/search') || url.includes('walmart.com/browse')) {
+    return true;
+  }
+  
+  // Target search pages
+  if (url.includes('target.com/s?') || url.includes('target.com/search')) {
+    return true;
+  }
+  
+  // Home Depot search pages
+  if (url.includes('homedepot.com/s/') || url.includes('homedepot.com/b/')) {
+    return true;
+  }
+  
+  return false;
+}
+
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('[E-commerce Arbitrage] Received message in content script:', message);
@@ -109,10 +141,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   
   // Listen for match results being forwarded from background script
-  // FIX 1: Remove the manual match notification display
   if (message.action === 'MANUAL_MATCH_FOUND') {
     console.log('[E-commerce Arbitrage] Received match result:', message.match);
-    // We're removing the notification display to prevent the dialog box
     return true;
   }
   
@@ -126,7 +156,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   
-  // NEW: Handle selector testing request
+  // Handle selector testing request
   if (message.action === 'DEBUG_SELECTORS') {
     const marketplace = getCurrentMarketplace();
     
@@ -138,19 +168,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
     
-    console.log(`[E-commerce Arbitrage] Running selector debugger for ${marketplace}`);
-    const results = runSelectorDebugger(marketplace);
+    // Check if on search page or product page
+    const isSearch = isSearchPage();
+    console.log(`[E-commerce Arbitrage] Running selector debugger for ${marketplace} on ${isSearch ? 'search' : 'product'} page`);
+    
+    // Run appropriate debugger
+    const results = isSearch 
+      ? runSearchSelectorDebugger(marketplace)
+      : runSelectorDebugger(marketplace);
     
     sendResponse({ 
       success: true, 
       marketplace,
+      pageType: isSearch ? 'search' : 'product',
       results
     });
     
     return true;
   }
   
-  // NEW: Handle selector highlighting request
+  // Handle selector highlighting request
   if (message.action === 'HIGHLIGHT_SELECTORS') {
     const marketplace = getCurrentMarketplace();
     
@@ -162,12 +199,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
     
-    console.log(`[E-commerce Arbitrage] Highlighting selectors for ${marketplace}`);
-    highlightSelectors(marketplace);
+    // Check if on search page or product page
+    const isSearch = isSearchPage();
+    console.log(`[E-commerce Arbitrage] Highlighting selectors for ${marketplace} on ${isSearch ? 'search' : 'product'} page`);
+    
+    // Highlight elements appropriately
+    if (isSearch) {
+      highlightSearchResultElements(marketplace);
+    } else {
+      highlightSelectors(marketplace);
+    }
     
     sendResponse({ 
       success: true, 
-      marketplace
+      marketplace,
+      pageType: isSearch ? 'search' : 'product'
     });
     
     return true;

@@ -18,6 +18,7 @@ const SettingsView: React.FC = () => {
   const [testingSelectors, setTestingSelectors] = useState(false);
   const [customStatus, setCustomStatus] = useState<string | null>(null);
   const [customError, setCustomError] = useState<string | null>(null);
+  const [pageType, setPageType] = useState<'product' | 'search' | null>(null);
   
   // Get actions from store
   const updateSettings = usePopupStore(state => state.updateSettings);
@@ -71,6 +72,7 @@ const SettingsView: React.FC = () => {
     setCustomStatus('Testing selectors on current page...');
     setCustomError(null);
     setSelectorTestResults(null);
+    setPageType(null);
     
     try {
       // Get the current active tab
@@ -98,8 +100,10 @@ const SettingsView: React.FC = () => {
       });
       
       if (response && response.success) {
-        setCustomStatus(`Selector test complete for ${response.marketplace}`);
+        const pageTypeLabel = response.pageType === 'search' ? 'search page' : 'product page';
+        setCustomStatus(`Selector test complete for ${response.marketplace} ${pageTypeLabel}`);
         setSelectorTestResults(response.results);
+        setPageType(response.pageType);
       } else {
         setCustomError(response?.error || 'Failed to test selectors. Make sure you are on a supported product page.');
       }
@@ -141,7 +145,8 @@ const SettingsView: React.FC = () => {
       });
       
       if (response && response.success) {
-        setCustomStatus(`Highlighting selectors for ${response.marketplace}. Click anywhere on the page to dismiss.`);
+        const pageTypeLabel = response.pageType === 'search' ? 'search page' : 'product page';
+        setCustomStatus(`Highlighting selectors for ${response.marketplace} ${pageTypeLabel}. Click anywhere on the page to dismiss.`);
       } else {
         setCustomError(response?.error || 'Failed to highlight selectors. Make sure you are on a supported product page.');
       }
@@ -353,9 +358,24 @@ const SettingsView: React.FC = () => {
       {/* Display selector test results */}
       {selectorTestResults && (
         <div className="selector-test-results">
-          <h4>Selector Test Results</h4>
+          <h4>Selector Test Results {pageType ? `(${pageType} page)` : ''}</h4>
           
-          {Object.entries(selectorTestResults).map(([groupName, group]: [string, any]) => (
+          {/* Display search page specific extraction results if this is a search page */}
+          {pageType === 'search' && selectorTestResults.extractionResult && (
+            <div className="extraction-results">
+              <h5>Search Result Extraction</h5>
+              <div className={`extraction-status ${selectorTestResults.extractionResult.success ? 'success' : 'failure'}`}>
+                {selectorTestResults.extractionResult.success ? (
+                  <div>✅ Successfully found {selectorTestResults.extractionResult.elements} search result elements</div>
+                ) : (
+                  <div>❌ Failed to extract search results: {selectorTestResults.extractionResult.error || 'No elements found'}</div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Results for selector groups */}
+          {Object.entries(pageType === 'search' ? selectorTestResults.selectorResults : selectorTestResults).map(([groupName, group]: [string, any]) => (
             <div key={groupName} className="selector-group">
               <h5>
                 {groupName}: {group.foundCount}/{group.totalCount} selectors matched
