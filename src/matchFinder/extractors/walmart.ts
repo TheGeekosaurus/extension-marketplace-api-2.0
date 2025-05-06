@@ -114,7 +114,7 @@ function extractProductData(
     
     // Extract the actual title
     const titleElement = element.querySelector('[data-automation-id="product-title"], .sans-serif.mid-gray, .w_iUH, .lh-title');
-    const title = titleElement?.textContent?.trim() || '';
+    let title = titleElement?.textContent?.trim() || '';
     
     if (!title) {
       logger.debug('No title found in element');
@@ -131,10 +131,11 @@ function extractProductData(
       
       if (altTitle) {
         logger.debug(`Found alternative title: ${altTitle}`);
-        return altTitle;
+        title = altTitle;
+      } else {
+        logger.debug('Could not find alternative title');
+        return null;
       }
-      
-      return null;
     }
     
     // Extract price - Walmart often has more complex price structures
