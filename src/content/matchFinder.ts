@@ -130,70 +130,50 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
       const priceElement = element.querySelector('.a-price .a-offscreen');
       price = priceElement ? parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0') : null;
     } else if (isWalmart) {
-      // Improved price extraction for Walmart
+      // Try multiple selectors for Walmart prices
+      const priceSelectors = [
+        // Primary selector for current HTML structure
+        'span.w_1UH7',
+        // Backup selectors for other possible structures
+        '[data-automation-id="product-price"]', 
+        '.b.black.f1.mr1', 
+        '.w_iUH'
+      ];
       
-      // Method 1: Try to find the specific price element with class w_1UH7
-      const priceSpan = element.querySelector('span.w_1UH7');
-      if (priceSpan) {
-        const priceText = priceSpan.textContent || '';
-        console.log('[E-commerce Arbitrage] Found price span text:', priceText);
-        
-        // Try direct match for "$X.XX" pattern
-        const exactPriceMatch = priceText.match(/\$(\d+\.\d{2})/);
-        if (exactPriceMatch && exactPriceMatch[1]) {
-          price = parseFloat(exactPriceMatch[1]);
-          console.log('[E-commerce Arbitrage] Extracted exact price from span:', price);
-        } else {
-          // Try "Now $X.XX" pattern
-          const nowPriceMatch = priceText.match(/Now\s+\$(\d+\.\d{2})/i);
-          if (nowPriceMatch && nowPriceMatch[1]) {
-            price = parseFloat(nowPriceMatch[1]);
-            console.log('[E-commerce Arbitrage] Extracted Now price from span:', price);
-          } else {
-            // Try "current price $X.XX" pattern
-            const currentPriceMatch = priceText.match(/current\s+price\s+(?:Now)?\s*\$(\d+\.\d{2})/i);
-            if (currentPriceMatch && currentPriceMatch[1]) {
-              price = parseFloat(currentPriceMatch[1]);
-              console.log('[E-commerce Arbitrage] Extracted current price from span:', price);
-            }
-          }
-        }
-      }
-      
-      // Method 2: Fall back to the original approach if Method 1 failed
-      if (price === null) {
-        const priceElement = element.querySelector('[data-automation-id="product-price"], .b.black.f1.mr1');
+      // Try each selector until we find a valid price
+      for (const selector of priceSelectors) {
+        const priceElement = element.querySelector(selector);
         if (priceElement) {
           const priceText = priceElement.textContent || '';
-          // Extract just the numeric part with up to 2 decimal places
-          const priceMatch = priceText.match(/\$?(\d+(?:\.\d{2})?)/);
+          
+          // Extract only dollars and cents with a more precise regex
+          // This looks for a price format like $XX.XX
+          const priceMatch = priceText.match(/\$\s*(\d+(?:\.\d{2})?)/);
+          
           if (priceMatch && priceMatch[1]) {
             price = parseFloat(priceMatch[1]);
-            console.log('[E-commerce Arbitrage] Extracted price using fallback:', price);
-          }
-        }
-      }
-      
-      // Method 3: Check for separate price element for complex price formats
-      if (price === null) {
-        // Look for a div containing the price
-        const priceDivs = element.querySelectorAll('div');
-        for (const div of Array.from(priceDivs)) {
-          const text = div.textContent || '';
-          if (text.includes('$') && /\d+\.\d{2}/.test(text)) {
-            const priceMatch = text.match(/\$(\d+\.\d{2})/);
-            if (priceMatch && priceMatch[1]) {
-              price = parseFloat(priceMatch[1]);
-              console.log('[E-commerce Arbitrage] Extracted price from div:', price);
-              break;
+            
+            // Sanity check - if extracted price seems unreasonable (too high)
+            if (price > 10000) {
+              console.log('[E-commerce Arbitrage] Suspicious price detected:', price);
+              price = null; // Reset and try next selector
+            } else {
+              break; // We found a valid price, stop trying more selectors
             }
           }
         }
       }
       
-      // Log warning if price extraction failed
+      // If we still couldn't find a price, try looking specifically for separate dollar/cents elements
       if (price === null) {
-        console.warn('[E-commerce Arbitrage] Could not extract price from element');
+        const wholeDollarElement = element.querySelector('.w_C6.w_D.w_C7.w_Da');
+        const centsElement = element.querySelector('.w_C6.w_D.w_C7.w_Db');
+        
+        if (wholeDollarElement && centsElement) {
+          const dollars = wholeDollarElement.textContent?.replace(/[^\d]/g, '') || '0';
+          const cents = centsElement.textContent?.replace(/[^\d]/g, '') || '00';
+          price = parseFloat(`${dollars}.${cents}`);
+        }
       }
     }
     
