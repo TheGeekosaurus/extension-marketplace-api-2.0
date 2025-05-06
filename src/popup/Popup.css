@@ -1161,3 +1161,36 @@ body {
   color: #e74c3c;
   font-style: italic;
 }
+.selector-error {
+  margin-left: 20px;
+  color: #e74c3c;
+  font-style: italic;
+}
+
+/* Search Results Extraction Styling */
+.extraction-results {
+  margin-bottom: 16px;
+  padding: 12px;
+  background-color: #f1f3f5;
+  border-radius: 6px;
+  border-left: 4px solid #3498db;
+}
+
+.extraction-results h5 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  color: #2c3e50;
+}
+
+.extraction-status {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.extraction-status.success {
+  color: #27ae60;
+}
+
+.extraction-status.failure {
+  color: #e74c3c;
+}
