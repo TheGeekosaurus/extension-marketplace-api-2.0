@@ -5,6 +5,7 @@ import { extractAmazonProductData } from './extractors/amazon';
 import { extractWalmartProductData } from './extractors/walmart';
 import { extractTargetProductData } from './extractors/target';
 import { extractHomeDepotProductData } from './extractors/homedepot';
+import { runSelectorDebugger, highlightSelectors } from './utils/selectorTester';
 
 /**
  * Main function to extract product data based on current page
@@ -71,6 +72,22 @@ function main() {
     });
 }
 
+/**
+ * Get the current marketplace from the URL
+ * 
+ * @returns Marketplace type or null if not supported
+ */
+function getCurrentMarketplace() {
+  const url = window.location.href;
+  
+  if (url.includes('amazon.com')) return 'amazon';
+  if (url.includes('walmart.com')) return 'walmart';
+  if (url.includes('target.com')) return 'target';
+  if (url.includes('homedepot.com')) return 'homedepot';
+  
+  return null;
+}
+
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('[E-commerce Arbitrage] Received message in content script:', message);
@@ -106,6 +123,53 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   if (message.action === 'MANUAL_MATCH_ERROR') {
     console.error('[E-commerce Arbitrage] Error in background search:', message.error);
+    return true;
+  }
+  
+  // NEW: Handle selector testing request
+  if (message.action === 'DEBUG_SELECTORS') {
+    const marketplace = getCurrentMarketplace();
+    
+    if (!marketplace) {
+      sendResponse({ 
+        success: false, 
+        error: 'Not on a supported marketplace page' 
+      });
+      return true;
+    }
+    
+    console.log(`[E-commerce Arbitrage] Running selector debugger for ${marketplace}`);
+    const results = runSelectorDebugger(marketplace);
+    
+    sendResponse({ 
+      success: true, 
+      marketplace,
+      results
+    });
+    
+    return true;
+  }
+  
+  // NEW: Handle selector highlighting request
+  if (message.action === 'HIGHLIGHT_SELECTORS') {
+    const marketplace = getCurrentMarketplace();
+    
+    if (!marketplace) {
+      sendResponse({ 
+        success: false, 
+        error: 'Not on a supported marketplace page' 
+      });
+      return true;
+    }
+    
+    console.log(`[E-commerce Arbitrage] Highlighting selectors for ${marketplace}`);
+    highlightSelectors(marketplace);
+    
+    sendResponse({ 
+      success: true, 
+      marketplace
+    });
+    
     return true;
   }
   
