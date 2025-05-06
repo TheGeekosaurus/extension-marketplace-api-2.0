@@ -98,11 +98,40 @@ function extractProductData(
 ): ExtractedMatch | null {
   try {
     // Extract title
+    // First check if this is a sponsored product
+    let isSponsoredProduct = false;
+    try {
+      const sponsoredLabel = element.querySelector('.puis-label-popover-default, .a-color-secondary:contains("Sponsored")');
+      if (sponsoredLabel) {
+        isSponsoredProduct = true;
+        logger.debug('Found sponsored product');
+      }
+    } catch (e) {
+      // Ignore error, assume not sponsored
+    }
+    
+    // Extract the actual title
     const titleElement = element.querySelector('h2, h2 a, .a-text-normal');
     const title = titleElement?.textContent?.trim() || '';
     
     if (!title) {
       logger.debug('No title found in element');
+      return null;
+    }
+    
+    // Don't return "Sponsored" as the title
+    if (title === "Sponsored") {
+      logger.debug('Ignoring "Sponsored" label as title, trying to find actual title');
+      
+      // Try alternative title selectors
+      const altTitleElement = element.querySelector('.a-size-base-plus, .a-size-medium');
+      const altTitle = altTitleElement?.textContent?.trim();
+      
+      if (altTitle) {
+        logger.debug(`Found alternative title: ${altTitle}`);
+        return altTitle;
+      }
+      
       return null;
     }
     
