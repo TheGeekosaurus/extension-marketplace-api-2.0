@@ -371,7 +371,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         setManualMatch({
           enabled: true,
           sourceProduct: currentProduct,
-          searchUrl: result.match.url
+          searchUrl: result.match.searchUrl || null
         });
       } else {
         // Handle no match found
