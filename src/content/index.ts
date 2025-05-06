@@ -7,7 +7,6 @@ import { extractTargetProductData } from './extractors/target';
 import { extractHomeDepotProductData } from './extractors/homedepot';
 import { runSelectorDebugger, highlightSelectors } from './utils/selectorTester';
 import { runSearchSelectorDebugger, highlightSearchResultElements } from './utils/searchSelectorTester';
-import { initMatchFinderIntegration } from './matchFinderIntegration';
 
 /**
  * Main function to extract product data based on current page
@@ -222,10 +221,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   return true; // Keep the message channel open for async response
 });
-
-// Run when the content script is first loaded
-console.log('[E-commerce Arbitrage] Content script loaded, initializing match finder integration');
-initMatchFinderIntegration();
 
 // Wait for page to fully load before extracting data
 console.log('[E-commerce Arbitrage] Content script loaded, waiting for window load event');
