@@ -10,7 +10,7 @@ module.exports = {
     popup: './src/popup/index.tsx',
     background: './src/background/index.ts',
     contentScript: './src/content/index.ts',
-    matchFinder: './src/content/matchFinder.ts'  // Add the new entry point
+    matchFinder: './src/content/matchFinderIntegration.ts'  // Integration with match finder module
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
