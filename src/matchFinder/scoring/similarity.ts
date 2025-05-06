@@ -41,17 +41,7 @@ export function calculateTitleSimilarity(title1: string, title2: string): number
   }
   
   // Calculate similarity score (0-1)
-  // Ensure we have a reasonable number to avoid division by zero
-  if (words1.length === 0 || words2.length === 0) {
-    return 0.1; // Return a small default value instead of 0
-  }
-  
-  // Calculate score - make sure it's never zero for matching products
-  const rawScore = matchCount / Math.max(words1.length, words2.length);
-  
-  // For very similar products, ensure a minimum score of 0.3
-  // This helps prevent "0.0% match" display issues
-  const similarityScore = Math.max(rawScore, matchCount > 0 ? 0.3 : 0);
+  const similarityScore = matchCount / Math.max(words1.length, words2.length);
   
   logger.debug(`Similarity between "${title1.substring(0, 20)}..." and "${title2.substring(0, 20)}...": ${similarityScore.toFixed(3)}`);
   

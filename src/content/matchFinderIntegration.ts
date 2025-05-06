@@ -3,16 +3,13 @@
 import { ProductData } from '../types';
 import { extractBestMatch } from '../matchFinder';
 import { SupportedMarketplace } from '../matchFinder/types';
-import { createLogger } from '../matchFinder/utils/logger';
-
-const logger = createLogger('MatchFinderIntegration');
 
 /**
  * Initialize the match finder integration
  * This should be called when the content script loads
  */
 export function initMatchFinderIntegration(): void {
-  logger.info('Match finder integration initialized');
+  console.log('[E-commerce Arbitrage] Match finder integration initialized');
   
   // Check if this is part of a manual match search
   checkForManualMatchSearch();
@@ -22,11 +19,11 @@ export function initMatchFinderIntegration(): void {
  * Check if this page load is part of a manual match search
  */
 function checkForManualMatchSearch(): void {
-  logger.info('Checking for manual match search');
+  console.log('[E-commerce Arbitrage] Checking for manual match search');
   
   chrome.storage.local.get(['manualMatchInProgress', 'manualMatchSourceProduct'], (result) => {
     if (result.manualMatchInProgress && result.manualMatchSourceProduct) {
-      logger.info('Manual match search is in progress, finding best match...');
+      console.log('[E-commerce Arbitrage] Manual match search is in progress, finding best match...');
       
       // Wait for page to load fully
       if (document.readyState === 'complete') {
@@ -46,7 +43,7 @@ function checkForManualMatchSearch(): void {
  * @param sourceProduct - Source product to match against
  */
 async function processManualSearch(sourceProduct: ProductData): Promise<void> {
-  logger.info('Processing manual search for:', sourceProduct);
+  console.log('[E-commerce Arbitrage] Processing manual search for:', sourceProduct);
   
   // Delay to allow dynamic content to load
   await new Promise(resolve => setTimeout(resolve, 2000));
@@ -56,7 +53,7 @@ async function processManualSearch(sourceProduct: ProductData): Promise<void> {
     const marketplace = determineMarketplace();
     
     if (!marketplace) {
-      logger.error('Could not determine marketplace from URL');
+      console.error('[E-commerce Arbitrage] Could not determine marketplace from URL');
       sendMatchResult({
         action: 'MANUAL_MATCH_ERROR',
         error: 'Could not determine marketplace from URL'
@@ -64,28 +61,19 @@ async function processManualSearch(sourceProduct: ProductData): Promise<void> {
       return;
     }
     
-    // Get the current URL for the "View Search" button
-    const searchUrl = window.location.href;
-    
     // Extract the best match
     const bestMatch = extractBestMatch(sourceProduct, document, marketplace);
     
     if (bestMatch) {
-      logger.info('Best match found:', bestMatch);
-      
-      // Add the search URL to the match
-      const matchWithSearchUrl = {
-        ...bestMatch,
-        searchUrl
-      };
+      console.log('[E-commerce Arbitrage] Best match found:', bestMatch);
       
       // Send the match back to the extension
       sendMatchResult({
         action: 'MANUAL_MATCH_FOUND',
-        match: matchWithSearchUrl
+        match: bestMatch
       });
     } else {
-      logger.warn('No good match found');
+      console.warn('[E-commerce Arbitrage] No good match found');
       
       // Send message that no match was found
       sendMatchResult({
@@ -93,7 +81,7 @@ async function processManualSearch(sourceProduct: ProductData): Promise<void> {
       });
     }
   } catch (error) {
-    logger.error('Error finding match:', error);
+    console.error('[E-commerce Arbitrage] Error finding match:', error);
     
     // Send error message back
     sendMatchResult({
@@ -126,13 +114,13 @@ function determineMarketplace(): SupportedMarketplace | null {
  * @param message - Message to send
  */
 function sendMatchResult(message: any): void {
-  logger.info('Sending match result:', message);
+  console.log('[E-commerce Arbitrage] Sending match result:', message);
   
   chrome.runtime.sendMessage(message, (response) => {
     if (chrome.runtime.lastError) {
-      logger.error('Error sending match result:', chrome.runtime.lastError);
+      console.error('[E-commerce Arbitrage] Error sending match result:', chrome.runtime.lastError);
     } else {
-      logger.info('Match result sent successfully:', response);
+      console.log('[E-commerce Arbitrage] Match result sent successfully:', response);
     }
   });
 }
