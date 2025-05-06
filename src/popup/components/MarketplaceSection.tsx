@@ -30,6 +30,9 @@ const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
   // Determine if this is a manual match
   const isManualMatch = comparison?.manualMatch === true;
   
+  // Get search URL from section props, comparison, or manual match
+  const finalSearchUrl = searchUrl || (comparison && comparison.searchUrl);
+  
   if (!products || products.length === 0) {
     return null;
   }
@@ -56,7 +59,7 @@ const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
             key={`${marketplace}-${index}`} 
             product={product}
             showSimilarity={true}
-            searchUrl={searchUrl || (isManualMatch ? comparison?.searchUrl : undefined)}
+            searchUrl={finalSearchUrl}
           />
         ))
       ) : (
