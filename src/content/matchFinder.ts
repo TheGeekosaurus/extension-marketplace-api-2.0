@@ -130,51 +130,45 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
       const priceElement = element.querySelector('.a-price .a-offscreen');
       price = priceElement ? parseFloat(priceElement.textContent?.replace(/[^0-9.]/g, '') || '0') : null;
     } else if (isWalmart) {
-      // Using a combined approach to extract Walmart prices
-
-      // Original approach (keeping this for compatibility)
+      // Original logic
       const priceElement = element.querySelector('[data-automation-id="product-price"], .b.black.f1.mr1, .w_iUH');
+      
       if (priceElement) {
         const priceText = priceElement.textContent || '';
-        // Try to extract price with a simpler regex first
-        const simpleMatch = priceText.match(/\$(\d+\.\d{2})/);
-        if (simpleMatch && simpleMatch[1]) {
-          price = parseFloat(simpleMatch[1]);
-          console.log('[E-commerce Arbitrage] Extracted price using simple regex:', price);
-        }
-      }
-
-      // If the above didn't work, try the "Now $X.XX" format
-      if (price === null) {
-        // Look for the "Now $X.XX" format which is common in Walmart
-        const nowPriceElement = element.querySelector('span.w_1UH7, [data-automation-id="product-price-amount"]');
-        if (nowPriceElement) {
-          const priceText = nowPriceElement.textContent || '';
-          // This looks for formats like "current price $9.99" or similar
-          const priceMatch = priceText.match(/\$(\d+\.\d{2})/);
-          if (priceMatch && priceMatch[1]) {
-            price = parseFloat(priceMatch[1]);
-            console.log('[E-commerce Arbitrage] Extracted price from Now format:', price);
-          } else {
-            // This handles the case where price might be displayed as "Now $9 99"
-            const splitPriceMatch = priceText.match(/\$(\d+)\s*(\d{2})/);
-            if (splitPriceMatch && splitPriceMatch[1] && splitPriceMatch[2]) {
-              price = parseFloat(`${splitPriceMatch[1]}.${splitPriceMatch[2]}`);
-              console.log('[E-commerce Arbitrage] Extracted split price format:', price);
-            }
+        // Extract just the numeric part with up to 2 decimal places
+        const priceMatch = priceText.match(/\$?(\d+(?:\.\d{2})?)/);
+        if (priceMatch && priceMatch[1]) {
+          price = parseFloat(priceMatch[1]);
+          console.log('[E-commerce Arbitrage] Extracted price:', price);
+        } else {
+          // If the default regex fails, try a simpler version
+          // This specifically tries to extract just any price with a dollar sign
+          const simplePriceMatch = priceText.match(/\$\s*(\d+(?:\.\d{2})?)/);
+          if (simplePriceMatch && simplePriceMatch[1]) {
+            price = parseFloat(simplePriceMatch[1]);
+            console.log('[E-commerce Arbitrage] Extracted price with simpler regex:', price);
           }
         }
       }
-
-      // Last resort - try to find any price in the product card
+      
+      // Only if price is still null, try to find a "Now" price (which can be buggy)
       if (price === null) {
-        const priceRegex = /\$(\d+\.\d{2})/g;
-        const allPriceMatches = Array.from(element.innerHTML.matchAll(priceRegex));
-        if (allPriceMatches.length > 0) {
-          // Use the first price found
-          price = parseFloat(allPriceMatches[0][1]);
-          console.log('[E-commerce Arbitrage] Extracted price using last resort:', price);
+        // Check for elements with "Now" and a price
+        const nowElements = element.querySelectorAll('span:contains("Now")');
+        for (const nowEl of Array.from(nowElements)) {
+          const nowText = nowEl.textContent || '';
+          const nowPriceMatch = nowText.match(/Now\s+\$(\d+\.\d{2})/i);
+          if (nowPriceMatch && nowPriceMatch[1]) {
+            price = parseFloat(nowPriceMatch[1]);
+            console.log('[E-commerce Arbitrage] Extracted Now price:', price);
+            break;
+          }
         }
+      }
+      
+      // Log a warning if price parsing fails
+      if (price === null) {
+        console.warn('[E-commerce Arbitrage] Could not extract price from element:', priceElement?.textContent);
       }
     }
     
