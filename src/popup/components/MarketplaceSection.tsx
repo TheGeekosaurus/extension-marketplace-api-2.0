@@ -11,7 +11,7 @@ interface MarketplaceSectionProps {
   marketplace: string;
   products: ProductMatchResult[] | undefined;
   similarity?: number;
-  searchUrl?: string;
+  searchUrl?: string | null; // Allow null here
 }
 
 /**
@@ -31,7 +31,8 @@ const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
   const isManualMatch = comparison?.manualMatch === true;
   
   // Get search URL from section props, comparison, or manual match
-  const finalSearchUrl = searchUrl || (comparison && comparison.searchUrl);
+  // Convert null to undefined to match the expected type in MatchedProductCard
+  const finalSearchUrl = searchUrl || (comparison && comparison.searchUrl) || undefined;
   
   if (!products || products.length === 0) {
     return null;
