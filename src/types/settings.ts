@@ -8,6 +8,7 @@ import { MarketplaceType, MarketplaceFees, ResellableMarketplaceType } from './m
 export interface Settings {
   /**
    * Base URL for API endpoints
+   * @deprecated API URL is now hardcoded in the codebase
    */
   apiBaseUrl: string;
   
@@ -43,11 +44,13 @@ export interface Settings {
 
   /**
    * Home Depot store ID for store-specific inventory checking
+   * @deprecated We're not reselling on Home Depot
    */
   homeDepotStoreId?: string | null;
   
   /**
    * ZIP code for location-specific pricing and inventory
+   * @deprecated We're not reselling on Home Depot
    */
   locationZipCode?: string | null;
 }
@@ -56,15 +59,15 @@ export interface Settings {
  * Default settings
  */
 export const DEFAULT_SETTINGS: Settings = {
-  apiBaseUrl: 'https://extension-marketplace-api-2-0.onrender.com',
+  apiBaseUrl: 'https://ftliettyjscrejxhdnuj.functions.supabase.co', // Hardcoded in ApiClient.ts as well
   cacheExpiration: 24,
   minimumProfitPercentage: 10,
   includeFees: true,
   estimatedFees: {
     amazon: 0.15,
-    walmart: 0.12,
     target: 0.10,
-    homedepot: 0.10
+    walmart: 0.00,  // We're not reselling on Walmart
+    homedepot: 0.00 // We're not reselling on Home Depot
   },
   selectedMarketplace: null,
   additionalFees: 0,

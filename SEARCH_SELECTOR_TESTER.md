@@ -1,132 +1,103 @@
-# Search Selector Tester Guide
+# Match Finder Debugging Guide
 
-The Search Selector Tester extends the Selector Testing functionality to work with marketplace search results pages. This is particularly useful for debugging the match finder feature that extracts product data from search results.
+This document explains how to use the Match Finder debugging tools to troubleshoot issues with product matching on marketplace search pages.
 
 ## Overview
 
-Search pages often have different DOM structures than product pages, and they typically contain multiple product entries that need to be extracted and processed. The Search Selector Tester helps you:
+The Match Finder is a core component of the E-commerce Arbitrage Assistant that helps find matching products on marketplace search pages. It's used by the "Find Match In Background" feature to automatically match products across different marketplaces.
 
-1. Identify search result containers on the page
-2. Verify that product data (title, price, image, etc.) can be extracted from each result
-3. Test the actual search result extraction functions
-4. Visualize search results on the page with color-coded highlighting
+When troubleshooting issues with match finding, you can use the built-in debug tools to:
 
-## Using the Search Selector Tester
+1. Visualize the search and matching process
+2. Test selector functionality on marketplace search pages
+3. View similarity scores and matching decisions
+4. Identify why certain products are not being matched correctly
 
-The search tester is integrated with the regular selector tester in the settings panel. When you're on a search page:
+## Using the Match Finder Debug Tools
 
-1. Navigate to a search results page on a supported marketplace (Amazon, Walmart)
-2. Open the extension popup
-3. Go to the "Settings" tab
-4. Scroll down to the "Debug Tools" section
-5. Click the "Test Selectors on Current Page" button
-6. The extension will automatically detect that you're on a search page and run the search-specific tests
+### Step 1: Extract a Product
 
-## Understanding Test Results
+First, navigate to a product page (Amazon, Walmart, Target, or Home Depot) and click the extension icon. Use the "Refresh Product Data" button to extract the current product's information.
 
-The search selector test results have two main sections:
+### Step 2: Navigate to a Search Page
 
-### 1. Search Result Extraction
+Open a new tab and navigate to a search page on one of the supported marketplaces:
+- Amazon: `https://www.amazon.com/s?k=product+name`
+- Walmart: `https://www.walmart.com/search?q=product+name`
 
-This section shows whether the main search result finder function was successful:
+Replace `product+name` with the name of the product you're trying to match.
 
-- ✅ Success: Found X search result elements
-- ❌ Failure: Error message or "No elements found"
+### Step 3: Activate Test Mode
 
-This tests the actual extraction functions used by the match finder feature:
-- `findAmazonSearchResultElements()`
-- `findWalmartSearchResultElements()`
+1. Click the extension icon to open the popup
+2. Go to the "Settings" tab
+3. Scroll down to the "Debug Tools" section
+4. Click the "Test Match Finder" button
 
-### 2. Selector Groups
+This will launch the Match Finder test mode with a debug panel on the search page.
 
-The selector groups section shows detailed results for each set of selectors:
+## Using the Debug Panel
 
-- **resultContainer**: Elements that contain individual search results
-- **title**: Product title selectors
-- **price**: Product price selectors
-- **image**: Product image selectors
-- **link**: Product link selectors
-- **rating**: Product rating selectors
-- **reviewCount**: Review count selectors
+The debug panel provides real-time information about the matching process:
 
-For each selector, you'll see:
-- Whether it matched any elements
-- How many elements it matched
-- Sample text from matched elements
-- Any errors encountered
+### Matches Tab
 
-## Visual Highlighting
+This tab shows:
+- The source product you're trying to match
+- All potential matches found on the page
+- Similarity scores for each match
+- Product details including price, title, and image
 
-You can also use the "Highlight Elements on Page" button while on a search page. This will:
+You can click "Highlight in Page" for any match to visually see where it appears on the page.
 
-1. Highlight each search result container in a unique color
-2. Highlight key elements within each container (title, price, image, etc.)
-3. Apply labels showing which type of element is highlighted
+### Logs Tab
 
-This visual approach helps you see what's being extracted and identify any issues with the structure.
+This tab shows detailed log messages from the matching process, including:
+- Elements found on the page
+- Extraction success or failures
+- Similarity calculations
+- Timing information
 
-## Common Search Page Issues
+## Troubleshooting Specific Issues
 
-### 1. Container Selectors Not Found
+### No Matches Found
 
-If the result container selectors don't work, the extension won't be able to identify individual product listings. This often happens when:
+If no matches are found, check the following:
+- Are there products on the search page that should match?
+- Are the selectors working correctly? (Check the logs)
+- Is the similarity threshold too high? (Default is 0.7 or 70%)
 
-- The marketplace has updated their search results layout
-- The search has returned a different format (e.g., grid vs. list view)
-- The page is still loading dynamically and elements aren't available yet
+### Low Similarity Scores
 
-### 2. Element Selectors Not Finding Content
+If products are found but similarity scores are low:
+- Check if the product titles are significantly different
+- Look for discrepancies in brand names
+- Consider price differences that may affect scoring
 
-If the container selectors work but element selectors (like title, price) don't, check:
+### Selector Issues
 
-- Whether the selectors are looking in the correct parent context
-- If the marketplace has changed its inner element structure
-- If there are multiple formats for different types of products
+If selector issues are suspected:
+- Use the "Test Selectors on Current Page" button in Settings
+- Check if selectors for the current marketplace need updating
 
-### 3. Multiple Containers Found But Wrong Elements
+## Advanced Testing
 
-If the test finds containers but they're not the actual product listings:
+For more advanced testing, the debug panel allows you to:
+- Compare different similarity calculation algorithms
+- View all extracted product data
+- See timing information for performance diagnostics
 
-- The selectors might be matching pagination elements or filters
-- Sponsored content might have different markup
-- Marketplace might have changed which containers actually contain products
+## Updating Selectors
 
-## Updating Search Selectors
+If you need to update selectors for a marketplace:
+1. Navigate to `src/content/matchFinder/core/[marketplaceName]Matcher.ts`
+2. Update the selectors in the appropriate methods
+3. Reload the extension and test again
 
-If you need to update search selectors, modify the appropriate files:
+## Error Reporting
 
-- `src/content/matchFinder/amazonSearch.ts`
-- `src/content/matchFinder/walmartSearch.ts`
-- `src/content/utils/searchSelectorTester.ts` (for the testing selectors)
-
-The search selectors are organized into groups and follow a similar pattern to product page selectors:
-
-```typescript
-export const amazonSearchSelectors = {
-  resultContainer: [
-    '.s-result-item[data-asin]:not(.AdHolder)',
-    '.sg-row[data-asin]',
-    '.s-result-list .a-section[data-asin]'
-  ],
-  // Other selector groups...
-};
-```
-
-## Tips for Search Page Selectors
-
-1. **Container First**: Start by getting the container selectors right, as everything else depends on these
-2. **Inspect Variations**: Check different types of search results (regular products, sponsored, ads)
-3. **Handle Multiple Layouts**: Some marketplaces use different layouts for different search types
-4. **Data Attributes**: Look for data attributes like `data-asin` or `data-item-id` that uniquely identify products
-5. **Test Different Searches**: Try different search terms to make sure selectors work across product categories
-
-## Advanced Troubleshooting
-
-For complex issues with search results extraction:
-
-1. **Browser Console**: Use the browser console to test selector queries directly
-2. **Element Inspection**: Use the browser's element inspector to analyze the DOM structure
-3. **Multiple Pages**: Test on different types of search results pages
-4. **Time Delays**: Some pages load elements dynamically after the initial page load
-
-By using the Search Selector Tester regularly when making changes, you can ensure your extension maintains compatibility as marketplace websites evolve their search results pages.
+When reporting issues, include the following information:
+- Screenshots of the debug panel
+- The source product you're trying to match
+- The search page URL
+- Any error messages from the Logs tab

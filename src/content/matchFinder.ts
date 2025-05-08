@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 // src/content/matchFinder.ts - Find best matching product on search results pages
 
 import { ProductData } from '../types';
@@ -82,6 +83,95 @@ async function loadSourceProductAndFindMatch(isBackgroundSearch: boolean = false
           error: String(error)
         });
       }
+=======
+// src/content/matchFinder.ts
+// Main entry point for the matchFinder content script that runs on search pages
+
+import { MatchFinder, createLogger, LogLevel } from './matchFinder/index';
+import { ProductData } from '../types';
+
+// Initialize logger
+const logger = createLogger('MatchFinder');
+logger.setLevel(LogLevel.INFO);
+
+/**
+ * Initialize the match finder
+ * This runs on Amazon and Walmart search pages
+ */
+function initializeMatchFinder(): void {
+  logger.info('Match finder initializing on search page:', window.location.href);
+  
+  // Check if a manual match search is in progress
+  chrome.storage.local.get(['manualMatchInProgress', 'manualMatchSourceProduct'], (result) => {
+    if (result.manualMatchInProgress && result.manualMatchSourceProduct) {
+      logger.info('Manual match in progress with source product:', result.manualMatchSourceProduct.title);
+      
+      try {
+        // Add a timeout safety mechanism to prevent hanging
+        const searchTimeout = setTimeout(() => {
+          logger.error('Match finding timed out after 30 seconds');
+          
+          // Clean up storage state to prevent future issues
+          chrome.storage.local.set({ manualMatchInProgress: false });
+          
+          // Send timeout error message
+          chrome.runtime.sendMessage({
+            action: 'MANUAL_MATCH_ERROR',
+            error: 'Match finding operation timed out after 30 seconds.'
+          });
+        }, 30000); // 30 second timeout
+        
+        // Initialize the matcher with the source product
+        const matcher = new MatchFinder({
+          minSimilarityScore: 0.7,
+          maxResults: 5,
+          searchTimeout: 25000, // Slightly less than our global timeout
+          logLevel: 'debug'     // More detailed logging for troubleshooting
+        });
+        
+        // Set the source product
+        matcher.setSourceProduct(result.manualMatchSourceProduct);
+        
+        // Find matches with improved error handling
+        matcher.findMatches()
+          .then(matchResult => {
+            // Clear the timeout since operation completed
+            clearTimeout(searchTimeout);
+            
+            // Process the result
+            handleMatchResult(matchResult, result.manualMatchSourceProduct);
+          })
+          .catch(error => {
+            // Clear the timeout since operation errored
+            clearTimeout(searchTimeout);
+            
+            logger.error('Error finding matches:', error);
+            
+            // Clean up storage state
+            chrome.storage.local.set({ manualMatchInProgress: false });
+            
+            // Send error message back
+            chrome.runtime.sendMessage({
+              action: 'MANUAL_MATCH_ERROR',
+              error: error instanceof Error ? error.message : String(error)
+            });
+          });
+      } catch (error) {
+        // Handle any errors in the initialization process
+        logger.error('Error initializing match finder:', error);
+        
+        // Clean up storage state
+        chrome.storage.local.set({ manualMatchInProgress: false });
+        
+        // Send error message
+        chrome.runtime.sendMessage({
+          action: 'MANUAL_MATCH_ERROR',
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    } else {
+      logger.info('No manual match in progress, exiting');
+>>>>>>> Stashed changes
     }
   });
 }
@@ -161,7 +251,11 @@ async function findBestMatchOnPage(sourceProduct: ProductData) {
               break; // We found a valid price, stop trying more selectors
             }
           }
-        }
+        });
+      } catch (error) {
+        clearTimeout(timeout);
+        logger.error('Exception sending message:', error);
+        reject(error);
       }
       
       // If we still couldn't find a price, try looking specifically for separate dollar/cents elements

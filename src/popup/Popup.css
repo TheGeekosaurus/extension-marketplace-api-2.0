@@ -1194,3 +1194,35 @@ body {
 .extraction-status.failure {
   color: #e74c3c;
 }
+
+/* No Matches Found Styling */
+.no-matches-container {
+  margin: 12px 0;
+  padding: 16px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px var(--shadow-color);
+  text-align: center;
+}
+
+.no-matches-container p {
+  font-size: 15px;
+  color: var(--dark-color);
+  margin-bottom: 12px;
+}
+
+.search-link-container {
+  margin-top: 12px;
+}
+
+.search-link-container p {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #666;
+}
+
+.no-matches-container .view-search-button {
+  display: inline-block;
+  padding: 8px 16px;
+  font-size: 14px;
+}

@@ -30,7 +30,21 @@ const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
   // Determine if this is a manual match
   const isManualMatch = comparison?.manualMatch === true;
   
-  if (!products || products.length === 0) {
+  // Log for debugging
+  console.log(`MarketplaceSection for ${marketplace}:`, { 
+    products, 
+    allProducts, 
+    isManualMatch,
+    similarity
+  });
+  
+  // For manual matches with a searchUrl, we want to show the section even with no matches
+  // so the user can click "View Search"
+  const isManualMatchWithSearchUrl = isManualMatch && (searchUrl || comparison?.searchUrl);
+  
+  // Don't render the section if there are no products and it's not a manual match with search URL
+  if ((!products || products.length === 0) && !isManualMatchWithSearchUrl) {
+    console.log(`No products for ${marketplace}, returning null`);
     return null;
   }
   
@@ -43,24 +57,43 @@ const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
             {(similarity * 100).toFixed(1)}% Match
           </span>
         )}
-        {isManualMatch && !similarity && products[0]?.similarity && (
+        {isManualMatch && !similarity && products && products.length > 0 && products[0]?.similarity !== undefined && (
           <span className="similarity-badge">
             {(products[0].similarity * 100).toFixed(1)}% Match
           </span>
         )}
       </div>
       
-      {allProducts.length > 0 ? (
+      {allProducts && allProducts.length > 0 ? (
         allProducts.map((product, index) => (
           <MatchedProductCard 
             key={`${marketplace}-${index}`} 
             product={product}
             showSimilarity={true}
-            searchUrl={searchUrl || (isManualMatch ? comparison?.searchUrl : undefined)}
+            searchUrl={searchUrl || (isManualMatch ? comparison?.searchUrl ?? undefined : undefined)}
           />
         ))
       ) : (
-        <p>No matching products found on {formatMarketplace(marketplace)}.</p>
+        <div className="no-matches-container">
+          <p>No matching products found on {formatMarketplace(marketplace)}.</p>
+          
+          {/* Show "View Search" button if we have a search URL */}
+          {(searchUrl || comparison?.searchUrl) && (
+            <div className="search-link-container">
+              <a 
+                href={searchUrl || comparison?.searchUrl || ''} 
+                onClick={(e) => {
+                  e.preventDefault();
+                  chrome.tabs.create({ url: searchUrl || comparison?.searchUrl || '' });
+                }}
+                className="view-search-button"
+              >
+                View Search Results
+              </a>
+              <p><small>Search manually to find matches</small></p>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

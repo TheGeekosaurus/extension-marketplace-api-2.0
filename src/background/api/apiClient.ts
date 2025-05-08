@@ -25,8 +25,8 @@ export class ApiClient {
     data?: R
   ): Promise<ApiResponse<T>> {
     try {
-      const settings = getSettings();
-      const apiBaseUrl = settings.apiBaseUrl;
+      // Use hardcoded API URL from constants instead of settings
+      const apiBaseUrl = 'https://ftliettyjscrejxhdnuj.functions.supabase.co';
       
       // Get API key if available
       const apiKey = await AuthService.getApiKey();

@@ -121,6 +121,21 @@ const ComparisonView: React.FC = () => {
         <div className="matched-products">
           <h3>Matching Products</h3>
           
+          {/* Debug output - using React.Fragment to suppress TypeScript errors */}
+          <React.Fragment>
+            {/* Using conditional to ensure these logs happen but don't affect rendering */}
+            {(() => {
+              console.log('Comparison data:', comparison);
+              console.log('Matched products:', comparison.matchedProducts);
+              console.log('Marketplace selections:', {
+                amazon: !settings.selectedMarketplace || settings.selectedMarketplace === 'amazon',
+                walmart: !settings.selectedMarketplace || settings.selectedMarketplace === 'walmart',
+                selected: settings.selectedMarketplace
+              });
+              return null;
+            })()}
+          </React.Fragment>
+          
           {/* Show which marketplace we're showing results for */}
           {settings.selectedMarketplace && (
             <div className="status-message">
@@ -131,7 +146,8 @@ const ComparisonView: React.FC = () => {
           {/* FIX 2: Removed total profit summary box */}
           
           {/* Amazon matches - only show if there's no selected marketplace or if amazon is selected */}
-          {(!settings.selectedMarketplace || settings.selectedMarketplace === 'amazon') && (
+          {(!settings.selectedMarketplace || settings.selectedMarketplace === 'amazon') && 
+            comparison.matchedProducts && 'amazon' in comparison.matchedProducts && (
             <MarketplaceSection 
               marketplace="amazon" 
               products={comparison.matchedProducts.amazon}
@@ -141,7 +157,8 @@ const ComparisonView: React.FC = () => {
           )}
           
           {/* Walmart matches - only show if there's no selected marketplace or if walmart is selected */}
-          {(!settings.selectedMarketplace || settings.selectedMarketplace === 'walmart') && (
+          {(!settings.selectedMarketplace || settings.selectedMarketplace === 'walmart') && 
+            comparison.matchedProducts && 'walmart' in comparison.matchedProducts && (
             <MarketplaceSection 
               marketplace="walmart" 
               products={comparison.matchedProducts.walmart}
@@ -150,12 +167,40 @@ const ComparisonView: React.FC = () => {
             />
           )}
           
-          {/* No matches found */}
-          {Object.keys(comparison.matchedProducts).length === 0 || 
-           (comparison.matchedProducts.amazon?.length === 0 && 
-            comparison.matchedProducts.walmart?.length === 0) && (
-            <p>No matching products found on other marketplaces.</p>
-          )}
+          {/* No matches found - only show if we truly have no matches */}
+          {(() => {
+            // Check if there are any valid matches across marketplaces
+            const hasMatches = Object.entries(comparison.matchedProducts).some(
+              ([marketplace, products]) => Array.isArray(products) && products.length > 0
+            );
+            
+            // Log the check result for debugging
+            console.log('Has matches check:', { hasMatches, matchedProducts: comparison.matchedProducts });
+            
+            // Only show the "no matches" message if we truly have no matches
+            return !hasMatches && (
+              <div className="no-matches-container">
+                <p>No matching products found on other marketplaces.</p>
+                
+                {/* If we have a search URL from background matching, show the search button */}
+                {comparison.searchUrl && (
+                  <div className="search-link-container">
+                    <a 
+                      href={comparison.searchUrl} 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        chrome.tabs.create({ url: comparison.searchUrl || '' });
+                      }}
+                      className="view-search-button"
+                    >
+                      View Search Results
+                    </a>
+                    <p><small>Search manually to find matches</small></p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           
           <div className="comparison-footer">
             <p className="timestamp">

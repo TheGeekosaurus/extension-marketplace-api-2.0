@@ -66,8 +66,12 @@ export const MatchedProductCard: React.FC<MatchedProductCardProps> = ({
             {product.fee_breakdown && (
               <>
                 <p className="detail-item negative">
-                  <span className="detail-label">Fees:</span>
-                  {formatPrice(product.fee_breakdown.total_fees)}
+                  <span className="detail-label">Marketplace Fee:</span>
+                  {formatPrice(product.fee_breakdown.marketplace_fee_amount)}
+                </p>
+                <p className="detail-item negative">
+                  <span className="detail-label">Additional Fees:</span>
+                  {formatPrice(product.fee_breakdown.additional_fees)}
                 </p>
               </>
             )}

@@ -1,7 +1,7 @@
 // src/popup/views/SettingsView.tsx - Settings tab content
 
 import React, { useState } from 'react';
-import { useSettings } from '../state/selectors';
+import { useSettings, useCurrentProduct } from '../state/selectors';
 import { usePopupStore } from '../state/store';
 import StatusMessage from '../components/StatusMessage';
 import { ResellableMarketplaceType } from '../../types';
@@ -12,6 +12,7 @@ import { ResellableMarketplaceType } from '../../types';
 const SettingsView: React.FC = () => {
   // Get settings from store
   const settings = useSettings();
+  const currentProduct = useCurrentProduct();
   
   // Local state for selector testing results
   const [selectorTestResults, setSelectorTestResults] = useState<any>(null);
@@ -155,23 +156,69 @@ const SettingsView: React.FC = () => {
     }
   };
   
+  // Test the MatchFinder in debug mode
+  const handleTestMatchFinder = async () => {
+    setCustomStatus('Launching Match Finder test mode...');
+    setCustomError(null);
+    
+    try {
+      // Make sure we have a current product
+      if (!currentProduct) {
+        throw new Error('No product data available. Please extract a product first.');
+      }
+      
+      // Get the current active tab
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tabs[0]?.id) {
+        throw new Error('No active tab found');
+      }
+      
+      // Check if the current tab is a search page
+      const url = tabs[0].url || '';
+      const isSearchPage = 
+        (url.includes('amazon.com/s') || url.includes('amazon.com/search')) ||
+        (url.includes('walmart.com/search') || url.includes('walmart.com/browse'));
+      
+      if (!isSearchPage) {
+        throw new Error('This tab is not a search page. Navigate to an Amazon or Walmart search page first.');
+      }
+      
+      // Send message to content script to activate test mode
+      const response = await new Promise<any>((resolve) => {
+        chrome.tabs.sendMessage(
+          tabs[0].id!, 
+          { 
+            action: 'TEST_MATCH_FINDER',
+            sourceProduct: currentProduct
+          }, 
+          (response) => {
+            if (chrome.runtime.lastError) {
+              resolve({ 
+                success: false, 
+                error: chrome.runtime.lastError.message 
+              });
+              return;
+            }
+            resolve(response);
+          }
+        );
+      });
+      
+      if (response && response.success) {
+        setCustomStatus('Match Finder test mode activated. Please check the search page for the debug panel.');
+      } else {
+        setCustomError(response?.error || 'Failed to activate Match Finder test mode.');
+      }
+    } catch (error) {
+      setCustomError(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+  
   return (
     <div className="settings-container">
       <h3>Extension Settings</h3>
       
-      <div className="settings-group">
-        <h4>API Settings</h4>
-        <div className="setting-item">
-          <label htmlFor="apiBaseUrl">API Base URL:</label>
-          <input
-            type="text"
-            id="apiBaseUrl"
-            name="apiBaseUrl"
-            value={settings.apiBaseUrl}
-            onChange={handleSettingChange}
-          />
-        </div>
-      </div>
+      {/* API settings are managed in constants.ts */}
       
       <div className="settings-group">
         <h4>Search Settings</h4>
@@ -190,33 +237,7 @@ const SettingsView: React.FC = () => {
         </div>
       </div>
       
-      <div className="settings-group">
-        <h4>Location Settings</h4>
-        <div className="setting-item">
-          <label htmlFor="locationZipCode">Your ZIP Code (for location-specific pricing):</label>
-          <input
-            type="text"
-            id="locationZipCode"
-            name="locationZipCode"
-            value={settings.locationZipCode || ''}
-            onChange={handleSettingChange}
-            placeholder="e.g. 90210"
-          />
-          <small>Used for Home Depot store-specific inventory and pricing</small>
-        </div>
-        <div className="setting-item">
-          <label htmlFor="homeDepotStoreId">Home Depot Store ID (optional):</label>
-          <input
-            type="text"
-            id="homeDepotStoreId"
-            name="homeDepotStoreId"
-            value={settings.homeDepotStoreId || ''}
-            onChange={handleSettingChange}
-            placeholder="e.g. 1234"
-          />
-          <small>Find your store ID at the end of a Home Depot store page URL</small>
-        </div>
-      </div>
+      {/* Location settings removed as we're not reselling on Home Depot */}
       
       <div className="settings-group">
         <h4>Cache Settings</h4>
@@ -269,19 +290,6 @@ const SettingsView: React.FC = () => {
           />
         </div>
         <div className="setting-item">
-          <label htmlFor="estimatedFees.walmart">Walmart Fee (%):</label>
-          <input
-            type="number"
-            id="estimatedFees.walmart"
-            name="estimatedFees.walmart"
-            min="0"
-            max="100"
-            step="0.1"
-            value={settings.estimatedFees.walmart * 100}
-            onChange={handleFeeChange}
-          />
-        </div>
-        <div className="setting-item">
           <label htmlFor="estimatedFees.target">Target Fee (%):</label>
           <input
             type="number"
@@ -291,19 +299,6 @@ const SettingsView: React.FC = () => {
             max="100"
             step="0.1"
             value={settings.estimatedFees.target * 100}
-            onChange={handleFeeChange}
-          />
-        </div>
-        <div className="setting-item">
-          <label htmlFor="estimatedFees.homedepot">Home Depot Fee (%):</label>
-          <input
-            type="number"
-            id="estimatedFees.homedepot"
-            name="estimatedFees.homedepot"
-            min="0"
-            max="100"
-            step="0.1"
-            value={settings.estimatedFees.homedepot * 100}
             onChange={handleFeeChange}
           />
         </div>
@@ -326,7 +321,7 @@ const SettingsView: React.FC = () => {
         </div>
       </div>
       
-      {/* New: Debug Tools Section */}
+      {/* Debug Tools Section */}
       <div className="settings-group">
         <h4>Debug Tools</h4>
         <p className="setting-description">
@@ -348,10 +343,20 @@ const SettingsView: React.FC = () => {
           >
             Highlight Elements on Page
           </button>
+          
+          {/* New Match Finder Test button */}
+          <button 
+            className="debug-button match-finder-test" 
+            onClick={handleTestMatchFinder}
+            disabled={!currentProduct}
+            title={!currentProduct ? 'Extract a product first' : 'Test Match Finder on a search page'}
+          >
+            Test Match Finder
+          </button>
         </div>
         
         <small>
-          Note: You must be on a supported marketplace product page (Amazon, Walmart, Target, Home Depot)
+          Note: You must be on a supported marketplace page to use these tools.
         </small>
       </div>
       

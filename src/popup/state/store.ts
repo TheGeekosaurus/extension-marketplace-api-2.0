@@ -5,6 +5,14 @@ import { ProductData, ProductComparison, Settings, MarketplaceType } from '../..
 import { sendMessage } from '../../common/messaging';
 import { DEFAULT_SETTINGS } from '../../common/constants';
 
+// Simple logger for debugging
+const logger = {
+  info: (message: string, ...args: any[]) => console.info(`[Store] ${message}`, ...args),
+  error: (message: string, ...args: any[]) => console.error(`[Store] ${message}`, ...args),
+  warn: (message: string, ...args: any[]) => console.warn(`[Store] ${message}`, ...args),
+  debug: (message: string, ...args: any[]) => console.debug(`[Store] ${message}`, ...args)
+};
+
 /**
  * Auth state interface for the popup
  */
@@ -266,8 +274,28 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     }
     
     // Determine destination marketplace
-    const destinationMarketplace = settings.selectedMarketplace || 
-      (currentProduct.marketplace === 'amazon' ? 'walmart' : 'amazon');
+    // For Home Depot or Target as source, default to searching on both Amazon and Walmart
+    // unless a specific marketplace is selected in settings
+    let destinationMarketplace;
+    
+    if (settings.selectedMarketplace) {
+      // Use the selected marketplace from settings
+      destinationMarketplace = settings.selectedMarketplace;
+    } else if (currentProduct.marketplace === 'amazon') {
+      // From Amazon, search Walmart
+      destinationMarketplace = 'walmart';
+    } else if (currentProduct.marketplace === 'walmart') {
+      // From Walmart, search Amazon
+      destinationMarketplace = 'amazon';
+    } else if (currentProduct.marketplace === 'homedepot' || currentProduct.marketplace === 'target') {
+      // From Home Depot or Target, default to Amazon (could also be Walmart)
+      destinationMarketplace = 'amazon';
+    } else {
+      // Default fallback
+      destinationMarketplace = 'amazon';
+    }
+    
+    console.log(`Source marketplace: ${currentProduct.marketplace}, destination: ${destinationMarketplace}`);
     
     // Create search term from product data
     const brandPrefix = currentProduct.brand ? `${currentProduct.brand} ` : '';
@@ -372,25 +400,32 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         }
         
         // Save the match to comparison
+        // Create matchedProducts object with correct marketplace keys
+        const matchedProducts: Record<string, any[]> = {
+          amazon: [],
+          walmart: []
+        };
+        
+        // Add the found match to the correct marketplace array
+        matchedProducts[matchFound.marketplace] = [
+          {
+            title: matchFound.title,
+            price: matchFound.price,
+            image: matchFound.imageUrl,
+            url: matchFound.url,
+            marketplace: matchFound.marketplace,
+            similarity: matchFound.similarityScore,
+            profit: {
+              amount: parseFloat(profit.toFixed(2)),
+              percentage: parseFloat(profitPercentage.toFixed(2))
+            },
+            fee_breakdown: feeBreakdown
+          }
+        ];
+        
         const comparison = {
           sourceProduct: currentProduct,
-          matchedProducts: {
-            [matchFound.marketplace]: [
-              {
-                title: matchFound.title,
-                price: matchFound.price,
-                image: matchFound.imageUrl,
-                url: matchFound.url,
-                marketplace: matchFound.marketplace,
-                similarity: matchFound.similarityScore,
-                profit: {
-                  amount: parseFloat(profit.toFixed(2)),
-                  percentage: parseFloat(profitPercentage.toFixed(2))
-                },
-                fee_breakdown: feeBreakdown
-              }
-            ]
-          },
+          matchedProducts: matchedProducts,
           timestamp: Date.now(),
           manualMatch: true,
           similarity: matchFound.similarityScore,
@@ -403,14 +438,40 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         
         setStatus(`Found match with ${Math.round(matchFound.similarityScore * 100)}% similarity on ${matchFound.marketplace}`);
       } else {
-        // If no match found, just open the tab so user can look manually
-        if (searchTab.id) {
-          chrome.tabs.update(searchTab.id, { active: true });
-        } else {
-          // If tab was already closed, open a new one
-          chrome.tabs.create({ url: destinationUrl });
+        // If no match found, create an empty comparison result with search URL
+        // This will show "No matches found" but still provide the search URL for manual searching
+        // Create matchedProducts object with both marketplace keys for consistency
+        const emptyMatchedProducts: Record<string, any[]> = {
+          amazon: [],
+          walmart: []
+        };
+        
+        // Ensure the destination marketplace has an empty array
+        emptyMatchedProducts[destinationMarketplace] = [];
+        
+        const emptyComparison = {
+          sourceProduct: currentProduct,
+          matchedProducts: emptyMatchedProducts,
+          timestamp: Date.now(),
+          manualMatch: true,
+          searchUrl: destinationUrl // Include the search URL for the "View Search" button
+        };
+        
+        // Set the comparison with no matches
+        setComparison(emptyComparison);
+        
+        // Close the search tab quietly in the background
+        try {
+          if (searchTab.id) {
+            chrome.tabs.remove(searchTab.id);
+          }
+        } catch (error) {
+          logger.error('Error closing search tab:', error);
         }
-        setError('No good match found automatically. Opening search page for manual selection.');
+        
+        // Show a status message
+        setStatus('No automatic match found on ' + destinationMarketplace);
+        setError('No good match found automatically. Use "View Search" to search manually.');
       }
     } catch (error) {
       setError(`Error searching for match: ${error instanceof Error ? error.message : String(error)}`);
