@@ -57,10 +57,27 @@ export function extractWalmartSearchResult(element: Element): Partial<ProductMat
     
     if (priceElement) {
       const priceText = priceElement.textContent || '';
-      // Extract just the numeric part with up to 2 decimal places
-      const priceMatch = priceText.match(/\$?(\d+(?:\.\d{1,2})?)/);
-      if (priceMatch && priceMatch[1]) {
-        price = parseFloat(priceMatch[1]);
+      console.log('[E-commerce Arbitrage] Raw Walmart price text:', priceText);
+      
+      // Look for "current price $XX.XX" format
+      if (priceText.includes('current price')) {
+        const matches = priceText.match(/current\s+price\s+\$?(\d+)\.?(\d{0,2})/i);
+        if (matches) {
+          const dollars = parseInt(matches[1], 10);
+          // If no decimal part is found, default to 0 cents
+          const cents = matches[2] ? parseInt(matches[2].padEnd(2, '0'), 10) : 0;
+          price = dollars + (cents / 100);
+          console.log(`[E-commerce Arbitrage] Parsed Walmart price: $${dollars}.${cents} = ${price}`);
+        }
+      } else {
+        // Try standard price format with regex that handles both $XX and $XX.XX
+        const priceMatch = priceText.match(/\$?(\d+)(?:\.(\d{1,2}))?/);
+        if (priceMatch) {
+          const dollars = parseInt(priceMatch[1], 10);
+          const cents = priceMatch[2] ? parseInt(priceMatch[2].padEnd(2, '0'), 10) : 0;
+          price = dollars + (cents / 100);
+          console.log(`[E-commerce Arbitrage] Parsed Walmart price: $${dollars}.${cents} = ${price}`);
+        }
       }
     }
     
@@ -74,6 +91,7 @@ export function extractWalmartSearchResult(element: Element): Partial<ProductMat
         const dollars = wholeDollarElement.textContent?.replace(/[^\d]/g, '') || '0';
         const cents = centsElement.textContent?.replace(/[^\d]/g, '') || '00';
         price = parseFloat(`${dollars}.${cents}`);
+        console.log(`[E-commerce Arbitrage] Parsed Walmart split price: $${dollars}.${cents} = ${price}`);
       }
     }
     

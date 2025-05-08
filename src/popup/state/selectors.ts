@@ -52,18 +52,45 @@ export const useAuth = () => usePopupStore(state => state.authState);
 export const useFilteredProducts = (products: ProductMatchResult[] | undefined): ProductMatchResult[] => {
   if (!products) return [];
   
+  // Add detailed logging
+  console.log('useFilteredProducts input:', products);
+  
   // Get minimum profit percentage from settings
   const settings = usePopupStore(state => state.settings);
   const minProfitPercentage = settings.minimumProfitPercentage;
+  const comparison = usePopupStore(state => state.comparison);
+  const isManualMatch = comparison?.manualMatch === true;
+  
+  // Log manual match status
+  console.log('useFilteredProducts - isManualMatch:', isManualMatch);
+  
+  // If this is a manual match, don't apply profit filters
+  if (isManualMatch) {
+    console.log('Manual match detected - returning all products without filtering');
+    return products;
+  }
   
   // If no minimum profit set, return all products
-  if (!minProfitPercentage) return products;
+  if (!minProfitPercentage) {
+    console.log('No minimum profit percentage set - returning all products');
+    return products;
+  }
   
   // Filter products by profit percentage
-  return products.filter(product => {
-    if (!product.profit) return false;
-    return product.profit.percentage >= minProfitPercentage;
+  const filteredProducts = products.filter(product => {
+    if (!product.profit) {
+      console.log('Product has no profit data:', product);
+      return false;
+    }
+    const meetsMinProfit = product.profit.percentage >= minProfitPercentage;
+    if (!meetsMinProfit) {
+      console.log(`Product filtered out - profit ${product.profit.percentage.toFixed(1)}% < minimum ${minProfitPercentage}%`);
+    }
+    return meetsMinProfit;
   });
+  
+  console.log(`Filtered from ${products.length} to ${filteredProducts.length} products`);
+  return filteredProducts;
 };
 
 /**

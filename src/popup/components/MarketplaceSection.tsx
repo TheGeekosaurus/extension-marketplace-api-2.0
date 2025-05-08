@@ -42,6 +42,16 @@ const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
   // so the user can click "View Search"
   const isManualMatchWithSearchUrl = isManualMatch && (searchUrl || comparison?.searchUrl);
   
+  // Add extra debugging data to identify the issue
+  console.log(`MarketplaceSection for ${marketplace} - detailed data:`, { 
+    productsArray: products,
+    productsLength: products?.length || 0,
+    isManualMatch,
+    hasSearchUrl: Boolean(searchUrl || comparison?.searchUrl),
+    isManualMatchWithSearchUrl,
+    comparisonObj: comparison
+  });
+  
   // Don't render the section if there are no products and it's not a manual match with search URL
   if ((!products || products.length === 0) && !isManualMatchWithSearchUrl) {
     console.log(`No products for ${marketplace}, returning null`);

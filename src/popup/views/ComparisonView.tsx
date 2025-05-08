@@ -175,10 +175,32 @@ const ComparisonView: React.FC = () => {
             );
             
             // Log the check result for debugging
-            console.log('Has matches check:', { hasMatches, matchedProducts: comparison.matchedProducts });
+            console.log('Has matches check (DETAILED):', { 
+              hasMatches, 
+              matchedProducts: comparison.matchedProducts,
+              isManualMatch: comparison.manualMatch,
+              allKeys: Object.keys(comparison.matchedProducts),
+              amazonLength: comparison.matchedProducts.amazon?.length || 0,
+              walmartLength: comparison.matchedProducts.walmart?.length || 0,
+              fullComparison: comparison
+            });
             
             // Only show the "no matches" message if we truly have no matches
-            return !hasMatches && (
+            // and we've either already rendered the marketplace sections with the View Search button
+            // or we don't have a search URL
+            const amazonSectionVisible = (!settings.selectedMarketplace || settings.selectedMarketplace === 'amazon');
+            const walmartSectionVisible = (!settings.selectedMarketplace || settings.selectedMarketplace === 'walmart');
+            
+            // If one of the marketplaces is hidden by settings but has matches, we still want to hide the "no matches" message
+            const hiddenMarketplaceHasMatches = 
+              (settings.selectedMarketplace === 'walmart' && 
+                comparison.matchedProducts.amazon && 
+                comparison.matchedProducts.amazon.length > 0) ||
+              (settings.selectedMarketplace === 'amazon' && 
+                comparison.matchedProducts.walmart && 
+                comparison.matchedProducts.walmart.length > 0);
+            
+            return !hasMatches && !hiddenMarketplaceHasMatches && (
               <div className="no-matches-container">
                 <p>No matching products found on other marketplaces.</p>
                 
