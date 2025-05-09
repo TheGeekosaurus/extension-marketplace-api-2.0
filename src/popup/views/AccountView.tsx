@@ -130,7 +130,7 @@ const AccountView: React.FC = () => {
                   id="apiKey"
                   type="text"
                   className="input"
-                  placeholder="eaa_your_api_key_here"
+                  placeholder="Enter your API key here"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   disabled={loading}
@@ -168,7 +168,7 @@ const AccountView: React.FC = () => {
       
       <div className="card">
         <div className="card-header">
-          <h3 className="card-title">E-commerce Arbitrage Assistant</h3>
+          <h3 className="card-title">Arbitrage Assistant</h3>
           <div className="card-description">
             Find profitable arbitrage opportunities across marketplaces
           </div>
@@ -179,7 +179,7 @@ const AccountView: React.FC = () => {
             <div className="bg-muted p-4 rounded-md">
               <h3 className="font-medium mb-1">How Credits Work</h3>
               <p className="text-sm text-muted-foreground">
-                Credits are consumed when you perform operations like searching for price comparisons across marketplaces. Each marketplace search costs 1 credit. You can purchase more credits from your account dashboard.
+                Credits are consumed when you use the "Find match via API" function. Background searches do not cost any credits. Each search via API costs 1 credit/item/marketplace. For example, 25 items from Home Depot to find matches on Amazon & Walmart; 25*2 = 50 credits. You can purchase more credits from your account dashboard.
               </p>
             </div>
             
