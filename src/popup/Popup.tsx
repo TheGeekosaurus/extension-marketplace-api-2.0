@@ -76,7 +76,7 @@ const Popup: React.FC = () => {
   return (
     <div className="popup-container">
       <header className="popup-header">
-        <h1 className="text-xl font-bold">E-commerce Arbitrage Assistant</h1>
+        <h1 className="text-xl font-bold">Arbitrage Assistant</h1>
         
         {/* Show credit balance if authenticated */}
         {authState.isAuthenticated && (
@@ -126,7 +126,7 @@ const Popup: React.FC = () => {
       </main>
       
       <footer className="popup-footer">
-        <p>E-commerce Arbitrage Assistant v{VERSION}</p>
+        <p>Arbitrage Assistant v{VERSION}</p>
       </footer>
     </div>
   );
