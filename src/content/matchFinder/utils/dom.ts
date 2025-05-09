@@ -4,6 +4,16 @@
 import { logger } from './logger';
 
 /**
+ * Sleep for a specified duration
+ * 
+ * @param ms - Milliseconds to sleep
+ * @returns Promise that resolves after the specified duration
+ */
+export function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
  * Try multiple selectors until one returns elements
  * 
  * @param selectors - Array of CSS selectors to try

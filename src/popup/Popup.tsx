@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { usePopupStore, checkAuthStatus } from './state/store';
 import { useActiveTab } from './state/selectors';
 import ComparisonView from './views/ComparisonView';
+import CategoriesView from './views/CategoriesView';
 import SettingsView from './views/SettingsView';
 import AccountView from './views/AccountView';
 import { VERSION } from '../common/constants';
@@ -86,10 +87,16 @@ const Popup: React.FC = () => {
         
         <div className="tab-navigation">
           <button
-            className={`tab-button ${activeTab === 'comparison' ? 'active' : ''}`}
-            onClick={() => setActiveTab('comparison')}
+            className={`tab-button ${activeTab === 'product' ? 'active' : ''}`}
+            onClick={() => setActiveTab('product')}
           >
-            Comparison
+            Product
+          </button>
+          <button
+            className={`tab-button ${activeTab === 'categories' ? 'active' : ''}`}
+            onClick={() => setActiveTab('categories')}
+          >
+            Categories
           </button>
           <button
             className={`tab-button ${activeTab === 'settings' ? 'active' : ''}`}
@@ -107,8 +114,10 @@ const Popup: React.FC = () => {
       </header>
       
       <main className="popup-content">
-        {activeTab === 'comparison' ? (
+        {activeTab === 'product' ? (
           <ComparisonView />
+        ) : activeTab === 'categories' ? (
+          <CategoriesView />
         ) : activeTab === 'settings' ? (
           <SettingsView />
         ) : (

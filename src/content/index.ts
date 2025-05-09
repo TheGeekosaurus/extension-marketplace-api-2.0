@@ -7,6 +7,7 @@ import { extractTargetProductData } from './extractors/target';
 import { extractHomeDepotProductData } from './extractors/homedepot';
 import { runSelectorDebugger, highlightSelectors } from './utils/selectorTester';
 import { runSearchSelectorDebugger, highlightSearchResultElements } from './utils/searchSelectorTester';
+import { initCategoryMode } from './categoryPage';
 
 /**
  * Main function to extract product data based on current page
@@ -46,7 +47,18 @@ async function extractProductData(): Promise<ProductData | null> {
  * Extract data and send to background script
  */
 function main() {
-  console.log('[E-commerce Arbitrage] Content script executed - attempting to extract product data');
+  console.log('[E-commerce Arbitrage] Content script executed - determining mode and processing page');
+  
+  // Always use the standard extraction on page load
+  // Category mode will only be triggered manually from the popup
+  performStandardExtraction();
+}
+
+/**
+ * Perform standard product extraction for individual products
+ */
+function performStandardExtraction() {
+  console.log('[E-commerce Arbitrage] Performing standard product extraction');
   
   extractProductData()
     .then(productData => {
@@ -90,15 +102,27 @@ function getCurrentMarketplace() {
 }
 
 /**
- * Determine if the current page is a search results page
+ * Determine if the current page is a search results or category page
  * 
- * @returns Boolean indicating if this is a search page
+ * @returns Boolean indicating if this is a search/category page
  */
 function isSearchPage() {
   const url = window.location.href;
   
-  // Amazon search pages
-  if (url.includes('amazon.com/s?') || url.includes('amazon.com/s/?') || url.includes('amazon.com/search/')) {
+  // Amazon search and category pages
+  if (
+    // Standard search pages
+    url.includes('amazon.com/s?') || 
+    url.includes('amazon.com/s/?') || 
+    url.includes('amazon.com/search/') ||
+    // Category browse pages
+    url.includes('amazon.com/b?') ||
+    url.includes('amazon.com/b/?') ||
+    url.includes('/b/ref=') ||
+    url.includes('node=') ||
+    // Check for grid of products in the DOM
+    (url.includes('amazon.com') && document.querySelectorAll('.s-result-item').length > 5)
+  ) {
     return true;
   }
   
@@ -153,6 +177,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   if (message.action === 'MANUAL_MATCH_ERROR') {
     console.error('[E-commerce Arbitrage] Error in background search:', message.error);
+    return true;
+  }
+  
+  // Handle category mode toggle
+  if (message.action === 'TOGGLE_CATEGORY_MODE') {
+    console.log('[E-commerce Arbitrage] Toggling category mode:', message.enabled);
+    
+    if (message.enabled && isSearchPage()) {
+      // Initialize category mode if we're on a search/category page
+      initCategoryMode();
+      sendResponse({ success: true, status: 'category_mode_initialized' });
+    } else if (message.enabled) {
+      sendResponse({ success: false, error: 'Not on a search or category page' });
+    } else {
+      sendResponse({ success: true, status: 'category_mode_disabled' });
+    }
+    
     return true;
   }
   
@@ -216,6 +257,53 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       pageType: isSearch ? 'search' : 'product'
     });
     
+    return true;
+  }
+  
+  // Handle category page processing
+  if (message.action === 'INIT_CATEGORY_MODE') {
+    if (isSearchPage()) {
+      console.log('[E-commerce Arbitrage] Initializing category mode from popup request');
+      initCategoryMode();
+      sendResponse({ success: true });
+    } else {
+      console.log('[E-commerce Arbitrage] Not on a search/category page, cannot initialize category mode');
+      sendResponse({ success: false, error: 'Not on a search or category page' });
+    }
+    return true;
+  }
+  
+  // Handle starting the batch processing
+  if (message.action === 'START_CATEGORY_BATCH_PROCESSING') {
+    console.log('[E-commerce Arbitrage] Received request to start category batch processing with method:', message.method);
+    
+    // Set the matching method flag in storage before initializing
+    const useApiMatching = message.method === 'api';
+    chrome.storage.local.set({ useApiMatching });
+    
+    // First ensure category mode is initialized
+    if (isSearchPage()) {
+      console.log('[E-commerce Arbitrage] Ensuring category mode is initialized');
+      console.log(`[E-commerce Arbitrage] Will use ${useApiMatching ? 'API' : 'browser'}-based matching`);
+      initCategoryMode();
+      
+      // Give time for the DOM to update with the button
+      setTimeout(() => {
+        // Find the batch processing button and click it programmatically
+        const batchButton = document.getElementById('extension-start-batch-processing');
+        if (batchButton) {
+          console.log('[E-commerce Arbitrage] Found batch processing button, triggering click');
+          batchButton.click();
+          sendResponse({ success: true });
+        } else {
+          console.error('[E-commerce Arbitrage] Batch processing button not found. Category mode may not be initialized properly.');
+          sendResponse({ success: false, error: 'Batch processing button not found. Try scraping the page again.' });
+        }
+      }, 500);
+    } else {
+      console.error('[E-commerce Arbitrage] Cannot process batch - not on a search/category page');
+      sendResponse({ success: false, error: 'Not on a search or category page.' });
+    }
     return true;
   }
   

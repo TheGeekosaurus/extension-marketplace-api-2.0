@@ -3,6 +3,18 @@
 import { ProfitInfo } from '../types';
 
 /**
+ * Format a number as currency
+ * 
+ * @param value - Value to format
+ * @param currency - Currency symbol
+ * @returns Formatted currency string
+ */
+export function formatCurrency(value: number | null): string {
+  if (value === null || value === undefined) return 'N/A';
+  return `$${value.toFixed(2)}`;
+}
+
+/**
  * Format a price for display
  * 
  * @param price - Price to format

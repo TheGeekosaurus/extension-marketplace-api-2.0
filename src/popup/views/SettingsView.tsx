@@ -20,6 +20,7 @@ const SettingsView: React.FC = () => {
   const [customStatus, setCustomStatus] = useState<string | null>(null);
   const [customError, setCustomError] = useState<string | null>(null);
   const [pageType, setPageType] = useState<'product' | 'search' | null>(null);
+  const [activatingCategoryMode, setActivatingCategoryMode] = useState(false);
   
   // Get actions from store
   const updateSettings = usePopupStore(state => state.updateSettings);
@@ -156,6 +157,71 @@ const SettingsView: React.FC = () => {
     }
   };
   
+  // Activate category mode on the current page
+  const handleActivateCategoryMode = async () => {
+    setActivatingCategoryMode(true);
+    setCustomStatus('Activating category mode on current page...');
+    setCustomError(null);
+    
+    try {
+      // Get the current active tab
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tabs[0]?.id) {
+        throw new Error('No active tab found');
+      }
+      
+      // Check if the current tab is a search/category page
+      const url = tabs[0].url || '';
+      const isSearchPage = 
+        (url.includes('amazon.com/s') || url.includes('amazon.com/search') || url.includes('amazon.com/b/')) ||
+        (url.includes('walmart.com/search') || url.includes('walmart.com/browse') || url.includes('walmart.com/cp/'));
+      
+      if (!isSearchPage) {
+        throw new Error('This tab is not a search or category page. Navigate to an Amazon or Walmart search/category page first.');
+      }
+      
+      // Store category mode settings in local storage
+      await new Promise<void>((resolve) => {
+        chrome.storage.local.set(
+          { 
+            categoryModeEnabled: true,
+            categoryMaxProducts: settings.categoryMaxProducts,
+            categoryBatchSize: settings.categoryBatchSize
+          }, 
+          () => resolve()
+        );
+      });
+      
+      // Send message to content script to activate category mode
+      const response = await new Promise<any>((resolve) => {
+        chrome.tabs.sendMessage(
+          tabs[0].id!, 
+          { action: 'INIT_CATEGORY_MODE' }, 
+          (response) => {
+            if (chrome.runtime.lastError) {
+              resolve({ 
+                success: false, 
+                error: chrome.runtime.lastError.message 
+              });
+              return;
+            }
+            resolve(response);
+          }
+        );
+      });
+      
+      if (response && response.success) {
+        setCustomStatus('Category mode activated. Products are being extracted from the page.');
+      } else {
+        setCustomError(response?.error || 'Failed to activate category mode on the current page.');
+      }
+    } catch (error) {
+      setCustomError(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setActivatingCategoryMode(false);
+    }
+  };
+
   // Test the MatchFinder in debug mode
   const handleTestMatchFinder = async () => {
     setCustomStatus('Launching Match Finder test mode...');
@@ -237,6 +303,54 @@ const SettingsView: React.FC = () => {
         </div>
       </div>
       
+      <div className="settings-group">
+        <h4>Category Mode</h4>
+        <div className="setting-item checkbox">
+          <input
+            type="checkbox"
+            id="categoryModeEnabled"
+            name="categoryModeEnabled"
+            checked={settings.categoryModeEnabled}
+            onChange={handleSettingChange}
+          />
+          <label htmlFor="categoryModeEnabled">
+            Enable Category Mode (extract multiple products from search/category pages)
+          </label>
+        </div>
+        <p className="setting-description">
+          Category mode allows you to extract multiple products from search or category pages and 
+          find matches for them all at once. Go to the Categories tab to use this feature.
+        </p>
+        
+        <div className="setting-item">
+          <label htmlFor="categoryMaxProducts">Max Products to Extract:</label>
+          <input
+            type="number"
+            id="categoryMaxProducts"
+            name="categoryMaxProducts"
+            min="1"
+            max="50"
+            value={settings.categoryMaxProducts}
+            onChange={handleSettingChange}
+            disabled={!settings.categoryModeEnabled}
+          />
+        </div>
+        
+        <div className="setting-item">
+          <label htmlFor="categoryBatchSize">Batch Size for Processing:</label>
+          <input
+            type="number"
+            id="categoryBatchSize"
+            name="categoryBatchSize"
+            min="1"
+            max="10"
+            value={settings.categoryBatchSize}
+            onChange={handleSettingChange}
+            disabled={!settings.categoryModeEnabled}
+          />
+        </div>
+      </div>
+      
       {/* Location settings removed as we're not reselling on Home Depot */}
       
       <div className="settings-group">
@@ -290,15 +404,15 @@ const SettingsView: React.FC = () => {
           />
         </div>
         <div className="setting-item">
-          <label htmlFor="estimatedFees.target">Target Fee (%):</label>
+          <label htmlFor="estimatedFees.walmart">Walmart Fee (%):</label>
           <input
             type="number"
-            id="estimatedFees.target"
-            name="estimatedFees.target"
+            id="estimatedFees.walmart"
+            name="estimatedFees.walmart"
             min="0"
             max="100"
             step="0.1"
-            value={settings.estimatedFees.target * 100}
+            value={settings.estimatedFees.walmart * 100}
             onChange={handleFeeChange}
           />
         </div>

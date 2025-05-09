@@ -53,6 +53,22 @@ export interface Settings {
    * @deprecated We're not reselling on Home Depot
    */
   locationZipCode?: string | null;
+  
+  /**
+   * Whether category mode is enabled
+   * When enabled, the extension will process category pages to find multiple products at once
+   */
+  categoryModeEnabled: boolean;
+  
+  /**
+   * Maximum number of products to process from a category page
+   */
+  categoryMaxProducts: number;
+  
+  /**
+   * Batch size for processing category products
+   */
+  categoryBatchSize: number;
 }
 
 /**
@@ -65,12 +81,15 @@ export const DEFAULT_SETTINGS: Settings = {
   includeFees: true,
   estimatedFees: {
     amazon: 0.15,
-    target: 0.10,
-    walmart: 0.00,  // We're not reselling on Walmart
+    walmart: 0.10,  // Updated: We ARE reselling on Walmart now
+    target: 0.00,   // We're not reselling on Target
     homedepot: 0.00 // We're not reselling on Home Depot
   },
   selectedMarketplace: null,
   additionalFees: 0,
   homeDepotStoreId: null,
-  locationZipCode: null
+  locationZipCode: null,
+  categoryModeEnabled: false,
+  categoryMaxProducts: 20,
+  categoryBatchSize: 5
 };

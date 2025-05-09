@@ -28,12 +28,16 @@ const ComparisonView: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const manualMatch = usePopupStore(state => state.manualMatch);
   
+  // We've removed the category results display from this component to simplify the UI
+  
   // Get actions from store
   const loadProductData = usePopupStore(state => state.loadProductData);
   const fetchPriceComparison = usePopupStore(state => state.fetchPriceComparison);
   const findMatchManually = usePopupStore(state => state.findMatchManually);
   const setActiveTab = usePopupStore(state => state.setActiveTab);
 
+  // We've removed the category results display and related functionality from this component
+  
   // Determine if current product is from the selected marketplace
   const isCurrentProductFromSelectedMarketplace = 
     Boolean(settings.selectedMarketplace) && 
@@ -47,6 +51,7 @@ const ComparisonView: React.FC = () => {
   
   return (
     <div className="comparison-container">
+      {/* Individual product view only */}
       <div className="source-product">
         <h3>Current Product</h3>
         
@@ -142,8 +147,6 @@ const ComparisonView: React.FC = () => {
               Showing results for {formatMarketplace(settings.selectedMarketplace)} only based on your settings.
             </div>
           )}
-          
-          {/* FIX 2: Removed total profit summary box */}
           
           {/* Amazon matches - only show if there's no selected marketplace or if amazon is selected */}
           {(!settings.selectedMarketplace || settings.selectedMarketplace === 'amazon') && 

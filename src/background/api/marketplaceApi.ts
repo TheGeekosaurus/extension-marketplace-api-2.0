@@ -135,6 +135,82 @@ export class MarketplaceApi {
   }
   
   /**
+   * Search for products on a specific marketplace
+   * 
+   * @param productData - Source product data
+   * @param targetMarketplace - Target marketplace to search in
+   * @returns Matching products from the target marketplace
+   */
+  static async searchSingleMarketplace(
+    productData: ProductData,
+    targetMarketplace: MarketplaceType
+  ): Promise<ApiResponse<ProductMatchResult[]>> {
+    try {
+      logger.info(`Searching for ${productData.title} on ${targetMarketplace}`);
+      
+      // Verify user is authenticated
+      const isAuthenticated = await AuthService.isAuthenticated();
+      if (!isAuthenticated) {
+        return {
+          success: false,
+          error: 'Authentication required. Please enter your API key in the settings.'
+        };
+      }
+      
+      // Create request body for single marketplace search
+      const requestData = {
+        source_marketplace: productData.marketplace,
+        product_id: productData.upc || productData.asin || productData.productId,
+        product_title: productData.title,
+        product_brand: productData.brand,
+        target_marketplace: targetMarketplace
+      };
+      
+      // Use the multi-search endpoint but with a specific target marketplace
+      // This ensures we use the same matching algorithm for batch and individual products
+      logger.info(`Making API request for ${requestData.product_title} on ${targetMarketplace}`);
+      
+      // Use the same search/multi endpoint that works for individual products
+      const response = await ApiClient.makeRequest<Record<string, ProductMatchResult[]>>(
+        'search/multi', 
+        'POST', 
+        {
+          source_marketplace: productData.marketplace,
+          product_id: productData.productId || productData.asin || productData.upc,  
+          product_title: productData.title,
+          product_brand: productData.brand,
+          selected_marketplace: targetMarketplace
+        }
+      );
+      
+      // Extract the results for the target marketplace
+      if (response.success && response.data && response.data[targetMarketplace]) {
+        return {
+          success: true,
+          data: response.data[targetMarketplace]
+        };
+      } else if (response.success) {
+        // If successful but no data for the target marketplace
+        return {
+          success: true,
+          data: []
+        };
+      }
+      
+      return {
+        success: false,
+        error: response.error || 'No results found'
+      };
+    } catch (error) {
+      logger.error(`Error in ${targetMarketplace} search:`, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+
+  /**
    * Get the appropriate API client for a specific marketplace
    * 
    * @param marketplace - Marketplace name

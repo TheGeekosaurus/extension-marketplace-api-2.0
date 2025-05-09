@@ -242,6 +242,62 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Indicates async response
   }
   
+  // Handle category batch processing
+  else if (message.action === 'PROCESS_CATEGORY_BATCH') {
+    logger.info(`Received PROCESS_CATEGORY_BATCH request with ${message.batch.length} products`);
+    
+    // Log the first product in the batch to help diagnose issues
+    if (message.batch.length > 0) {
+      logger.info('First product in batch:', message.batch[0]);
+    }
+    
+    processCategoryBatch(message.batch, message.targetMarketplace)
+      .then(comparisons => {
+        logger.info(`Processed ${comparisons.length} products from category batch`);
+        
+        // Log the first comparison if available
+        if (comparisons.length > 0) {
+          logger.info('First comparison result:', comparisons[0]);
+        }
+        
+        sendResponse({ success: true, comparisons });
+      })
+      .catch(error => {
+        logger.error('Error in processCategoryBatch:', error);
+        sendResponse(handleError(error, 'processing category batch'));
+      });
+    
+    return true; // Indicates async response
+  }
+  
+  // Handle opening category results in popup
+  else if (message.action === 'OPEN_CATEGORY_RESULTS') {
+    // Create a popup notification for the user
+    chrome.action.setBadgeText({ text: 'NEW' });
+    chrome.action.setBadgeBackgroundColor({ color: '#4a6bd8' });
+    
+    // Open the popup
+    chrome.action.openPopup();
+    
+    sendResponse({ success: true });
+    return true;
+  }
+  
+  // Handle category processing complete notification
+  else if (message.action === 'CATEGORY_PROCESSING_COMPLETE') {
+    // Create a popup notification for the user
+    chrome.action.setBadgeText({ text: 'DONE' });
+    chrome.action.setBadgeBackgroundColor({ color: '#27ae60' });
+    
+    // Clear the badge after 10 seconds
+    setTimeout(() => {
+      chrome.action.setBadgeText({ text: '' });
+    }, 10000);
+    
+    sendResponse({ success: true });
+    return true;
+  }
+  
   // If no handler matched, log a warning
   logger.warn('No handler for message action:', message.action);
   return false;
@@ -396,6 +452,138 @@ async function getPriceComparison(productData: ProductData): Promise<ProductComp
     return comparisonResult;
   } catch (error) {
     logger.error('Error getting price comparison:', error);
+    throw error;
+  }
+}
+
+/**
+ * Process a batch of products from a category page
+ * 
+ * @param batch - Array of products to process
+ * @param targetMarketplace - Target marketplace to search for matches
+ * @returns Array of product comparisons
+ */
+async function processCategoryBatch(
+  batch: ProductData[], 
+  targetMarketplace: MarketplaceType = 'walmart'
+): Promise<ProductComparison[]> {
+  try {
+    logger.info(`Processing category batch of ${batch.length} products for ${targetMarketplace}`);
+    
+    // Check if the user is authenticated
+    const isAuthenticated = await AuthService.isAuthenticated();
+    if (!isAuthenticated) {
+      throw new Error('Authentication required. Please enter your API key in the settings.');
+    }
+    
+    // Load current settings
+    const settings = await loadSettings();
+    
+    // Calculate required credits (1 credit per product per marketplace)
+    const requiredCredits = batch.length;
+    logger.info(`Required credits for batch processing: ${requiredCredits}`);
+    
+    // Check if the user has enough credits
+    const creditCheck = await AuthService.checkCredits(requiredCredits);
+    if (!creditCheck.sufficient) {
+      throw {
+        message: 'Insufficient credits to process this batch',
+        insufficientCredits: true,
+        balance: creditCheck.balance
+      };
+    }
+    
+    // Process each product in the batch sequentially
+    const comparisons: ProductComparison[] = [];
+    
+    for (const product of batch) {
+      try {
+        // Only search on the target marketplace
+        // Override the settings temporarily
+        const tempSettings = { ...settings, selectedMarketplace: targetMarketplace };
+        
+        // Generate a cache key specific to this product and target marketplace
+        const cacheKey = CacheService.generateProductCacheKey(product) + `-${targetMarketplace}-category`;
+        
+        // Check cache first
+        const cachedResult = await CacheService.get<ProductComparison>(cacheKey);
+        
+        if (cachedResult) {
+          logger.info(`Found cached comparison for ${product.title}`);
+          comparisons.push(cachedResult);
+          continue;
+        }
+        
+        // Call API to find matches
+        logger.info(`Searching for matches for ${product.title} on ${targetMarketplace}`);
+        logger.debug(`Product details:`, product);
+        
+        // First, validate product data has required fields
+        if (!product.title) {
+          logger.warn(`Skipping product with no title`);
+          continue;
+        }
+        
+        const response = await MarketplaceApi.searchSingleMarketplace(
+          product,
+          targetMarketplace
+        );
+        
+        // Log the response in detail
+        logger.debug(`API response for ${product.title}:`, response);
+        
+        if (!response.success) {
+          logger.warn(`API search failed for ${product.title}: ${response.error}`);
+          continue;
+        }
+        
+        if (!response.data || response.data.length === 0) {
+          logger.info(`No matches found for ${product.title} on ${targetMarketplace}`);
+        } else {
+          logger.info(`Found ${response.data.length} matches for ${product.title} on ${targetMarketplace}`);
+        }
+        
+        const matchedProducts = { [targetMarketplace]: response.data || [] };
+        
+        // Calculate profit for each matched product
+        const productsWithProfit = ProfitService.calculateProfitMargins(
+          product,
+          matchedProducts
+        );
+        
+        // Create comparison result
+        const comparisonResult: ProductComparison = {
+          sourceProduct: product,
+          matchedProducts: productsWithProfit,
+          timestamp: Date.now()
+        };
+        
+        // Cache the result
+        await CacheService.set(cacheKey, comparisonResult);
+        
+        // Add to results array
+        comparisons.push(comparisonResult);
+        
+      } catch (productError) {
+        logger.error(`Error processing product ${product.title}:`, productError);
+        // Continue with next product on error
+      }
+    }
+    
+    // Record usage of credits
+    await AuthService.useCredits(requiredCredits, `Category batch processing (${batch.length} products)`, {
+      products_count: batch.length,
+      source_marketplace: batch[0]?.marketplace || 'unknown',
+      target_marketplace: targetMarketplace,
+      credits_used: requiredCredits,
+      operation: 'category_batch_processing'
+    });
+    
+    logger.info(`Successfully processed ${comparisons.length} products`);
+    return comparisons;
+    
+  } catch (error) {
+    logger.error('Error processing category batch:', error);
     throw error;
   }
 }

@@ -39,7 +39,12 @@ export const DEFAULT_SETTINGS: Settings = {
   includeFees: true,
   estimatedFees: DEFAULT_MARKETPLACE_FEES,
   selectedMarketplace: null,
-  additionalFees: 0
+  additionalFees: 0,
+  homeDepotStoreId: null,
+  locationZipCode: null,
+  categoryModeEnabled: false,
+  categoryMaxProducts: 20,
+  categoryBatchSize: 5
 };
 
 /**

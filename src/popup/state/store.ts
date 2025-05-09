@@ -53,7 +53,7 @@ interface PopupState {
   loading: boolean;
   error: string | null;
   status: string | null;
-  activeTab: 'comparison' | 'settings' | 'account';
+  activeTab: 'product' | 'categories' | 'settings' | 'account';
   
   // Actions
   setCurrentProduct: (product: ProductData | null) => void;
@@ -61,7 +61,7 @@ interface PopupState {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setStatus: (status: string | null) => void;
-  setActiveTab: (tab: 'comparison' | 'settings' | 'account') => void;
+  setActiveTab: (tab: 'product' | 'categories' | 'settings' | 'account') => void;
   updateSettings: (settings: Partial<Settings>) => void;
   setAuthState: (state: Partial<AuthState>) => void;
   setManualMatch: (state: Partial<ManualMatchState>) => void;
@@ -99,7 +99,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   loading: false,
   error: null,
   status: null,
-  activeTab: 'comparison',
+  activeTab: 'product',
   
   // State setters
   setCurrentProduct: (product) => {
