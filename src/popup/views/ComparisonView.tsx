@@ -70,7 +70,7 @@ const ComparisonView: React.FC = () => {
             onClick={loadProductData}
             disabled={loading}
           >
-            Refresh Product Data
+            Refresh Current Product Data
           </button>
           
           <button 
@@ -82,10 +82,10 @@ const ComparisonView: React.FC = () => {
                 ? 'Please log in first to use this feature' 
                 : isCurrentProductFromSelectedMarketplace && settings.selectedMarketplace 
                   ? `Cannot search for arbitrage when the current product is from the selected marketplace (${settings.selectedMarketplace})` 
-                  : 'Find matching products on other marketplaces'
+                  : 'Find Matching Products Via API'
             }
           >
-            {loading ? 'Loading...' : 'Find Matching Products'}
+            {loading ? 'Loading...' : 'Find Matching Products Via API'}
           </button>
           
           <button 
@@ -94,7 +94,7 @@ const ComparisonView: React.FC = () => {
             disabled={loading || !currentProduct || !isAuthenticated}
             title="Search for matches in the background"
           >
-            Find Match In Background
+            Find Match In Browser
           </button>
         </div>
         
