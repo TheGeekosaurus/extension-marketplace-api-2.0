@@ -102,31 +102,104 @@ export class MarketplaceApi {
         };
       }
       
-      // Make the API request to the correct path
-      // Use 'search/multi' which will be prefixed with /api/ by the ApiClient
-      const response = await ApiClient.makeRequest<Record<string, ProductMatchResult[]>>(
-        'search/multi', 
-        'POST', 
-        {
-          ...requestData,
-          // Add selected_marketplace to the request to tell the backend which marketplace to search
-          selected_marketplace: settings.selectedMarketplace || null
+      try {
+        // First try using the backend API
+        // Use 'search/multi' which will be prefixed with /api/ by the ApiClient
+        const response = await ApiClient.makeRequest<Record<string, ProductMatchResult[]>>(
+          'search/multi', 
+          'POST', 
+          {
+            ...requestData,
+            // Add selected_marketplace to the request to tell the backend which marketplace to search
+            selected_marketplace: settings.selectedMarketplace || null
+          }
+        );
+        
+        // If we have a specific marketplace selected, filter the response to only include that marketplace
+        if (settings.selectedMarketplace && response.success && response.data) {
+          const filteredData: Record<string, ProductMatchResult[]> = {};
+          if (response.data[settings.selectedMarketplace]) {
+            filteredData[settings.selectedMarketplace] = response.data[settings.selectedMarketplace];
+          }
+          return {
+            ...response,
+            data: filteredData
+          };
         }
-      );
-      
-      // If we have a specific marketplace selected, filter the response to only include that marketplace
-      if (settings.selectedMarketplace && response.success && response.data) {
-        const filteredData: Record<string, ProductMatchResult[]> = {};
-        if (response.data[settings.selectedMarketplace]) {
-          filteredData[settings.selectedMarketplace] = response.data[settings.selectedMarketplace];
+        
+        return response;
+      } catch (apiError) {
+        // If backend API fails, try using direct APIs for supported marketplaces
+        logger.warn('Backend API request failed, attempting to use direct APIs if enabled:', apiError);
+        
+        // Make sure direct APIs are enabled
+        if (!settings.useDirectApis) {
+          throw apiError; // Re-throw to be caught by outer catch block
         }
-        return {
-          ...response,
-          data: filteredData
-        };
+        
+        // Try to use direct APIs for each marketplace
+        // Currently only Walmart is supported for direct API access
+        const results: Record<string, ProductMatchResult[]> = {};
+        let anySuccessful = false;
+        
+        // For each marketplace, try to use the appropriate direct API
+        for (const marketplace of marketplaces) {
+          if (marketplace === 'walmart' && settings.walmartApiConfig) {
+            logger.info('Trying direct Walmart API as fallback');
+            
+            try {
+              // Make sure WalmartApi is initialized
+              const api = this.getApiForMarketplace(marketplace, true);
+              
+              // Configure with latest settings
+              if (settings.walmartApiConfig) {
+                (api as typeof WalmartApi).configure(settings.walmartApiConfig);
+              }
+              
+              // Build search query from product data
+              let searchQuery = productData.title;
+              if (productData.brand) {
+                searchQuery = `${productData.brand} ${productData.title}`;
+              }
+              
+              // Use UPC if available, otherwise search by query
+              let apiResponse;
+              if (productData.upc) {
+                logger.info(`Searching Walmart directly by UPC: ${productData.upc}`);
+                apiResponse = await (api as typeof WalmartApi).getProductByUpcDirectApi(productData.upc);
+              } else {
+                logger.info(`Searching Walmart directly by query: ${searchQuery}`);
+                apiResponse = await (api as typeof WalmartApi).searchByQuery(searchQuery);
+              }
+              
+              // Process the results
+              if (apiResponse.success && apiResponse.data) {
+                logger.info('Direct Walmart API search successful:', {
+                  resultCount: Array.isArray(apiResponse.data) ? apiResponse.data.length : 1
+                });
+                
+                results[marketplace] = apiResponse.data;
+                anySuccessful = true;
+              } else {
+                logger.warn('Direct Walmart API search failed:', apiResponse.error);
+              }
+            } catch (directApiError) {
+              logger.error(`Direct ${marketplace} API failed:`, directApiError);
+            }
+          }
+        }
+        
+        // If any direct API calls were successful, return the combined results
+        if (anySuccessful) {
+          return {
+            success: true,
+            data: results
+          };
+        }
+        
+        // If all direct API calls failed, throw the original error to be caught by outer catch block
+        throw apiError;
       }
-      
-      return response;
     } catch (error) {
       logger.error('Error in multi-marketplace search:', error);
       return {
@@ -159,6 +232,9 @@ export class MarketplaceApi {
         };
       }
       
+      // Get current settings
+      const settings = getSettings();
+      
       // Create request body for single marketplace search
       const requestData = {
         source_marketplace: productData.marketplace,
@@ -172,36 +248,125 @@ export class MarketplaceApi {
       // This ensures we use the same matching algorithm for batch and individual products
       logger.info(`Making API request for ${requestData.product_title} on ${targetMarketplace}`);
       
-      // Use the same search/multi endpoint that works for individual products
-      const response = await ApiClient.makeRequest<Record<string, ProductMatchResult[]>>(
-        'search/multi', 
-        'POST', 
-        {
-          source_marketplace: productData.marketplace,
-          product_id: productData.productId || productData.asin || productData.upc,  
-          product_title: productData.title,
-          product_brand: productData.brand,
-          selected_marketplace: targetMarketplace
-        }
-      );
+      // Try using the backend API first unless direct API is preferred and available
+      const useDirectApiFirst = settings.useDirectApis && targetMarketplace === 'walmart' && settings.walmartApiConfig;
       
-      // Extract the results for the target marketplace
-      if (response.success && response.data && response.data[targetMarketplace]) {
-        return {
-          success: true,
-          data: response.data[targetMarketplace]
-        };
-      } else if (response.success) {
-        // If successful but no data for the target marketplace
-        return {
-          success: true,
-          data: []
-        };
+      if (!useDirectApiFirst) {
+        try {
+          // Try using the backend API
+          const response = await ApiClient.makeRequest<Record<string, ProductMatchResult[]>>(
+            'search/multi', 
+            'POST', 
+            {
+              source_marketplace: productData.marketplace,
+              product_id: productData.productId || productData.asin || productData.upc,  
+              product_title: productData.title,
+              product_brand: productData.brand,
+              selected_marketplace: targetMarketplace
+            }
+          );
+          
+          // Extract the results for the target marketplace
+          if (response.success && response.data && response.data[targetMarketplace]) {
+            return {
+              success: true,
+              data: response.data[targetMarketplace]
+            };
+          } else if (response.success) {
+            // If successful but no data for the target marketplace
+            return {
+              success: true,
+              data: []
+            };
+          } else {
+            // API request failed but we might still try direct API as fallback
+            logger.warn('Backend API request failed:', response.error);
+            
+            // If direct API is not configured, return the error
+            if (!settings.useDirectApis || targetMarketplace !== 'walmart' || !settings.walmartApiConfig) {
+              return {
+                success: false,
+                error: response.error || 'No results found'
+              };
+            }
+            
+            // Otherwise, continue to try the direct API
+          }
+        } catch (apiError) {
+          // API request failed with an exception
+          logger.warn('Backend API request failed with exception:', apiError);
+          
+          // If direct API is not configured, return the error
+          if (!settings.useDirectApis || targetMarketplace !== 'walmart' || !settings.walmartApiConfig) {
+            return {
+              success: false,
+              error: apiError instanceof Error ? apiError.message : String(apiError)
+            };
+          }
+          
+          // Otherwise, continue to try the direct API
+        }
       }
       
+      // Try using direct API if enabled and available (or if we're here as a fallback)
+      if (settings.useDirectApis && targetMarketplace === 'walmart' && settings.walmartApiConfig) {
+        logger.info(useDirectApiFirst ? 'Using direct Walmart API as primary method' : 'Trying direct Walmart API as fallback');
+        
+        try {
+          // Make sure WalmartApi is initialized
+          const api = this.getApiForMarketplace(targetMarketplace, true);
+          
+          // Configure with latest settings
+          if (settings.walmartApiConfig) {
+            (api as typeof WalmartApi).configure(settings.walmartApiConfig);
+          }
+          
+          // Build search query from product data
+          let searchQuery = productData.title;
+          if (productData.brand) {
+            searchQuery = `${productData.brand} ${productData.title}`;
+          }
+          
+          // Use UPC if available, otherwise search by query
+          let apiResponse;
+          if (productData.upc) {
+            logger.info(`Searching Walmart directly by UPC: ${productData.upc}`);
+            apiResponse = await (api as typeof WalmartApi).getProductByUpcDirectApi(productData.upc);
+          } else {
+            logger.info(`Searching Walmart directly by query: ${searchQuery}`);
+            apiResponse = await (api as typeof WalmartApi).searchByQuery(searchQuery);
+          }
+          
+          // Return the results
+          if (apiResponse.success && apiResponse.data) {
+            logger.info('Direct Walmart API search successful:', {
+              resultCount: Array.isArray(apiResponse.data) ? apiResponse.data.length : 1
+            });
+            
+            return {
+              success: true,
+              data: apiResponse.data
+            };
+          } else {
+            logger.warn('Direct Walmart API search failed:', apiResponse.error);
+            return {
+              success: false,
+              error: apiResponse.error || 'No results found'
+            };
+          }
+        } catch (directApiError) {
+          logger.error('Direct Walmart API failed:', directApiError);
+          return {
+            success: false,
+            error: `Direct API failed: ${directApiError instanceof Error ? directApiError.message : String(directApiError)}`
+          };
+        }
+      }
+      
+      // If we've reached here, both APIs failed or weren't tried
       return {
         success: false,
-        error: response.error || 'No results found'
+        error: 'No matching products found'
       };
     } catch (error) {
       logger.error(`Error in ${targetMarketplace} search:`, error);

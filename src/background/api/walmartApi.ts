@@ -255,6 +255,34 @@ export class WalmartApi {
   }
   
   /**
+   * Get product by UPC - version that returns correct type for direct API usage
+   * 
+   * @param upc - Product UPC
+   * @returns Standardized product details
+   */
+  static async getProductByUpcDirectApi(
+    upc: string
+  ): Promise<ApiResponse<ProductMatchResult[]>> {
+    logger.info(`Getting Walmart product by UPC (direct API): ${upc}`);
+    
+    const response = await this.getProductByUpc(upc);
+    
+    if (!response.success || !response.data) {
+      return {
+        success: false,
+        error: response.error || 'No product found'
+      };
+    }
+    
+    // Convert to standard format and wrap in array
+    const result = this.convertToProductMatchResult(response.data);
+    return {
+      success: true,
+      data: [result]
+    };
+  }
+  
+  /**
    * Get product details by Item ID
    * 
    * @param itemId - Walmart item ID

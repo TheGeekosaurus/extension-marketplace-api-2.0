@@ -1444,6 +1444,28 @@ body {
   cursor: not-allowed;
 }
 
+.direct-api-button {
+  background-color: #ff5722;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.direct-api-button:hover {
+  background-color: #e64a19;
+}
+
+.direct-api-button:disabled {
+  background-color: #b0b0b0;
+  cursor: not-allowed;
+}
+
 /* Add these styles to your existing Popup.css file */
 
 /* Styles for similarity badge */

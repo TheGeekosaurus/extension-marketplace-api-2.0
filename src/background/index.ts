@@ -1,6 +1,6 @@
 // src/background/index.ts - Main background script entry point
 
-import { ProductData, ProductComparison, MarketplaceType, ApiResponse } from '../types';
+import { ProductData, ProductComparison, MarketplaceType, ApiResponse, ProductMatchResult } from '../types';
 import { MarketplaceApi } from './api/marketplaceApi';
 import { CacheService } from './services/cacheService';
 import { ProfitService } from './services/profitService';
@@ -310,6 +310,86 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     sendResponse({ success: true });
     return true;
+  }
+  
+  // Handle direct Walmart API search request
+  else if (message.action === 'SEARCH_WITH_DIRECT_WALMART_API') {
+    logger.info('Received request to search with direct Walmart API');
+    
+    if (!message.productData) {
+      sendResponse({
+        success: false,
+        error: 'No product data provided'
+      });
+      return true;
+    }
+    
+    // First ensure we have the latest settings
+    loadSettings()
+      .then(settings => {
+        if (!settings.walmartApiConfig) {
+          sendResponse({
+            success: false,
+            error: 'Walmart API is not configured. Please configure it in settings first.'
+          });
+          return;
+        }
+        
+        // Import dynamically to avoid circular dependencies
+        const { WalmartApi } = require('./api/walmartApi');
+        
+        // Configure the Walmart API
+        try {
+          WalmartApi.configure(settings.walmartApiConfig);
+          logger.info('Walmart API configured for direct search');
+        } catch (configError) {
+          logger.error('Error configuring Walmart API:', configError);
+          sendResponse({
+            success: false,
+            error: `Configuration error: ${configError instanceof Error ? configError.message : String(configError)}`
+          });
+          return;
+        }
+        
+        // Build the search query
+        const searchQuery = message.productData.brand 
+          ? `${message.productData.brand} ${message.productData.title}`
+          : message.productData.title;
+        
+        logger.info(`Starting direct Walmart API search for: ${searchQuery}`);
+        
+        // Use UPC if available, otherwise search by query
+        const searchPromise = message.productData.upc
+          ? WalmartApi.getProductByUpcDirectApi(message.productData.upc)
+          : WalmartApi.searchByQuery(searchQuery);
+        
+        searchPromise
+          .then((result: ApiResponse<ProductMatchResult[]>) => {
+            logger.info('Direct Walmart API search completed:', result.success);
+            if (result.success) {
+              logger.debug('Search result data:', result.data);
+            } else {
+              logger.error('Search failed:', result.error);
+            }
+            sendResponse(result);
+          })
+          .catch((error: unknown) => {
+            logger.error('Error in direct Walmart API search:', error);
+            sendResponse({
+              success: false,
+              error: `Search error: ${error instanceof Error ? error.message : String(error)}`
+            });
+          });
+      })
+      .catch(error => {
+        logger.error('Error loading settings for direct Walmart API search:', error);
+        sendResponse({
+          success: false,
+          error: `Settings error: ${error instanceof Error ? error.message : String(error)}`
+        });
+      });
+    
+    return true; // Indicates async response
   }
   
   // Handle Walmart API test connection request
