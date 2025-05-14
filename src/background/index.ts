@@ -1,6 +1,6 @@
 // src/background/index.ts - Main background script entry point
 
-import { ProductData, ProductComparison, MarketplaceType } from '../types';
+import { ProductData, ProductComparison, MarketplaceType, ApiResponse } from '../types';
 import { MarketplaceApi } from './api/marketplaceApi';
 import { CacheService } from './services/cacheService';
 import { ProfitService } from './services/profitService';
@@ -37,6 +37,20 @@ chrome.runtime.onStartup.addListener(async () => {
   
   // Initialize AuthService
   await AuthService.initialize();
+  
+  // Initialize direct marketplace APIs if enabled
+  const settings = getSettings();
+  if (settings.useDirectApis) {
+    logger.info('Initializing direct marketplace APIs');
+    try {
+      // Import dynamically to avoid circular dependencies
+      const { initializeDirectApis } = await import('./services/settingsService');
+      initializeDirectApis(settings);
+      logger.info('Direct marketplace APIs initialized');
+    } catch (error) {
+      logger.error('Error initializing direct marketplace APIs:', error);
+    }
+  }
 });
 
 // Handle messages from content scripts and popup
@@ -296,6 +310,70 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     sendResponse({ success: true });
     return true;
+  }
+  
+  // Handle Walmart API test connection request
+  else if (message.action === 'TEST_WALMART_API_CONNECTION') {
+    logger.info('Testing Walmart API connection');
+    
+    // First ensure we have the latest settings
+    loadSettings()
+      .then(settings => {
+        if (!settings.useDirectApis) {
+          sendResponse({
+            success: false,
+            error: 'Direct APIs are disabled in settings'
+          });
+          return;
+        }
+        
+        if (!settings.walmartApiConfig) {
+          sendResponse({
+            success: false,
+            error: 'Walmart API is not configured'
+          });
+          return;
+        }
+        
+        // Import dynamically to avoid circular dependencies
+        const { WalmartApi } = require('./api/walmartApi');
+        
+        // Ensure API is configured with latest settings
+        try {
+          WalmartApi.configure(settings.walmartApiConfig);
+          logger.info('Walmart API configured for test');
+        } catch (configError) {
+          logger.error('Error configuring Walmart API for test:', configError);
+          sendResponse({
+            success: false,
+            error: `Configuration error: ${configError instanceof Error ? configError.message : String(configError)}`
+          });
+          return;
+        }
+        
+        // Test the connection
+        WalmartApi.testConnection()
+          .then((result: ApiResponse<string>) => {
+            logger.info('Walmart API test result:', result);
+            sendResponse(result);
+          })
+          .catch((error: unknown) => {
+            logger.error('Error testing Walmart API connection:', error);
+            sendResponse({
+              success: false,
+              error: `Test error: ${error instanceof Error ? error.message : String(error)}`
+            });
+          });
+      })
+      .catch((error: unknown) => {
+        logger.error('Error loading settings for Walmart API test:', error);
+        sendResponse({
+          success: false,
+          error: `Settings error: ${error instanceof Error ? error.message : String(error)}`
+        });
+      });
+    
+    return true; // Indicates async response
   }
   
   // If no handler matched, log a warning

@@ -1,6 +1,10 @@
 // src/background/services/settingsService.ts - Settings management service
 
 import { Settings, DEFAULT_SETTINGS } from '../../types';
+import { MarketplaceApi } from '../api/marketplaceApi';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('SettingsService');
 
 /**
  * In-memory cache of settings
@@ -63,7 +67,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     chrome.storage.local.set({ settings }, () => {
       if (chrome.runtime.lastError) {
-        console.error('Error saving settings:', chrome.runtime.lastError);
+        logger.error('Error saving settings:', chrome.runtime.lastError);
         reject(chrome.runtime.lastError);
         return;
       }
@@ -71,7 +75,17 @@ export async function saveSettings(settings: Settings): Promise<void> {
       // Update cache
       cachedSettings = settings;
       
-      console.log('[E-commerce Arbitrage Settings] Saved settings:', settings);
+      logger.info('Saved settings');
+      
+      // Initialize direct marketplace APIs if enabled
+      if (settings.useDirectApis) {
+        try {
+          initializeDirectApis(settings);
+        } catch (error) {
+          logger.error('Failed to initialize direct marketplace APIs after settings update:', error);
+        }
+      }
+      
       resolve();
     });
   });
@@ -100,12 +114,49 @@ export async function updateSettings(partialSettings: Partial<Settings>): Promis
 export async function initializeSettings(): Promise<void> {
   const settings = await loadSettings();
   
-  // Already initialized
-  if (Object.keys(settings).length > 0) {
+  // Initialize if needed
+  if (Object.keys(settings).length === 0) {
+    // Initialize with defaults
+    await saveSettings(DEFAULT_SETTINGS);
+    logger.info('Initialized default settings');
+  }
+  
+  // Initialize direct marketplace APIs if enabled
+  if (settings.useDirectApis) {
+    try {
+      initializeDirectApis(settings);
+    } catch (error) {
+      logger.error('Failed to initialize direct marketplace APIs:', error);
+    }
+  }
+}
+
+/**
+ * Initialize direct marketplace APIs with settings
+ * 
+ * @param settings - Current settings with API configurations
+ */
+export function initializeDirectApis(settings: Settings): void {
+  if (!settings.useDirectApis) {
+    logger.info('Direct marketplace APIs disabled, skipping initialization');
     return;
   }
   
-  // Initialize with defaults
-  await saveSettings(DEFAULT_SETTINGS);
-  console.log('[E-commerce Arbitrage Settings] Initialized default settings');
+  // Validate Walmart API configuration
+  if (settings.walmartApiConfig) {
+    const walmartConfig = settings.walmartApiConfig;
+    
+    // Validate required fields
+    if (!walmartConfig.consumerId || !walmartConfig.privateKey || !walmartConfig.publisherId) {
+      logger.warn('Walmart API configuration is incomplete');
+    } else {
+      // Initialize the Walmart API
+      try {
+        MarketplaceApi.initializeDirectApis(walmartConfig);
+        logger.info('Walmart API initialized successfully');
+      } catch (error) {
+        logger.error('Failed to initialize Walmart API:', error);
+      }
+    }
+  }
 }

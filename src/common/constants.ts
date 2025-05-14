@@ -22,11 +22,10 @@ export const DEFAULT_MIN_PROFIT_PERCENTAGE = 10;
  * Default marketplace fees
  */
 export const DEFAULT_MARKETPLACE_FEES: MarketplaceFees = {
-  amazon: 0.15,  // 15%
-  target: 0.10,  // 10%
-  // We're not reselling on these marketplaces, but keeping them in the type for compatibility
-  walmart: 0.00, 
-  homedepot: 0.00
+  amazon: 0.15,   // 15%
+  walmart: 0.12,  // 12%
+  target: 0.00,   // We're not reselling on Target
+  homedepot: 0.00 // We're not reselling on Home Depot
 };
 
 /**
@@ -44,7 +43,15 @@ export const DEFAULT_SETTINGS: Settings = {
   locationZipCode: null,
   categoryModeEnabled: false,
   categoryMaxProducts: 20,
-  categoryBatchSize: 5
+  categoryBatchSize: 5,
+  useDirectApis: false, // Default to using third-party APIs
+  walmartApiConfig: {
+    consumerId: '5db78bfa-5954-4960-bc39-4d6cad42e426',
+    privateKey: '', // To be provided by the user
+    privateKeyVersion: '1',
+    publisherId: '', // To be provided by the user
+    baseUrl: 'https://developer.api.walmart.com'
+  }
 };
 
 /**

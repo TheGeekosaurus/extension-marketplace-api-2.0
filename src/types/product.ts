@@ -26,6 +26,7 @@ export interface ProductMatchResult {
   image: string | null;
   url: string;
   marketplace: MarketplaceType;
+  brand?: string | null;
   item_id?: string;
   asin?: string;
   upc?: string;
@@ -33,6 +34,14 @@ export interface ProductMatchResult {
   ratings?: RatingsInfo;
   fee_breakdown?: FeeBreakdown;
   similarity?: number; // Added similarity score for manual matches
+  similarityScore?: number; // Used in the new API implementation
+  imageUrl?: string | null; // Alias for image in some implementations
+  sourceProductId?: string; // Reference to the source product's ID
+  searchUrl?: string; // URL where this product was found
+  isProfitable?: boolean; // Whether this product would be profitable
+  profitAmount?: number; // Raw profit amount
+  profitPercentage?: number; // Profit as percentage
+  rawData?: any; // Raw data for debugging purposes
 }
 
 /**

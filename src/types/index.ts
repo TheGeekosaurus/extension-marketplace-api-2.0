@@ -4,3 +4,4 @@ export * from './product';
 export * from './marketplace';
 export * from './settings';
 export * from './api';
+export * from './walmartApi';

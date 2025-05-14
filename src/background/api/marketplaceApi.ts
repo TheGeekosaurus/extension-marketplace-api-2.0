@@ -7,10 +7,12 @@ import {
   MultiSearchRequest,
   MarketplaceType,
   ResellableMarketplaceType,
-  RESELLABLE_MARKETPLACES
+  RESELLABLE_MARKETPLACES,
+  WalmartApiConfig
 } from '../../types';
 import { ApiClient } from './apiClient';
 import { BlueCartApi } from './bluecart';
+import { WalmartApi } from './walmartApi';
 import { RainforestApi } from './rainforest';
 import { getSettings } from '../services/settingsService';
 import { AuthService } from '../services/authService';
@@ -214,12 +216,13 @@ export class MarketplaceApi {
    * Get the appropriate API client for a specific marketplace
    * 
    * @param marketplace - Marketplace name
+   * @param useDirectApi - Whether to use direct marketplace APIs (true) or third-party services (false)
    * @returns API client for the marketplace
    */
-  static getApiForMarketplace(marketplace: MarketplaceType) {
+  static getApiForMarketplace(marketplace: MarketplaceType, useDirectApi: boolean = true) {
     switch (marketplace) {
       case 'walmart':
-        return BlueCartApi;
+        return useDirectApi ? WalmartApi : BlueCartApi;
       case 'amazon':
         return RainforestApi;
       case 'target':
@@ -228,5 +231,17 @@ export class MarketplaceApi {
       default:
         throw new Error(`Unknown marketplace: ${marketplace}`);
     }
+  }
+  
+  /**
+   * Initialize the direct marketplace APIs with their configurations
+   * 
+   * @param walmartConfig - Walmart API configuration
+   */
+  static initializeDirectApis(walmartConfig: WalmartApiConfig): void {
+    // Initialize Walmart API
+    WalmartApi.configure(walmartConfig);
+    
+    logger.info('Direct marketplace APIs initialized');
   }
 }
