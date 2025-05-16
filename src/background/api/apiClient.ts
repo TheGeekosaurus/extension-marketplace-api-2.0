@@ -34,16 +34,27 @@ export class ApiClient {
       // Make sure endpoint has the right format
       // For Supabase Edge Functions, paths start with /functions/v1/
       let formattedEndpoint = endpoint;
-      if (!formattedEndpoint.startsWith('/')) {
-        formattedEndpoint = `/${formattedEndpoint}`;
+      
+      // Convert endpoint paths to flat names for Supabase edge functions
+      if (endpoint === 'search/multi') {
+        formattedEndpoint = 'search-multi';
+      } else if (endpoint === 'search/amazon') {
+        formattedEndpoint = 'search-amazon';
+      } else if (endpoint === 'search/walmart') {
+        formattedEndpoint = 'search-walmart';
+      } else if (endpoint === '/search/amazon') {
+        formattedEndpoint = 'search-amazon';
+      } else if (endpoint === '/search/walmart') {
+        formattedEndpoint = 'search-walmart';
       }
       
-      // Replace /api/ prefix with /functions/v1/ for Supabase Edge Functions
-      if (formattedEndpoint.startsWith('/api/')) {
-        formattedEndpoint = formattedEndpoint.replace('/api/', '/functions/v1/');
-      } else if (!formattedEndpoint.startsWith('/functions/v1/')) {
-        formattedEndpoint = `/functions/v1${formattedEndpoint}`;
+      // Remove leading slash if present
+      if (formattedEndpoint.startsWith('/')) {
+        formattedEndpoint = formattedEndpoint.substring(1);
       }
+      
+      // Add proper prefix for Supabase Edge Functions
+      formattedEndpoint = `/functions/v1/${formattedEndpoint}`;
       
       // Make sure the apiBaseUrl doesn't end with '/' if the endpoint starts with '/'
       const formattedBaseUrl = apiBaseUrl.endsWith('/') ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
