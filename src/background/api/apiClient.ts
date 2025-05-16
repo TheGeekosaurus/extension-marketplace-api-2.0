@@ -32,17 +32,17 @@ export class ApiClient {
       const apiKey = await AuthService.getApiKey();
       
       // Make sure endpoint has the right format
-      // Ensure that the endpoint has the /api prefix
+      // For Supabase Edge Functions, paths start with /functions/v1/
       let formattedEndpoint = endpoint;
       if (!formattedEndpoint.startsWith('/')) {
         formattedEndpoint = `/${formattedEndpoint}`;
       }
       
-      // Always prepend /api to the endpoint if it's not already there
-      if (!formattedEndpoint.startsWith('/api/') && !formattedEndpoint.includes('auth-verify-key') && 
-          !formattedEndpoint.includes('credits-balance') && !formattedEndpoint.includes('credits-check') && 
-          !formattedEndpoint.includes('credits-use')) {
-        formattedEndpoint = `/api${formattedEndpoint}`;
+      // Replace /api/ prefix with /functions/v1/ for Supabase Edge Functions
+      if (formattedEndpoint.startsWith('/api/')) {
+        formattedEndpoint = formattedEndpoint.replace('/api/', '/functions/v1/');
+      } else if (!formattedEndpoint.startsWith('/functions/v1/')) {
+        formattedEndpoint = `/functions/v1${formattedEndpoint}`;
       }
       
       // Make sure the apiBaseUrl doesn't end with '/' if the endpoint starts with '/'

@@ -7,13 +7,13 @@
     "activeTab",
     "storage",
     "scripting"
-  ],
-  "host_permissions": [
+  ],  "host_permissions": [
     "https://*.amazon.com/*",
     "https://*.walmart.com/*",
     "https://*.target.com/*",
     "https://*.homedepot.com/*",
-    "https://ext.nanotomlogistics.com/*"
+    "https://ext.nanotomlogistics.com/*",
+    "https://*.functions.supabase.co/*"
   ],
   "action": {
     "default_popup": "popup.html",
