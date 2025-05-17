@@ -78,7 +78,8 @@ export class AuthService {
   static async getApiKey(): Promise<string | null> {
     return new Promise((resolve) => {
       chrome.storage.local.get(['apiKey'], (result) => {
-        logger.debug('Getting API key from storage:', result.apiKey ? 'Found API key' : 'No API key found');
+        logger.info('Getting API key from storage:', result.apiKey ? 'Found API key' : 'No API key found');
+        logger.info('Storage result:', JSON.stringify(result));
         resolve(result.apiKey || null);
       });
     });
@@ -146,11 +147,14 @@ export class AuthService {
    */
   static async verifyAndSaveApiKey(apiKey: string): Promise<{valid: boolean, user?: any}> {
     try {
+      logger.info('Verifying API key:', apiKey ? 'Key provided' : 'No key');
       const result = await this.verifyApiKey(apiKey);
+      logger.info('Verification result:', result);
       
       if (result.valid) {
         // Save the API key if valid
         await this.saveApiKey(apiKey);
+        logger.info('API key saved successfully');
         
         // Update auth state
         this.state = {
@@ -159,6 +163,7 @@ export class AuthService {
           token: apiKey,
           credits: result.user.credits
         };
+        logger.info('Auth state updated:', this.state);
       }
       
       return result;

@@ -65,6 +65,7 @@ export class ApiClient {
       
       logger.info(`Requesting ${method} ${url}`);
       logger.debug('Request data:', data);
+      logger.info('API Key status:', apiKey ? 'API key present' : 'No API key found');
       
       // Set up headers
       const headers: Record<string, string> = {
@@ -74,9 +75,9 @@ export class ApiClient {
       // Add API key to headers if available
       if (apiKey && !endpoint.includes('auth-verify-key')) {
         headers['x-api-key'] = apiKey;
-        logger.debug('Added API key to headers');
+        logger.info('Added API key to headers for endpoint:', endpoint);
       } else {
-        logger.debug('API key not added to headers:', { hasApiKey: !!apiKey, endpoint });
+        logger.warn('API key not added to headers:', { hasApiKey: !!apiKey, endpoint });
       }
       
       const requestOptions: RequestInit = {

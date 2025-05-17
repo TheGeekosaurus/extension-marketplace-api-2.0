@@ -26,6 +26,7 @@ chrome.runtime.onInstalled.addListener(async () => {
 
   // Initialize AuthService
   await AuthService.initialize();
+  logger.info('AuthService initialized');
 });
 
 // Also initialize when the extension starts
@@ -37,6 +38,7 @@ chrome.runtime.onStartup.addListener(async () => {
   
   // Initialize AuthService
   await AuthService.initialize();
+  logger.info('AuthService initialized on startup');
   
   // Initialize direct marketplace APIs if enabled
   const settings = getSettings();
@@ -116,12 +118,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Handle API key validation
   else if (message.action === 'VALIDATE_API_KEY') {
+    logger.info('Validating API key:', message.apiKey ? 'API key provided' : 'No API key');
     AuthService.verifyAndSaveApiKey(message.apiKey)
       .then((result) => {
         logger.info('API key validation result:', result);
         sendResponse({ success: result.valid, user: result.user });
       })
       .catch(error => {
+        logger.error('API key validation error:', error);
         sendResponse(handleError(error, 'validating API key'));
       });
     
