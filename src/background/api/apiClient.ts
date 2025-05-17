@@ -69,7 +69,8 @@ export class ApiClient {
       
       // Set up headers
       const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Origin': chrome.runtime.getURL('') // Add origin for CORS
       };
       
       // Add API key to headers if available
@@ -86,6 +87,13 @@ export class ApiClient {
         body: method === 'POST' ? JSON.stringify(data) : undefined
       };
       
+      logger.info('Request headers:', JSON.stringify(headers));
+      logger.info('Full request details:', {
+        url,
+        method,
+        headers: JSON.stringify(headers),
+        hasBody: !!requestOptions.body
+      });
       logger.debug('Request options:', requestOptions);
       
       // Make the request
