@@ -17,7 +17,7 @@ export class BlueCartApi {
     params: ApiBaseRequest
   ): Promise<ApiResponse<ProductMatchResult[]>> {
     return ApiClient.makeRequest<ProductMatchResult[]>(
-      '/search/walmart', 
+      'search-walmart', 
       'POST', 
       params
     );

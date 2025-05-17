@@ -78,6 +78,7 @@ export class AuthService {
   static async getApiKey(): Promise<string | null> {
     return new Promise((resolve) => {
       chrome.storage.local.get(['apiKey'], (result) => {
+        logger.debug('Getting API key from storage:', result.apiKey ? 'Found API key' : 'No API key found');
         resolve(result.apiKey || null);
       });
     });

@@ -103,29 +103,46 @@ export class MarketplaceApi {
       }
       
       try {
-        // First try using the backend API
-        // Use 'search/multi' which will be prefixed with /api/ by the ApiClient
+        // If searching only one marketplace, use the specific endpoint
+        if (marketplaces.length === 1) {
+          const marketplace = marketplaces[0];
+          const endpoint = marketplace === 'amazon' ? 'search-amazon' : 'search-walmart';
+          
+          logger.info(`Using single marketplace endpoint: ${endpoint}`);
+          
+          const response = await ApiClient.makeRequest<ProductMatchResult[]>(
+            endpoint,
+            'POST',
+            requestData
+          );
+          
+          // Format response to match multi-search structure
+          if (response.success && response.data) {
+            const formattedData: Record<string, ProductMatchResult[]> = {};
+            formattedData[marketplace] = response.data;
+            return {
+              success: true,
+              data: formattedData
+            };
+          }
+          
+          return {
+            success: false,
+            error: response.error
+          };
+        }
+        
+        // Multiple marketplaces, use search-multi
+        logger.info('Using multi-marketplace endpoint for:', marketplaces);
+        
         const response = await ApiClient.makeRequest<Record<string, ProductMatchResult[]>>(
-          'search/multi', 
+          'search-multi', 
           'POST', 
           {
             ...requestData,
-            // Add selected_marketplace to the request to tell the backend which marketplace to search
-            selected_marketplace: settings.selectedMarketplace || null
+            marketplaces: marketplaces // Pass specific marketplaces to search
           }
         );
-        
-        // If we have a specific marketplace selected, filter the response to only include that marketplace
-        if (settings.selectedMarketplace && response.success && response.data) {
-          const filteredData: Record<string, ProductMatchResult[]> = {};
-          if (response.data[settings.selectedMarketplace]) {
-            filteredData[settings.selectedMarketplace] = response.data[settings.selectedMarketplace];
-          }
-          return {
-            ...response,
-            data: filteredData
-          };
-        }
         
         return response;
       } catch (apiError) {

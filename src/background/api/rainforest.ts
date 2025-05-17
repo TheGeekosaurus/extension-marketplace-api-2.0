@@ -17,7 +17,7 @@ export class RainforestApi {
     params: ApiBaseRequest
   ): Promise<ApiResponse<ProductMatchResult[]>> {
     return ApiClient.makeRequest<ProductMatchResult[]>(
-      '/search/amazon', 
+      'search-amazon', 
       'POST', 
       params
     );

@@ -30,6 +30,7 @@ export class ApiClient {
       
       // Get API key if available
       const apiKey = await AuthService.getApiKey();
+      logger.debug('Retrieved API key:', apiKey ? 'API key present' : 'No API key');
       
       // Make sure endpoint has the right format
       // For Supabase Edge Functions, paths start with /functions/v1/
@@ -73,6 +74,9 @@ export class ApiClient {
       // Add API key to headers if available
       if (apiKey && !endpoint.includes('auth-verify-key')) {
         headers['x-api-key'] = apiKey;
+        logger.debug('Added API key to headers');
+      } else {
+        logger.debug('API key not added to headers:', { hasApiKey: !!apiKey, endpoint });
       }
       
       const requestOptions: RequestInit = {
