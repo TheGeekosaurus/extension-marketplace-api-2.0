@@ -75,8 +75,14 @@ export class ApiClient {
       
       // Add API key to headers if available
       if (apiKey && !endpoint.includes('auth-verify-key')) {
-        headers['x-api-key'] = apiKey;
-        logger.info('Added API key to headers for endpoint:', endpoint);
+        // For Supabase Edge Functions, we need both headers
+        headers['x-api-key'] = apiKey; // Our custom API key
+        // Add the Supabase anon key for the Authorization header
+        // TODO: Replace with your actual Supabase anon key from dashboard -> Settings -> API
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0bGlldHR5anNjcmVqeGhkbnVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU5NTAyNjIsImV4cCI6MjA2MTUyNjI2Mn0.MX2lqwbVIlXr6iXjs9genApuGRVDdhkMxLiGmcU6U44';
+        headers['Authorization'] = `Bearer ${SUPABASE_ANON_KEY}`;
+        logger.info('Added both x-api-key and Authorization headers for endpoint:', endpoint);
+        logger.debug('Authorization header:', headers['Authorization']);
       } else {
         logger.warn('API key not added to headers:', { hasApiKey: !!apiKey, endpoint });
       }
