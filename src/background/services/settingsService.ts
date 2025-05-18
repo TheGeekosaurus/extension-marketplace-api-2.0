@@ -1,6 +1,7 @@
 // src/background/services/settingsService.ts - Settings management service
 
-import { Settings, DEFAULT_SETTINGS } from '../../types';
+import { Settings } from '../../types';
+import { DEFAULT_SETTINGS } from '../../common/constants';
 import { MarketplaceApi } from '../api/marketplaceApi';
 import { createLogger } from '../utils/logger';
 
@@ -77,12 +78,12 @@ export async function saveSettings(settings: Settings): Promise<void> {
       
       logger.info('Saved settings');
       
-      // Initialize direct marketplace APIs if enabled
-      if (settings.useDirectApis) {
+      // Initialize Walmart API if configured
+      if (settings.walmartApiConfig?.publisherId && settings.walmartApiConfig?.privateKey) {
         try {
           initializeDirectApis(settings);
         } catch (error) {
-          logger.error('Failed to initialize direct marketplace APIs after settings update:', error);
+          logger.error('Failed to initialize Walmart API after settings update:', error);
         }
       }
       
@@ -121,12 +122,12 @@ export async function initializeSettings(): Promise<void> {
     logger.info('Initialized default settings');
   }
   
-  // Initialize direct marketplace APIs if enabled
-  if (settings.useDirectApis) {
+  // Initialize Walmart API if configured
+  if (settings.walmartApiConfig?.publisherId && settings.walmartApiConfig?.privateKey) {
     try {
       initializeDirectApis(settings);
     } catch (error) {
-      logger.error('Failed to initialize direct marketplace APIs:', error);
+      logger.error('Failed to initialize Walmart API:', error);
     }
   }
 }
@@ -137,11 +138,6 @@ export async function initializeSettings(): Promise<void> {
  * @param settings - Current settings with API configurations
  */
 export function initializeDirectApis(settings: Settings): void {
-  if (!settings.useDirectApis) {
-    logger.info('Direct marketplace APIs disabled, skipping initialization');
-    return;
-  }
-  
   // Validate Walmart API configuration
   if (settings.walmartApiConfig) {
     const walmartConfig = settings.walmartApiConfig;

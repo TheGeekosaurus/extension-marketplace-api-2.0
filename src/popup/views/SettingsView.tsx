@@ -399,98 +399,83 @@ const SettingsView: React.FC = () => {
       </div>
       
       <div className="settings-group">
-        <h4>API Settings</h4>
-        <div className="setting-item checkbox">
-          <input
-            type="checkbox"
-            id="useDirectApis"
-            name="useDirectApis"
-            checked={settings.useDirectApis}
-            onChange={handleSettingChange}
-          />
-          <label htmlFor="useDirectApis">
-            Use direct marketplace APIs (instead of third-party services)
-          </label>
-        </div>
+        <h4>Walmart API Settings</h4>
         <p className="setting-description">
-          Direct APIs may provide more accurate and reliable results, but require valid API credentials.
-          When enabled, the extension will use Walmart's Affiliate API directly instead of BlueCart API.
+          Configure Walmart's Affiliate API for the official API button. This provides direct access to Walmart's product data.
         </p>
 
-        {settings.useDirectApis && (
-          <div className="direct-api-settings">
-            <h5>Walmart API Configuration</h5>
+        <div className="direct-api-settings">
+          <h5>Walmart API Configuration</h5>
             <div className="setting-item">
               <label htmlFor="walmartApiConfig.publisherId">Publisher ID:</label>
               <input
-                type="text"
-                id="walmartApiConfig.publisherId"
-                name="walmartApiConfig.publisherId"
-                value={settings.walmartApiConfig?.publisherId || ''}
-                onChange={(e) => {
-                  // Ensure all required properties are included
-                  if (settings.walmartApiConfig) {
-                    updateSettings({
-                      walmartApiConfig: {
-                        consumerId: settings.walmartApiConfig.consumerId,
-                        privateKey: settings.walmartApiConfig.privateKey || '',
-                        privateKeyVersion: settings.walmartApiConfig.privateKeyVersion || '1',
-                        baseUrl: settings.walmartApiConfig.baseUrl || 'https://developer.api.walmart.com',
-                        publisherId: e.target.value
-                      }
-                    });
-                  }
-                }}
-                placeholder="Your Impact Radius Publisher Id"
-              />
-            </div>
-            <div className="setting-item">
-              <label htmlFor="walmartApiConfig.privateKey">Private Key:</label>
-              <textarea
-                id="walmartApiConfig.privateKey"
-                name="walmartApiConfig.privateKey"
-                value={settings.walmartApiConfig?.privateKey || ''}
-                onChange={(e) => {
-                  // Ensure all required properties are included
-                  if (settings.walmartApiConfig) {
-                    updateSettings({
-                      walmartApiConfig: {
-                        consumerId: settings.walmartApiConfig.consumerId,
-                        publisherId: settings.walmartApiConfig.publisherId || '',
-                        privateKeyVersion: settings.walmartApiConfig.privateKeyVersion || '1',
-                        baseUrl: settings.walmartApiConfig.baseUrl || 'https://developer.api.walmart.com',
-                        privateKey: e.target.value
-                      }
-                    });
-                  }
-                }}
-                placeholder="Your private key (PEM format or base64 encoded)"
-                rows={3}
-              />
-            </div>
-            <p className="setting-note">
-              Consumer ID is pre-configured as: {settings.walmartApiConfig?.consumerId || ''}
-            </p>
-            <div className="walmart-api-test">
-              <button 
-                className="test-connection-button" 
-                onClick={handleTestWalmartConnection}
-                disabled={!settings.walmartApiConfig?.publisherId || !settings.walmartApiConfig?.privateKey}
-              >
-                Test Walmart API Connection
-              </button>
-              {walmartApiTestResult && (
-                <div className={`test-result ${walmartApiTestResult.success ? 'success' : 'error'}`}>
-                  {walmartApiTestResult.success ? (
-                    <span>✅ Connection successful</span>
-                  ) : (
-                    <span>❌ Error: {walmartApiTestResult.error}</span>
-                  )}
-                </div>
-              )}
-            </div>
+              type="text"
+              id="walmartApiConfig.publisherId"
+              name="walmartApiConfig.publisherId"
+              value={settings.walmartApiConfig?.publisherId || ''}
+              onChange={(e) => {
+                // Ensure all required properties are included
+                if (settings.walmartApiConfig) {
+                  updateSettings({
+                    walmartApiConfig: {
+                      consumerId: settings.walmartApiConfig.consumerId,
+                      privateKey: settings.walmartApiConfig.privateKey || '',
+                      privateKeyVersion: settings.walmartApiConfig.privateKeyVersion || '1',
+                      baseUrl: settings.walmartApiConfig.baseUrl || 'https://developer.api.walmart.com',
+                      publisherId: e.target.value
+                    }
+                  });
+                }
+              }}
+              placeholder="Your Impact Radius Publisher Id"
+            />
           </div>
-        )}
+          <div className="setting-item">
+            <label htmlFor="walmartApiConfig.privateKey">Private Key:</label>
+            <textarea
+              id="walmartApiConfig.privateKey"
+              name="walmartApiConfig.privateKey"
+              value={settings.walmartApiConfig?.privateKey || ''}
+              onChange={(e) => {
+                // Ensure all required properties are included
+                if (settings.walmartApiConfig) {
+                  updateSettings({
+                    walmartApiConfig: {
+                      consumerId: settings.walmartApiConfig.consumerId,
+                      publisherId: settings.walmartApiConfig.publisherId || '',
+                      privateKeyVersion: settings.walmartApiConfig.privateKeyVersion || '1',
+                      baseUrl: settings.walmartApiConfig.baseUrl || 'https://developer.api.walmart.com',
+                      privateKey: e.target.value
+                    }
+                  });
+                }
+              }}
+              placeholder="Your private key (PEM format or base64 encoded)"
+              rows={3}
+            />
+          </div>
+          <p className="setting-note">
+            Consumer ID is pre-configured as: {settings.walmartApiConfig?.consumerId || ''}
+          </p>
+          <div className="walmart-api-test">
+            <button 
+              className="test-connection-button" 
+              onClick={handleTestWalmartConnection}
+              disabled={!settings.walmartApiConfig?.publisherId || !settings.walmartApiConfig?.privateKey}
+            >
+              Test Walmart API Connection
+            </button>
+            {walmartApiTestResult && (
+              <div className={`test-result ${walmartApiTestResult.success ? 'success' : 'error'}`}>
+                {walmartApiTestResult.success ? (
+                  <span>✅ Connection successful</span>
+                ) : (
+                  <span>❌ Error: {walmartApiTestResult.error}</span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="settings-group">

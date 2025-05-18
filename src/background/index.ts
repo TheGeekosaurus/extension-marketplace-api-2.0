@@ -40,17 +40,17 @@ chrome.runtime.onStartup.addListener(async () => {
   await AuthService.initialize();
   logger.info('AuthService initialized on startup');
   
-  // Initialize direct marketplace APIs if enabled
+  // Initialize Walmart API if configured
   const settings = getSettings();
-  if (settings.useDirectApis) {
-    logger.info('Initializing direct marketplace APIs');
+  if (settings.walmartApiConfig?.publisherId && settings.walmartApiConfig?.privateKey) {
+    logger.info('Initializing Walmart API');
     try {
       // Import dynamically to avoid circular dependencies
       const { initializeDirectApis } = await import('./services/settingsService');
       initializeDirectApis(settings);
-      logger.info('Direct marketplace APIs initialized');
+      logger.info('Walmart API initialized');
     } catch (error) {
-      logger.error('Error initializing direct marketplace APIs:', error);
+      logger.error('Error initializing Walmart API:', error);
     }
   }
 });
@@ -67,7 +67,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep the message channel open for async response
   }
   
-  // Handle get pricing data request from popup
+  // Handle get pricing data request from popup (3rd party API)
   else if (message.action === 'GET_PRICE_COMPARISON') {
     logger.info('Getting price comparison for:', message.productData);
     
@@ -83,6 +83,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       })
       .catch(error => {
         sendResponse(handleError(error, 'getting price comparison'));
+      });
+    
+    return true; // Indicates async response
+  }
+  
+  // Handle get pricing data request from popup (official API)
+  else if (message.action === 'GET_PRICE_COMPARISON_OFFICIAL') {
+    logger.info('Getting price comparison using official APIs for:', message.productData);
+    
+    // First ensure we have the latest settings
+    loadSettings()
+      .then(() => {
+        return getPriceComparisonOfficial(message.productData);
+      })
+      .then(data => {
+        logger.info('Got price comparison data from official API');
+        logger.debug('Price comparison data details:', data);
+        sendResponse({ success: true, data });
+      })
+      .catch(error => {
+        sendResponse(handleError(error, 'getting price comparison with official API'));
       });
     
     return true; // Indicates async response
@@ -403,14 +424,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // First ensure we have the latest settings
     loadSettings()
       .then(settings => {
-        if (!settings.useDirectApis) {
-          sendResponse({
-            success: false,
-            error: 'Direct APIs are disabled in settings'
-          });
-          return;
-        }
-        
         if (!settings.walmartApiConfig) {
           sendResponse({
             success: false,
@@ -506,6 +519,120 @@ function calculateRequiredCredits(productData: ProductData, settings: any): numb
       marketplace => marketplace !== productData.marketplace
     );
     return searchableMarketplaces.length;
+  }
+}
+
+/**
+ * Get price comparison data for a product using official APIs
+ * 
+ * @param productData - Product to compare
+ * @returns Comparison data with matching products
+ */
+async function getPriceComparisonOfficial(productData: ProductData): Promise<ProductComparison> {
+  try {
+    logger.info('Attempting to get price comparison using official APIs for:', productData);
+    
+    if (!productData) {
+      throw new Error('No product data provided');
+    }
+    
+    // Check if the user is authenticated
+    const isAuthenticated = await AuthService.isAuthenticated();
+    if (!isAuthenticated) {
+      throw new Error('Authentication required. Please enter your API key in the settings.');
+    }
+    
+    // Load current settings (ensures we have the latest)
+    const settings = await loadSettings();
+    logger.info('Using settings:', settings);
+    
+    // Check if Walmart API is configured
+    if (!settings.walmartApiConfig?.publisherId || !settings.walmartApiConfig?.privateKey) {
+      throw new Error('Walmart API is not configured. Please configure it in settings first.');
+    }
+    
+    // Calculate required credits based on marketplaces to search
+    const requiredCredits = calculateRequiredCredits(productData, settings);
+    logger.info(`Required credits for this search: ${requiredCredits}`);
+    
+    // Check if the user has enough credits for this operation
+    const creditCheck = await AuthService.checkCredits(requiredCredits);
+    if (!creditCheck.sufficient) {
+      throw {
+        message: 'Insufficient credits to perform this operation',
+        insufficientCredits: true,
+        balance: creditCheck.balance
+      };
+    }
+    
+    // Check if the current product is from the selected marketplace
+    if (settings.selectedMarketplace && productData.marketplace === settings.selectedMarketplace) {
+      logger.info('Current product is from the selected marketplace. No search needed.');
+      // Return empty comparison when the product is from the selected marketplace
+      return {
+        sourceProduct: productData,
+        matchedProducts: {},
+        timestamp: Date.now()
+      };
+    }
+    
+    // Generate a cache key that includes the selected marketplace setting and official API flag
+    const marketplaceSuffix = settings.selectedMarketplace ? `-${settings.selectedMarketplace}` : '';
+    const cacheKey = CacheService.generateProductCacheKey(productData) + marketplaceSuffix + '-official';
+    logger.info('Generated cache key:', cacheKey);
+    
+    // Check cache first
+    const cachedResult = await CacheService.get<ProductComparison>(cacheKey);
+    
+    if (cachedResult) {
+      logger.info('Found cached comparison result (official API)');
+      return cachedResult;
+    }
+    
+    logger.info('No cache hit, fetching fresh data using official APIs');
+    
+    // Fetch from API using official APIs
+    logger.info('Fetching product matches from official APIs');
+    const response = await MarketplaceApi.searchAcrossMarketplacesOfficial(productData);
+    
+    if (!response.success) {
+      throw new Error(response.error || 'API request failed');
+    }
+    
+    const matchedProducts = response.data || {};
+    
+    // Calculate profit for each matched product
+    const productsWithProfit = ProfitService.calculateProfitMargins(
+      productData,
+      matchedProducts
+    );
+    
+    // Create the comparison result
+    const comparisonResult: ProductComparison = {
+      sourceProduct: productData,
+      matchedProducts: productsWithProfit,
+      timestamp: Date.now()
+    };
+    
+    // Cache the result
+    await CacheService.set(cacheKey, comparisonResult);
+    
+    // Record usage of credits for this operation
+    await AuthService.useCredits(requiredCredits, `Price comparison (official API) for ${productData.title}`, {
+      product_id: productData.productId,
+      marketplace: productData.marketplace,
+      selected_marketplace: settings.selectedMarketplace || 'all',
+      credits_used: requiredCredits,
+      operation: 'price_comparison_official'
+    });
+    
+    logger.info('Returning comparison result from official API');
+    logger.debug('Comparison result details:', comparisonResult);
+    
+    return comparisonResult;
+  } catch (error) {
+    logger.error('Error getting price comparison with official API:', error);
+    throw error;
   }
 }
 

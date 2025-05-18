@@ -44,7 +44,6 @@ export const DEFAULT_SETTINGS: Settings = {
   categoryModeEnabled: false,
   categoryMaxProducts: 20,
   categoryBatchSize: 5,
-  useDirectApis: false, // Default to using third-party APIs
   walmartApiConfig: {
     consumerId: '5db78bfa-5954-4960-bc39-4d6cad42e426',
     privateKey: '', // To be provided by the user

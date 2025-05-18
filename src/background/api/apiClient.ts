@@ -87,10 +87,21 @@ export class ApiClient {
         logger.warn('API key not added to headers:', { hasApiKey: !!apiKey, endpoint });
       }
       
+      // Create request body
+      const bodyData = method === 'POST' ? data : undefined;
+      const bodyString = bodyData ? JSON.stringify(bodyData) : undefined;
+      
+      logger.info('Request body data:', {
+        hasData: !!data,
+        dataKeys: data ? Object.keys(data) : [],
+        dataValues: data || null,
+        stringified: bodyString
+      });
+      
       const requestOptions: RequestInit = {
         method,
         headers,
-        body: method === 'POST' ? JSON.stringify(data) : undefined
+        body: bodyString
       };
       
       logger.info('Request headers:', JSON.stringify(headers));
@@ -98,7 +109,8 @@ export class ApiClient {
         url,
         method,
         headers: JSON.stringify(headers),
-        hasBody: !!requestOptions.body
+        hasBody: !!requestOptions.body,
+        body: data || null  // Use the original data instead of parsing requestOptions.body
       });
       logger.debug('Request options:', requestOptions);
       

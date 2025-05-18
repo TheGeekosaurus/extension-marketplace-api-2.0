@@ -33,6 +33,7 @@ const ComparisonView: React.FC = () => {
   // Get actions from store
   const loadProductData = usePopupStore(state => state.loadProductData);
   const fetchPriceComparison = usePopupStore(state => state.fetchPriceComparison);
+  const fetchPriceComparisonOfficial = usePopupStore(state => state.fetchPriceComparisonOfficial);
   const findMatchManually = usePopupStore(state => state.findMatchManually);
   const setActiveTab = usePopupStore(state => state.setActiveTab);
 
@@ -82,10 +83,27 @@ const ComparisonView: React.FC = () => {
                 ? 'Please log in first to use this feature' 
                 : isCurrentProductFromSelectedMarketplace && settings.selectedMarketplace 
                   ? `Cannot search for arbitrage when the current product is from the selected marketplace (${settings.selectedMarketplace})` 
-                  : 'Find matching products on other marketplaces'
+                  : 'Find matching products using 3rd party APIs'
             }
           >
-            {loading ? 'Loading...' : 'Find Matching Products'}
+            {loading ? 'Loading...' : 'Find Matching Products (3rd Party)'}
+          </button>
+          
+          <button 
+            className="compare-button official-api"
+            onClick={fetchPriceComparisonOfficial}
+            disabled={loading || !currentProduct || isCurrentProductFromSelectedMarketplace || !isAuthenticated || !settings.walmartApiConfig?.publisherId}
+            title={
+              !isAuthenticated 
+                ? 'Please log in first to use this feature' 
+                : !settings.walmartApiConfig?.publisherId
+                  ? 'Please configure Walmart API in settings first'
+                : isCurrentProductFromSelectedMarketplace && settings.selectedMarketplace 
+                  ? `Cannot search for arbitrage when the current product is from the selected marketplace (${settings.selectedMarketplace})` 
+                  : 'Find matching products using official marketplace APIs'
+            }
+          >
+            {loading ? 'Loading...' : 'Find Matching Products (Official API)'}
           </button>
           
           <button 

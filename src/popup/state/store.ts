@@ -69,6 +69,7 @@ interface PopupState {
   // API actions
   loadProductData: () => Promise<void>;
   fetchPriceComparison: () => Promise<void>;
+  fetchPriceComparisonOfficial: () => Promise<void>;
   clearCache: () => Promise<void>;
   saveSettings: () => Promise<void>;
   findMatchManually: () => Promise<void>;
@@ -260,6 +261,91 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         setError(`Error: ${errorMessage}`);
       }
       console.error('Error fetching price comparison:', error);
+    } finally {
+      setLoading(false);
+    }
+  },
+  
+  fetchPriceComparisonOfficial: async () => {
+    const { 
+      currentProduct, 
+      setLoading, 
+      setError, 
+      setStatus, 
+      setComparison,
+      settings,
+      authState
+    } = get();
+    
+    if (!currentProduct) {
+      setError('No product detected. Try visiting a product page first.');
+      return;
+    }
+    
+    // Check if the user is authenticated
+    if (!authState.isAuthenticated) {
+      setError('Please enter your API key in the Account tab to use this feature.');
+      set({ activeTab: 'account' });
+      return;
+    }
+    
+    // Check if Walmart API is configured
+    if (!settings.walmartApiConfig?.publisherId || !settings.walmartApiConfig?.privateKey) {
+      setError('Please configure Walmart API in the Settings tab first.');
+      set({ activeTab: 'settings' });
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    
+    // Show which marketplace we're searching in the status message
+    if (settings.selectedMarketplace) {
+      setStatus(`Fetching price comparison data from ${settings.selectedMarketplace.charAt(0).toUpperCase() + settings.selectedMarketplace.slice(1)} using official API...`);
+    } else {
+      setStatus('Fetching price comparison data from all marketplaces using official APIs...');
+    }
+    
+    try {
+      // Send message to background script to get price comparison using official APIs
+      const response = await sendMessage({ 
+        action: 'GET_PRICE_COMPARISON_OFFICIAL', 
+        productData: currentProduct 
+      });
+      
+      if (response && response.success) {
+        setComparison(response.data);
+        
+        // Update credits in the auth state after operation
+        await get().getCreditsBalance();
+        if (settings.selectedMarketplace) {
+          setStatus(`Price comparison data from ${settings.selectedMarketplace} loaded successfully (Official API)`);
+        } else {
+          setStatus('Price comparison data loaded successfully (Official API)');
+        }
+      } else {
+        const error = response?.error || 'Failed to get price comparison using official API';
+        
+        // Check if this is an insufficient credits error
+        if (error.includes('Insufficient credits')) {
+          setError('You do not have enough credits for this operation');
+          set({ activeTab: 'account' });
+        } else {
+          setError(error);
+          setStatus(response?.errorDetails || 'An unknown error occurred');
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Check if this is an insufficient credits error
+      if (typeof error === 'object' && error && 'insufficientCredits' in error) {
+        setError('You do not have enough credits for this operation');
+        set({ activeTab: 'account' });
+      } else {
+        setError(`Error: ${errorMessage}`);
+      }
+      console.error('Error fetching price comparison with official API:', error);
     } finally {
       setLoading(false);
     }
