@@ -58,7 +58,7 @@ export const generateSignature = async (privateKey: string, stringToSign: string
       console.log('[WalmartSignature] Binary DER length:', binaryDer.byteLength);
       
       console.log('[WalmartSignature] Importing the private key with SubtleCrypto');
-      const cryptoKey = await window.crypto.subtle.importKey(
+      const cryptoKey = await crypto.subtle.importKey(
         'pkcs8',
         binaryDer,
         {
@@ -77,7 +77,7 @@ export const generateSignature = async (privateKey: string, stringToSign: string
       console.log('[WalmartSignature] Encoded data length:', data.length);
       
       console.log('[WalmartSignature] Signing data');
-      const signature = await window.crypto.subtle.sign(
+      const signature = await crypto.subtle.sign(
         { name: 'RSASSA-PKCS1-v1_5' },
         cryptoKey,
         data

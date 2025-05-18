@@ -211,26 +211,21 @@ export class WalmartApi {
   ): Promise<ApiResponse<WalmartSearchResponse>> {
     logger.info(`Searching Walmart for: ${params.query}`);
     
-    // Build query parameters
+    // Build query parameters for Affiliate API
     const queryParams: Record<string, string> = {
       query: params.query
     };
     
-    // Add optional parameters if they exist
-    if (params.categoryId) queryParams.categoryId = params.categoryId;
+    // Map parameters to Affiliate API format
     if (params.start) queryParams.start = params.start.toString();
     if (params.sort) queryParams.sort = params.sort;
-    if (params.order) queryParams.order = params.order;
-    if (params.numItems) queryParams.numItems = params.numItems.toString();
+    if (params.numItems) queryParams.count = params.numItems.toString();
     if (params.responseGroup) queryParams.responseGroup = params.responseGroup;
-    if (params.facet) queryParams.facet = params.facet;
-    if (params.facetFilter) queryParams['facet.filter'] = params.facetFilter;
-    if (params.facetRange) queryParams['facet.range'] = params.facetRange;
     
-    // Updated endpoint path per Walmart's documentation
-    logger.info(`Searching with endpoint: /v3/items/search and parameters: ${JSON.stringify(queryParams)}`);
+    // The Affiliate API search endpoint
+    logger.info(`Searching with endpoint: /api-proxy/service/affil/product/v2/search and parameters: ${JSON.stringify(queryParams)}`);
     return this.makeRequest<WalmartSearchResponse>(
-      '/v3/items/search',
+      '/api-proxy/service/affil/product/v2/search',
       queryParams
     );
   }
@@ -246,11 +241,11 @@ export class WalmartApi {
   ): Promise<ApiResponse<WalmartItem>> {
     logger.info(`Getting Walmart product by UPC: ${upc}`);
     
-    // Updated endpoint path per Walmart's documentation
-    logger.info(`Looking up UPC with endpoint: /v3/items/upc/${upc}`);
+    // For Affiliate API, use Product Lookup with UPC parameter
+    logger.info(`Looking up UPC with endpoint: /api-proxy/service/affil/product/v2/items`);
     return this.makeRequest<WalmartItem>(
-      `/v3/items/upc/${upc}`,
-      {} // No query params needed as UPC is in the path
+      '/api-proxy/service/affil/product/v2/items',
+      { upc }
     );
   }
   
@@ -293,11 +288,11 @@ export class WalmartApi {
   ): Promise<ApiResponse<WalmartItem>> {
     logger.info(`Getting Walmart product by ID: ${itemId}`);
     
-    // Updated endpoint path per Walmart's documentation
-    logger.info(`Looking up item ID with endpoint: /v3/items/${itemId}`);
+    // For Affiliate API, use Product Lookup with ids parameter
+    logger.info(`Looking up item ID with endpoint: /api-proxy/service/affil/product/v2/items`);
     return this.makeRequest<WalmartItem>(
-      `/v3/items/${itemId}`,
-      {} // No query params needed as item ID is in the path
+      '/api-proxy/service/affil/product/v2/items',
+      { ids: itemId }
     );
   }
   
@@ -370,31 +365,45 @@ export class WalmartApi {
   }
   
   /**
-   * Convert Walmart API item to standard ProductMatchResult format
+   * Convert Walmart Affiliate API item to standard ProductMatchResult format
    * 
-   * @param item - Walmart API item
+   * @param item - Walmart Affiliate API item
    * @returns Standardized product data
    */
-  private static convertToProductMatchResult(item: WalmartItem): ProductMatchResult {
+  private static convertToProductMatchResult(item: any): ProductMatchResult {
+    // The Affiliate API has a different response structure
+    // Common fields in Affiliate API response:
+    // - itemId (numeric)
+    // - name
+    // - salePrice (numeric)
+    // - upc
+    // - brandName
+    // - largeImage or imageUrl
+    // - productUrl (instead of productTrackingUrl)
+    // - customerRating (numeric)
+    // - numReviews (numeric)
+    
     // Extract average rating as a number
     let averageRating: number | null = null;
-    if (item.customerRating) {
-      const rating = parseFloat(item.customerRating);
+    if (item.customerRating !== undefined) {
+      const rating = typeof item.customerRating === 'string' 
+        ? parseFloat(item.customerRating) 
+        : item.customerRating;
       if (!isNaN(rating)) {
         averageRating = rating;
       }
     }
     
     return {
-      title: item.name,
-      price: item.salePrice,
+      title: item.name || '',
+      price: typeof item.salePrice === 'string' ? parseFloat(item.salePrice) : item.salePrice || 0,
       marketplace: 'walmart',
-      brand: item.brandName,
-      url: item.productTrackingUrl,
-      image: item.largeImage, // Required by ProductMatchResult
-      imageUrl: item.largeImage, // Keep for compatibility
-      item_id: item.itemId.toString(),
-      upc: item.upc,
+      brand: item.brandName || '',
+      url: item.productUrl || item.affiliateAddToCartUrl || '',
+      image: item.largeImage || item.imageUrl || '', // Required by ProductMatchResult
+      imageUrl: item.largeImage || item.imageUrl || '', // Keep for compatibility
+      item_id: String(item.itemId),
+      upc: item.upc || '',
       similarityScore: 1.0, // Direct API match, high confidence
       sourceProductId: '', // This will be filled in by the caller
       searchUrl: '',       // This will be filled in by the caller
@@ -460,10 +469,10 @@ export class WalmartApi {
         baseUrl: this.config.baseUrl
       });
       
-      // Try to make a simple request to test connectivity
+      // Try to make a simple request to test connectivity using the Trends endpoint
       const testResponse = await this.makeRequest<any>(
-        '/v3/items/trending',
-        { limit: '1' } // Request just one item to minimize data transfer
+        '/api-proxy/service/affil/product/v2/trends',
+        {} // Trends endpoint doesn't require parameters
       );
       
       if (testResponse.success) {
