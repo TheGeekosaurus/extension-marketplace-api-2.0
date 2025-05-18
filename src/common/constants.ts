@@ -49,7 +49,7 @@ export const DEFAULT_SETTINGS: Settings = {
     privateKey: '', // To be provided by the user
     privateKeyVersion: '1',
     publisherId: '', // To be provided by the user
-    baseUrl: 'https://walmart.com'
+    baseUrl: 'https://developer.api.walmart.com'
   }
 };
 
