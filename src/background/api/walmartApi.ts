@@ -61,10 +61,12 @@ export class WalmartApi {
     try {
       this.checkConfig();
       
-      // Add publisher ID to all requests
+      // Add publisher ID first, then other parameters
+      // Use consumer ID as publisher ID if publisher ID is empty
+      const publisherId = this.config!.publisherId || this.config!.consumerId;
       const queryParams = new URLSearchParams({
-        ...params,
-        publisherId: this.config!.publisherId
+        publisherId: publisherId,
+        ...params
       });
       
       // Build the full URL
@@ -469,10 +471,10 @@ export class WalmartApi {
         baseUrl: this.config.baseUrl
       });
       
-      // Try to make a simple request to test connectivity using the Trends endpoint
+      // Try to make a simple request to test connectivity using a basic search
       const testResponse = await this.makeRequest<any>(
-        '/api-proxy/service/affil/product/v2/trends',
-        {} // Trends endpoint doesn't require parameters
+        '/api-proxy/service/affil/product/v2/search',
+        { query: 'tv' } // Simple search query
       );
       
       if (testResponse.success) {
